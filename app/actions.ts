@@ -12,12 +12,11 @@ import {
   isMutableTrialRequestStatus
 } from "@/lib/statuses";
 import { createClient } from "@/lib/supabase/server";
-import type { Conversation, Horse, TrialRequest } from "@/types/database";
+import type { Horse, TrialRequest } from "@/types/database";
 
 const PASSWORD_RESET_REDIRECT_URL = "https://reitbeteiligung.app/passwort-zuruecksetzen";
 
 type OwnerRequestRecord = Pick<TrialRequest, "id" | "horse_id" | "rider_id" | "status">;
-type ConversationLookupRecord = Pick<Conversation, "id">;
 type HorseOwnerRecord = Pick<Horse, "id" | "owner_id">;
 type SupabaseErrorLike = {
   code?: string | null;
@@ -163,44 +162,42 @@ export async function requestTrialAction(formData: FormData) {
     redirectWithMessage("/suchen", "error", "Dieses Pferd ist aktuell nicht verfuegbar.");
   }
 
-  const { data: existingConversationData, error: conversationLookupError } = await supabase
-    .from("conversations")
-    .select("id")
-    .eq("horse_id", horseId)
-    .eq("rider_id", user.id)
-    .eq("owner_id", horse.owner_id)
-    .maybeSingle();
-
-  if (conversationLookupError) {
-    logSupabaseError("Conversation lookup failed before trial request", conversationLookupError);
-    redirectWithMessage(`/pferde/${horseId}`, "error", "Der Chat konnte nicht vorbereitet werden. Bitte versuche es erneut.");
-  }
-
-  const existingConversation = (existingConversationData as ConversationLookupRecord | null) ?? null;
-
-  if (!existingConversation) {
-    const { error: conversationInsertError } = await supabase.from("conversations").insert({
-      horse_id: horseId,
-      owner_id: horse.owner_id,
-      rider_id: user.id
-    });
-
-    if (conversationInsertError) {
-      logSupabaseError("Conversation insert failed before trial request", conversationInsertError);
-      redirectWithMessage(`/pferde/${horseId}`, "error", "Der Chat konnte nicht vorbereitet werden. Bitte versuche es erneut.");
-    }
-  }
+  const riderId = user.id;
 
   const { error } = await supabase.from("trial_requests").insert({
     horse_id: horseId,
     message,
-    rider_id: user.id,
+    rider_id: riderId,
     status: TRIAL_REQUEST_STATUS.requested
   });
 
   if (error) {
     console.error("Trial request insert failed", error);
-    redirect(`/pferde/${horseId}?error=${encodeURIComponent(error.message)}`);
+    redirectWithMessage(`/pferde/${horseId}`, "error", "Probeanfrage konnte nicht gespeichert werden.");
+  }
+
+  const { error: conversationError } = await supabase.from("conversations").upsert(
+    {
+      horse_id: horseId,
+      owner_id: horse.owner_id,
+      rider_id: riderId
+    },
+    {
+      ignoreDuplicates: true,
+      onConflict: "horse_id,rider_id,owner_id"
+    }
+  );
+
+  if (conversationError) {
+    console.error("Conversation insert failed after trial request", conversationError);
+    revalidatePath(`/pferde/${horseId}`);
+    revalidatePath("/anfragen");
+    revalidatePath("/owner/anfragen");
+    redirect(
+      `/pferde/${horseId}?message=${encodeURIComponent(
+        "Deine Anfrage fuer den Probetermin wurde gesendet."
+      )}&error=${encodeURIComponent("Chat konnte nicht erstellt werden.")}`
+    );
   }
 
   revalidatePath(`/pferde/${horseId}`);
