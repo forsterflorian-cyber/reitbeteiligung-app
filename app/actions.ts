@@ -5,13 +5,10 @@ import { redirect } from "next/navigation";
 
 import { requireOnboardingUser, requireProfile } from "@/lib/auth";
 import {
-  HORSE_GESCHLECHTER,
   HORSE_IMAGE_BUCKET,
   HORSE_IMAGE_SELECT_FIELDS,
-  HORSE_SELECT_FIELDS,
   MAX_HORSE_IMAGES,
-  createHorseImageStoragePath,
-  isHorseGeschlecht
+  createHorseImageStoragePath
 } from "@/lib/horses";
 import { asInteger, asOptionalString, asString, isRole } from "@/lib/forms";
 import {
@@ -693,38 +690,17 @@ export async function saveHorseAction(formData: FormData) {
   const title = asString(formData.get("title"));
   const plz = asString(formData.get("plz"));
   const description = asOptionalString(formData.get("description"));
-  const stockmassCm = asInteger(formData.get("stockmassCm"));
-  const rasse = asOptionalString(formData.get("rasse"));
-  const farbe = asOptionalString(formData.get("farbe"));
-  const geschlechtValue = asOptionalString(formData.get("geschlecht"));
-  const alter = asInteger(formData.get("alter"));
   const active = formData.get("active") === "on";
 
   if (title.length < 2 || plz.length < 3) {
     redirectWithMessage("/owner/horses", "error", "Titel und PLZ sind erforderlich.");
   }
 
-  if (stockmassCm !== null && stockmassCm <= 0) {
-    redirectWithMessage("/owner/horses", "error", "Das Stockmass muss groesser als 0 sein.");
-  }
-
-  if (alter !== null && alter <= 0) {
-    redirectWithMessage("/owner/horses", "error", "Das Alter muss groesser als 0 sein.");
-  }
-
-  if (geschlechtValue && !isHorseGeschlecht(geschlechtValue)) {
-    redirectWithMessage("/owner/horses", "error", `Bitte waehle ${HORSE_GESCHLECHTER.join(", ")} fuer das Geschlecht.`);
-  }
 
   const horseValues = {
     active,
-    alter,
     description,
-    farbe,
-    geschlecht: geschlechtValue,
     plz,
-    rasse,
-    stockmass_cm: stockmassCm,
     title
   };
 
@@ -736,11 +712,8 @@ export async function saveHorseAction(formData: FormData) {
     }
   } else {
     const { error } = await supabase.from("horses").insert({
-      active,
-      description,
-      owner_id: user.id,
-      plz,
-      title
+      ...horseValues,
+      owner_id: user.id
     });
 
     if (error) {

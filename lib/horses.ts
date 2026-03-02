@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export const HORSE_SELECT_FIELDS =
-  "id, owner_id, title, plz, description, active, stockmass_cm, rasse, farbe, geschlecht, alter, created_at";
+export const HORSE_SELECT_FIELDS = "id, owner_id, title, plz, description, active, created_at";
 export const HORSE_IMAGE_SELECT_FIELDS = "id, horse_id, storage_path, created_at";
 export const HORSE_IMAGE_BUCKET = "horse-images";
 export const MAX_HORSE_IMAGES = 5;
