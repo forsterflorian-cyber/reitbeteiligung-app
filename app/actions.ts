@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -6,11 +6,13 @@ import { redirect } from "next/navigation";
 import { requireOnboardingUser, requireProfile } from "@/lib/auth";
 import { asInteger, asOptionalString, asString, isRole } from "@/lib/forms";
 import { createClient } from "@/lib/supabase/server";
-import type { TrialRequest } from "@/types/database";
+import type { Conversation, Horse, TrialRequest } from "@/types/database";
 
 const PASSWORD_RESET_REDIRECT_URL = "https://reitbeteiligung.app/passwort-zuruecksetzen";
 
 type OwnerRequestRecord = Pick<TrialRequest, "id" | "horse_id" | "rider_id" | "status">;
+type ConversationLookupRecord = Pick<Conversation, "id">;
+type HorseOwnerRecord = Pick<Horse, "id" | "owner_id">;
 
 function redirectWithMessage(path: string, key: "error" | "message", message: string): never {
   redirect(`${path}?${key}=${encodeURIComponent(message)}`);
@@ -87,11 +89,7 @@ export async function loginAction(formData: FormData) {
     redirectWithMessage("/login", "error", "Die Anmeldung ist fehlgeschlagen. Bitte pruefe E-Mail-Adresse und Passwort.");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("id", data.user.id)
-    .maybeSingle();
+  const { data: profile } = await supabase.from("profiles").select("id").eq("id", data.user.id).maybeSingle();
 
   redirect(profile ? "/dashboard" : "/onboarding");
 }
@@ -132,15 +130,43 @@ export async function requestTrialAction(formData: FormData) {
     redirectWithMessage("/suchen", "error", "Das Pferd konnte nicht gefunden werden.");
   }
 
-  const { data: horse } = await supabase
+  const { data: horseData } = await supabase
     .from("horses")
-    .select("id")
+    .select("id, owner_id")
     .eq("id", horseId)
     .eq("active", true)
     .maybeSingle();
 
+  const horse = (horseData as HorseOwnerRecord | null) ?? null;
+
   if (!horse) {
     redirectWithMessage("/suchen", "error", "Dieses Pferd ist aktuell nicht verfuegbar.");
+  }
+
+  const { data: existingConversationData, error: conversationLookupError } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("horse_id", horseId)
+    .eq("rider_id", user.id)
+    .eq("owner_id", horse.owner_id)
+    .maybeSingle();
+
+  if (conversationLookupError) {
+    redirectWithMessage(`/pferde/${horseId}`, "error", "Der Chat konnte nicht vorbereitet werden. Bitte versuche es erneut.");
+  }
+
+  const existingConversation = (existingConversationData as ConversationLookupRecord | null) ?? null;
+
+  if (!existingConversation) {
+    const { error: conversationInsertError } = await supabase.from("conversations").insert({
+      horse_id: horseId,
+      owner_id: horse.owner_id,
+      rider_id: user.id
+    });
+
+    if (conversationInsertError) {
+      redirectWithMessage(`/pferde/${horseId}`, "error", "Der Chat konnte nicht vorbereitet werden. Bitte versuche es erneut.");
+    }
   }
 
   const { error } = await supabase.from("trial_requests").insert({
@@ -183,10 +209,7 @@ export async function updateTrialRequestStatusAction(formData: FormData) {
     redirectWithMessage("/owner/anfragen", "error", "Diese Anfrage kann nicht mehr geaendert werden.");
   }
 
-  const { error } = await record.supabase
-    .from("trial_requests")
-    .update({ status: nextStatus })
-    .eq("id", requestId);
+  const { error } = await record.supabase.from("trial_requests").update({ status: nextStatus }).eq("id", requestId);
 
   if (error) {
     redirectWithMessage("/owner/anfragen", "error", "Der Status konnte nicht aktualisiert werden.");

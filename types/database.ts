@@ -1,4 +1,4 @@
-﻿export type UserRole = "owner" | "rider";
+export type UserRole = "owner" | "rider";
 
 export type Profile = {
   id: string;
@@ -37,6 +37,22 @@ export type Approval = {
   horse_id: string;
   rider_id: string;
   status: string;
+  created_at: string;
+};
+
+export type Conversation = {
+  id: string;
+  horse_id: string;
+  rider_id: string;
+  owner_id: string;
+  created_at: string;
+};
+
+export type Message = {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
   created_at: string;
 };
 

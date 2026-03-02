@@ -1,4 +1,4 @@
-﻿import type { Route } from "next";
+import type { Route } from "next";
 import Link from "next/link";
 
 import { updateApprovalAction, updateTrialRequestStatusAction } from "@/app/actions";
@@ -6,7 +6,7 @@ import { Notice } from "@/components/notice";
 import { StatusBadge } from "@/components/status-badge";
 import { requireProfile } from "@/lib/auth";
 import { readSearchParam } from "@/lib/search-params";
-import type { Approval, Horse, TrialRequest } from "@/types/database";
+import type { Approval, Conversation, Horse, TrialRequest } from "@/types/database";
 
 type OwnerRequestItem = TrialRequest & {
   horse?: Horse | null;
@@ -31,24 +31,28 @@ export default async function OwnerAnfragenPage({
 
   let requests: TrialRequest[] = [];
   let approvals: Approval[] = [];
+  let conversations: Conversation[] = [];
 
   if (horseIds.length > 0) {
-    const [{ data: requestsData }, { data: approvalsData }] = await Promise.all([
+    const [{ data: requestsData }, { data: approvalsData }, { data: conversationsData }] = await Promise.all([
       supabase
         .from("trial_requests")
         .select("id, horse_id, rider_id, status, message, created_at")
         .in("horse_id", horseIds)
         .order("created_at", { ascending: false })
         .limit(20),
-      supabase.from("approvals").select("horse_id, rider_id, status, created_at").in("horse_id", horseIds)
+      supabase.from("approvals").select("horse_id, rider_id, status, created_at").in("horse_id", horseIds),
+      supabase.from("conversations").select("id, horse_id, rider_id, owner_id, created_at").eq("owner_id", user.id).in("horse_id", horseIds)
     ]);
 
     requests = (requestsData as TrialRequest[] | null) ?? [];
     approvals = (approvalsData as Approval[] | null) ?? [];
+    conversations = (conversationsData as Conversation[] | null) ?? [];
   }
 
   const horseMap = new Map(horses.map((horse) => [horse.id, horse]));
   const approvalMap = new Map(approvals.map((approval) => [`${approval.horse_id}:${approval.rider_id}`, approval]));
+  const conversationMap = new Map(conversations.map((conversation) => [`${conversation.horse_id}:${conversation.rider_id}`, conversation]));
   const items: OwnerRequestItem[] = requests.map((request) => ({
     ...request,
     horse: horseMap.get(request.horse_id) ?? null
@@ -71,6 +75,7 @@ export default async function OwnerAnfragenPage({
         <div className="space-y-3">
           {items.map((request) => {
             const approval = approvalMap.get(`${request.horse_id}:${request.rider_id}`) ?? null;
+            const conversation = conversationMap.get(`${request.horse_id}:${request.rider_id}`) ?? null;
 
             return (
               <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft" key={request.id}>
@@ -85,6 +90,9 @@ export default async function OwnerAnfragenPage({
                     <StatusBadge status={request.status} />
                     {approval ? <StatusBadge status={approval.status} /> : null}
                   </div>
+                  {approval?.status === "approved" && conversation ? (
+                    <p className="text-sm text-emerald-700">Kontaktdaten sind jetzt im Chat sichtbar.</p>
+                  ) : null}
                   <div className="space-y-2">
                     {request.status === "requested" ? (
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -128,9 +136,16 @@ export default async function OwnerAnfragenPage({
                       </form>
                     ) : null}
                   </div>
-                  <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/pferde/${request.horse_id}` as Route}>
-                    Pferdeprofil ansehen
-                  </Link>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/pferde/${request.horse_id}` as Route}>
+                      Pferdeprofil ansehen
+                    </Link>
+                    {conversation ? (
+                      <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/chat/${conversation.id}` as Route}>
+                        Zum Chat
+                      </Link>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             );
