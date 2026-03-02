@@ -14,7 +14,7 @@ import { requireProfile } from "@/lib/auth";
 import { getOwnerPlan } from "@/lib/plans";
 import { getProfileDisplayName } from "@/lib/profiles";
 import { readSearchParam } from "@/lib/search-params";
-import type { BookingRequest, Horse, RiderProfile, TrialRequest } from "@/types/database";
+import type { Approval, BookingRequest, Horse, RiderProfile, TrialRequest } from "@/types/database";
 
 type DashboardPageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
@@ -44,7 +44,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   if (profile.role === "owner") {
     const ownerManageHref = "/owner/pferde-verwalten" as Route;
-    const ownerPlan = getOwnerPlan(profile);
     const ownerCreateHref = "/owner/horses" as Route;
     const ownerRequestsHref = "/owner/anfragen" as Route;
 
@@ -58,11 +57,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     const horseIds = ownerHorses.map((horse) => horse.id);
     const activeHorseCount = ownerHorses.filter((horse) => horse.active).length;
 
+    let approvedApprovals: Array<Pick<Approval, "horse_id">> = [];
     let pendingTrialRequests: TrialRequest[] = [];
     let pendingBookingRequests: BookingRequest[] = [];
 
     if (horseIds.length > 0) {
-      const [{ data: trialsData }, { data: bookingData }] = await Promise.all([
+      const [{ data: trialsData }, { data: bookingData }, { data: approvalsData }] = await Promise.all([
         supabase
           .from("trial_requests")
           .select("id, horse_id, rider_id, status, message, created_at")
@@ -76,12 +76,23 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           .in("horse_id", horseIds)
           .eq("status", "requested")
           .order("created_at", { ascending: false })
-          .limit(6)
+          .limit(6),
+        supabase
+          .from("approvals")
+          .select("horse_id")
+          .in("horse_id", horseIds)
+          .eq("status", "approved")
       ]);
 
+      approvedApprovals = (approvalsData as Array<Pick<Approval, "horse_id">> | null) ?? [];
       pendingTrialRequests = (trialsData as TrialRequest[] | null) ?? [];
       pendingBookingRequests = (bookingData as BookingRequest[] | null) ?? [];
     }
+
+    const ownerPlan = getOwnerPlan(profile, {
+      approvedRiderCount: approvedApprovals.length,
+      horseCount: ownerHorses.length
+    });
 
     const ownerStats: StatItem[] = [
       {
@@ -103,7 +114,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         label: "Tarif",
         value: ownerPlan.label,
         valueClassName: "text-xl",
-        helper: ownerPlan.summary
+        helper:
+          ownerPlan.key === "premium"
+            ? ownerPlan.summary
+            : `${ownerPlan.summary} ${approvedApprovals.length} von 1 Reitbeteiligung aktuell genutzt.`
       }
     ];
 

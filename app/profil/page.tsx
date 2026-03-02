@@ -5,6 +5,7 @@ import { LogoutForm } from "@/components/logout-form";
 import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
 import { requireProfile } from "@/lib/auth";
+import { getOwnerPlan, getOwnerPlanUsage } from "@/lib/plans";
 import { getProfileDisplayName, getRoleLabel } from "@/lib/profiles";
 import { readSearchParam } from "@/lib/search-params";
 import type { RiderProfile } from "@/types/database";
@@ -31,6 +32,10 @@ export default async function ProfilPage({
 
   const displayName = getProfileDisplayName(profile, user.email);
   const roleLabel = getRoleLabel(profile.role);
+  const ownerPlan =
+    profile.role === "owner"
+      ? getOwnerPlan(profile, await getOwnerPlanUsage(supabase, user.id))
+      : null;
 
   return (
     <div className="space-y-5">
@@ -71,8 +76,9 @@ export default async function ProfilPage({
       </section>
       {profile.role === "owner" ? (
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
-          <p className="text-sm text-stone-500">Freischalten</p>
-          <p className="mt-2 text-base font-semibold text-ink">{profile.is_premium ? "Freigeschaltet" : "Nicht freigeschaltet"}</p>
+          <p className="text-sm text-stone-500">Tarif</p>
+          <p className="mt-2 text-base font-semibold text-ink">{ownerPlan?.label}</p>
+          <p className="mt-2 text-sm text-stone-600">{ownerPlan?.summary}</p>
           <Link className="mt-3 inline-flex text-sm font-semibold text-forest hover:text-clay" href="/owner/pferde-verwalten">
             Zu den Pferdeprofilen
           </Link>

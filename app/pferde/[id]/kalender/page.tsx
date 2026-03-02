@@ -25,7 +25,7 @@ import { SectionCard } from "@/components/ui/section-card";
 import { isApproved } from "@/lib/approvals";
 import { getViewerContext } from "@/lib/auth";
 import { HORSE_SELECT_FIELDS } from "@/lib/horses";
-import { getOwnerPlan } from "@/lib/plans";
+import { getOwnerPlan, getOwnerPlanUsage } from "@/lib/plans";
 import { readSearchParam } from "@/lib/search-params";
 import type { AvailabilityRule, BookingRequest, CalendarBlock, Horse, Profile } from "@/types/database";
 
@@ -122,8 +122,8 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     .eq("id", horse.owner_id)
     .maybeSingle();
   const ownerProfile = ((ownerProfileData as Profile | null) ?? null) || (isOwner ? profile : null);
-  const ownerPlan = getOwnerPlan(ownerProfile);
-  const bookingFeaturesEnabled = ownerPlan.bookingFeaturesEnabled;
+  const ownerPlanUsage = isOwner && user ? await getOwnerPlanUsage(supabase, user.id) : { approvedRiderCount: 0, horseCount: 1 };
+  const ownerPlan = getOwnerPlan(ownerProfile, ownerPlanUsage);
   const riderApproved = isRider && user ? await isApproved(horse.id, user.id, supabase) : false;
 
   const [occupancyResult, rulesResult, ownerBlocksResult, ownerBookingRequestsResult, riderBookingRequestsResult] = await Promise.all([
@@ -222,7 +222,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           <div className="flex flex-col gap-3 lg:items-end">
             <div className="ui-kpi-row">
               <Badge tone={horse.active ? "approved" : "neutral"}>{horse.active ? "Aktiv" : "Inaktiv"}</Badge>
-              <Badge tone={bookingFeaturesEnabled ? "approved" : "pending"}>{bookingFeaturesEnabled ? "Premium aktiv" : ownerPlan.label}</Badge>
+              <Badge tone={ownerPlan.key === "premium" ? "approved" : "neutral"}>{ownerPlan.key === "premium" ? "Premium" : "Kostenlos inklusive"}</Badge>
             </div>
             <Link className={buttonVariants("secondary", "w-full lg:w-auto")} href={detailHref}>
               Pferdeprofil öffnen
@@ -333,12 +333,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
               subtitle="Wähle ein verfügbares Zeitfenster und fordere einen konkreten Termin an."
               title="Termin anfragen"
             >
-              {!bookingFeaturesEnabled ? (
-                <EmptyState
-                  description="Terminbuchungen werden freigeschaltet, sobald der Pferdehalter Premium nutzt."
-                  title="Terminbuchung noch nicht aktiv"
-                />
-              ) : riderApproved ? (
+              {riderApproved ? (
                 rules.length > 0 ? (
                   <form action={requestBookingAction} className="space-y-4">
                     <input name="horseId" type="hidden" value={horse.id} />
@@ -420,7 +415,6 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           ) : null}
 
           {isOwner ? (
-            bookingFeaturesEnabled ? (
               <>
                 <SectionCard subtitle="Lege wiederkehrende Standardzeiten fest und nutze Sperren nur noch für Ausnahmen." title="Standardzeiten & Ausnahmen">
                   <div className="grid gap-4 lg:grid-cols-2">
@@ -616,26 +610,6 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                   </SectionCard>
                 </div>
               </>
-            ) : (
-              <SectionCard
-                subtitle="Standardzeiten, Terminanfragen und Kalendersteuerung sind Teil des Premium-Tarifs."
-                title="Premium für Terminbuchung"
-              >
-                <div className="space-y-4">
-                  <div className="ui-subpanel">
-                    <p className="ui-eyebrow">Aktueller Tarif</p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <Badge tone="pending">{ownerPlan.label}</Badge>
-                      <p className="text-sm font-medium text-stone-900">Kalenderfunktionen noch gesperrt</p>
-                    </div>
-                    <p className="mt-2 ui-inline-meta">{ownerPlan.summary}</p>
-                  </div>
-                  <p className="text-sm leading-6 text-stone-600">
-                    Sobald Premium aktiv ist, kannst du Standardzeiten hinterlegen, Sperren setzen und Terminanfragen direkt im Kalender annehmen.
-                  </p>
-                </div>
-              </SectionCard>
-            )
           ) : null}
 
           {!profile ? (

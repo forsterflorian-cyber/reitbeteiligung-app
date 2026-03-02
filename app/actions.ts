@@ -21,6 +21,7 @@ import {
   isMutableTrialRequestStatus
 } from "@/lib/statuses";
 import { createClient } from "@/lib/supabase/server";
+import { canApproveRider, canCreateHorseProfile, getOwnerPlanUsage } from "@/lib/plans";
 import type { Approval, AvailabilityRule, Booking, BookingRequest, CalendarBlock, Horse, HorseImage, TrialRequest } from "@/types/database";
 
 const PASSWORD_RESET_REDIRECT_URL = "https://reitbeteiligung.app/passwort-zuruecksetzen";
@@ -730,7 +731,7 @@ export async function updateTrialRequestStatusAction(formData: FormData) {
 }
 
 export async function updateApprovalAction(formData: FormData) {
-  const { user } = await requireProfile("owner");
+  const { profile, user } = await requireProfile("owner");
   const requestId = asString(formData.get("requestId"));
   const nextStatus = asString(formData.get("status"));
 
@@ -746,6 +747,25 @@ export async function updateApprovalAction(formData: FormData) {
 
   if (record.request.status !== TRIAL_REQUEST_STATUS.completed) {
     redirectWithMessage("/owner/anfragen", "error", "Nur durchgeführte Probetermine können freigeschaltet werden.");
+  }
+
+  if (nextStatus === APPROVAL_STATUS.approved) {
+    const { data: currentApprovalData } = await record.supabase
+      .from("approvals")
+      .select("status")
+      .eq("horse_id", record.request.horse_id)
+      .eq("rider_id", record.request.rider_id)
+      .maybeSingle();
+    const currentApproval = (currentApprovalData as Pick<Approval, "status"> | null) ?? null;
+    const ownerUsage = await getOwnerPlanUsage(record.supabase, user.id);
+
+    if (!canApproveRider(profile, ownerUsage, currentApproval?.status ?? null)) {
+      redirectWithMessage(
+        "/owner/anfragen",
+        "error",
+        "Im kostenlosen Tarif ist 1 Reitbeteiligung enthalten. Für weitere Freischaltungen brauchst du später Premium."
+      );
+    }
   }
 
   const { error } = await record.supabase.from("approvals").upsert(
@@ -846,7 +866,7 @@ export async function saveProfileDetailsAction(formData: FormData) {
 }
 
 export async function saveHorseAction(formData: FormData) {
-  const { supabase, user } = await requireProfile("owner");
+  const { profile, supabase, user } = await requireProfile("owner");
   const redirectPath = getOwnerRedirectPath(formData);
   const horseId = asString(formData.get("horseId"));
   const title = asString(formData.get("title"));
@@ -895,6 +915,16 @@ export async function saveHorseAction(formData: FormData) {
       redirectWithMessage(redirectPath, "error", "Das Pferdeprofil konnte nicht gespeichert werden.");
     }
   } else {
+    const ownerUsage = await getOwnerPlanUsage(supabase, user.id);
+
+    if (!canCreateHorseProfile(profile, ownerUsage)) {
+      redirectWithMessage(
+        redirectPath,
+        "error",
+        "Im kostenlosen Tarif ist 1 Pferd enthalten. Für weitere Pferde brauchst du später Premium."
+      );
+    }
+
     const { error } = await supabase.from("horses").insert({
       ...horseValues,
       owner_id: user.id
