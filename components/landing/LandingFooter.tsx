@@ -15,9 +15,8 @@ export function LandingFooter() {
         </a>
       </div>
       <p className="mt-3 text-sm text-stone-500" id="rechtliches">
-        Impressum und Datenschutzhinweise werden im naechsten Schritt hinterlegt.
+        Impressum und Datenschutzhinweise werden im nächsten Schritt hinterlegt.
       </p>
     </footer>
   );
 }
-

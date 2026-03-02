@@ -42,13 +42,13 @@ export function Hero() {
 
           <div className="flex flex-wrap gap-2">
             <TrustChip label="Kontaktdaten erst nach Freischaltung" />
-            <TrustChip label="Chat vor Approval nur intern" />
+            <TrustChip label="Chat vor Freigabe nur intern" />
             <TrustChip label="Mobil optimiert" />
           </div>
 
           <div className="flex flex-wrap gap-2 text-sm text-stone-600">
-            <Badge tone="neutral">Fuer Pferdehalter</Badge>
-            <Badge tone="neutral">Fuer Reiter</Badge>
+            <Badge tone="neutral">Für Pferdehalter</Badge>
+            <Badge tone="neutral">Für Reiter</Badge>
           </div>
         </div>
         <HeroVisual />
