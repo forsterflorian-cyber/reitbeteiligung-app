@@ -2,9 +2,21 @@ alter table public.horse_images
   add column if not exists path text,
   add column if not exists position integer not null default 0;
 
-update public.horse_images
-set path = coalesce(path, storage_path)
-where path is null;
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema='public'
+      and table_name='horse_images'
+      and column_name='storage_path'
+  ) then
+    execute '
+      update public.horse_images
+      set path = coalesce(path, storage_path)
+    ';
+  end if;
+end $$;
 
 create unique index if not exists horse_images_path_idx
   on public.horse_images (path)
