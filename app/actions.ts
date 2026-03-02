@@ -199,8 +199,8 @@ export async function requestTrialAction(formData: FormData) {
   });
 
   if (error) {
-    logSupabaseError("Trial request insert failed", error);
-    redirectWithMessage(`/pferde/${horseId}`, "error", "Probeanfrage konnte nicht gespeichert werden.");
+    console.error("Trial request insert failed", error);
+    redirect(`/pferde/${horseId}?error=${encodeURIComponent(error.message)}`);
   }
 
   revalidatePath(`/pferde/${horseId}`);
