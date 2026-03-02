@@ -75,6 +75,16 @@ function logSupabaseError(context: string, error: SupabaseErrorLike) {
   });
 }
 
+function getOwnerRedirectPath(formData: FormData, fallback = '/owner/horses') {
+  const redirectTo = asString(formData.get('redirectTo'));
+
+  if (!redirectTo.startsWith('/owner/')) {
+    return fallback;
+  }
+
+  return redirectTo;
+}
+
 function addDaysUtc(date: Date, days: number) {
   const next = new Date(date.getTime());
   next.setUTCDate(next.getUTCDate() + days);
@@ -737,6 +747,7 @@ export async function saveProfileDetailsAction(formData: FormData) {
 
 export async function saveHorseAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
+  const redirectPath = getOwnerRedirectPath(formData);
   const horseId = asString(formData.get("horseId"));
   const title = asString(formData.get("title"));
   const plz = asString(formData.get("plz"));
@@ -750,19 +761,19 @@ export async function saveHorseAction(formData: FormData) {
   const currentYear = new Date().getFullYear();
 
   if (title.length < 2 || plz.length < 3) {
-    redirectWithMessage("/owner/horses", "error", "Titel und PLZ sind erforderlich.");
+    redirectWithMessage(redirectPath, "error", "Titel und PLZ sind erforderlich.");
   }
 
   if (heightCm !== null && (heightCm < 50 || heightCm > 220)) {
-    redirectWithMessage("/owner/horses", "error", "Das Stockmass muss zwischen 50 und 220 cm liegen.");
+    redirectWithMessage(redirectPath, "error", "Das Stockmass muss zwischen 50 und 220 cm liegen.");
   }
 
   if (birthYear !== null && (birthYear < 1980 || birthYear > currentYear)) {
-    redirectWithMessage("/owner/horses", "error", `Das Geburtsjahr muss zwischen 1980 und ${currentYear} liegen.`);
+    redirectWithMessage(redirectPath, "error", `Das Geburtsjahr muss zwischen 1980 und ${currentYear} liegen.`);
   }
 
   if (sexValue && !isHorseGeschlecht(sexValue)) {
-    redirectWithMessage("/owner/horses", "error", `Bitte waehle ${HORSE_GESCHLECHTER.join(", ")} fuer das Geschlecht.`);
+    redirectWithMessage(redirectPath, "error", `Bitte waehle ${HORSE_GESCHLECHTER.join(", ")} fuer das Geschlecht.`);
   }
 
   const horseValues = {
@@ -781,7 +792,7 @@ export async function saveHorseAction(formData: FormData) {
     const { error } = await supabase.from("horses").update(horseValues).eq("id", horseId).eq("owner_id", user.id);
 
     if (error) {
-      redirectWithMessage("/owner/horses", "error", "Das Pferdeprofil konnte nicht gespeichert werden.");
+      redirectWithMessage(redirectPath, "error", "Das Pferdeprofil konnte nicht gespeichert werden.");
     }
   } else {
     const { error } = await supabase.from("horses").insert({
@@ -790,39 +801,41 @@ export async function saveHorseAction(formData: FormData) {
     });
 
     if (error) {
-      redirectWithMessage("/owner/horses", "error", "Das Pferdeprofil konnte nicht gespeichert werden.");
+      redirectWithMessage(redirectPath, "error", "Das Pferdeprofil konnte nicht gespeichert werden.");
     }
   }
 
   revalidatePath("/owner/horses");
+  revalidatePath("/owner/pferde-verwalten");
   revalidatePath("/dashboard");
   revalidatePath("/suchen");
-  redirectWithMessage("/owner/horses", "message", "Das Pferdeprofil wurde gespeichert.");
+  redirectWithMessage(redirectPath, "message", "Das Pferdeprofil wurde gespeichert.");
 }
 
 export async function uploadHorseImagesAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
+  const redirectPath = getOwnerRedirectPath(formData, "/owner/pferde-verwalten");
   const horseId = asString(formData.get("horseId"));
 
   if (!horseId) {
-    redirectWithMessage("/owner/horses", "error", "Das Pferdeprofil konnte nicht gefunden werden.");
+    redirectWithMessage(redirectPath, "error", "Das Pferdeprofil konnte nicht gefunden werden.");
   }
 
   const horse = await getOwnedHorse(supabase, horseId, user.id);
 
   if (!horse) {
-    redirectWithMessage("/owner/horses", "error", "Du kannst nur Bilder fuer eigene Pferdeprofile hochladen.");
+    redirectWithMessage(redirectPath, "error", "Du kannst nur Bilder fuer eigene Pferdeprofile hochladen.");
   }
 
   const rawFiles = formData.getAll("images");
   const files = rawFiles.filter((entry): entry is File => typeof File !== "undefined" && entry instanceof File && entry.size > 0);
 
   if (files.length === 0) {
-    redirectWithMessage("/owner/horses", "error", "Bitte waehle mindestens ein Bild aus.");
+    redirectWithMessage(redirectPath, "error", "Bitte waehle mindestens ein Bild aus.");
   }
 
   if (files.some((file) => !file.type.startsWith("image/"))) {
-    redirectWithMessage("/owner/horses", "error", "Es koennen nur Bilddateien hochgeladen werden.");
+    redirectWithMessage(redirectPath, "error", "Es koennen nur Bilddateien hochgeladen werden.");
   }
 
   const { data: existingImagesData } = await supabase
@@ -836,7 +849,7 @@ export async function uploadHorseImagesAction(formData: FormData) {
   );
 
   if (existingImages.length + files.length > MAX_HORSE_IMAGES) {
-    redirectWithMessage("/owner/horses", "error", `Es koennen maximal ${MAX_HORSE_IMAGES} Bilder gespeichert werden.`);
+    redirectWithMessage(redirectPath, "error", `Es koennen maximal ${MAX_HORSE_IMAGES} Bilder gespeichert werden.`);
   }
 
   const nextPosition = existingImages.reduce((maxPosition, image) => {
@@ -888,7 +901,7 @@ export async function uploadHorseImagesAction(formData: FormData) {
     if (insertError) {
       logSupabaseError("Horse image row prepare failed", insertError);
       await rollbackBatch();
-      redirectWithMessage("/owner/horses", "error", "Die Bilder konnten nicht gespeichert werden.");
+      redirectWithMessage(redirectPath, "error", "Die Bilder konnten nicht gespeichert werden.");
     }
 
     preparedImageIds.push(upload.id);
@@ -902,63 +915,66 @@ export async function uploadHorseImagesAction(formData: FormData) {
     if (uploadError) {
       logSupabaseError("Horse image upload failed", uploadError);
       await rollbackBatch();
-      redirectWithMessage("/owner/horses", "error", "Die Bilder konnten nicht hochgeladen werden.");
+      redirectWithMessage(redirectPath, "error", "Die Bilder konnten nicht hochgeladen werden.");
     }
 
     uploadedPaths.push(upload.path);
   }
 
   revalidatePath("/owner/horses");
+  revalidatePath("/owner/pferde-verwalten");
   revalidatePath("/suchen");
   revalidatePath(`/pferde/${horseId}`);
-  redirectWithMessage("/owner/horses", "message", "Die Bilder wurden gespeichert.");
+  redirectWithMessage(redirectPath, "message", "Die Bilder wurden gespeichert.");
 }
 
 export async function deleteHorseImageAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
+  const redirectPath = getOwnerRedirectPath(formData, "/owner/pferde-verwalten");
   const imageId = asString(formData.get("imageId"));
 
   if (!imageId) {
-    redirectWithMessage("/owner/horses", "error", "Das Bild konnte nicht gefunden werden.");
+    redirectWithMessage(redirectPath, "error", "Das Bild konnte nicht gefunden werden.");
   }
 
   const { data: imageData } = await supabase.from("horse_images").select(HORSE_IMAGE_SELECT_FIELDS).eq("id", imageId).maybeSingle();
   const image = (imageData as HorseImageRecord | null) ?? null;
 
   if (!image) {
-    redirectWithMessage("/owner/horses", "error", "Das Bild konnte nicht gefunden werden.");
+    redirectWithMessage(redirectPath, "error", "Das Bild konnte nicht gefunden werden.");
   }
 
   const horse = await getOwnedHorse(supabase, image.horse_id, user.id);
 
   if (!horse) {
-    redirectWithMessage("/owner/horses", "error", "Du kannst nur Bilder fuer eigene Pferdeprofile loeschen.");
+    redirectWithMessage(redirectPath, "error", "Du kannst nur Bilder fuer eigene Pferdeprofile loeschen.");
   }
 
   const imagePath = image.path ?? image.storage_path ?? null;
 
   if (!imagePath) {
-    redirectWithMessage("/owner/horses", "error", "Das Bild konnte nicht geloescht werden.");
+    redirectWithMessage(redirectPath, "error", "Das Bild konnte nicht geloescht werden.");
   }
 
   const { error: storageError } = await supabase.storage.from(HORSE_IMAGE_BUCKET).remove([imagePath]);
 
   if (storageError) {
     logSupabaseError("Horse image storage delete failed", storageError);
-    redirectWithMessage("/owner/horses", "error", "Das Bild konnte nicht geloescht werden.");
+    redirectWithMessage(redirectPath, "error", "Das Bild konnte nicht geloescht werden.");
   }
 
   const { error } = await supabase.from("horse_images").delete().eq("id", imageId);
 
   if (error) {
     logSupabaseError("Horse image row delete failed", error);
-    redirectWithMessage("/owner/horses", "error", "Das Bild konnte nicht geloescht werden.");
+    redirectWithMessage(redirectPath, "error", "Das Bild konnte nicht geloescht werden.");
   }
 
   revalidatePath("/owner/horses");
+  revalidatePath("/owner/pferde-verwalten");
   revalidatePath("/suchen");
   revalidatePath(`/pferde/${image.horse_id}`);
-  redirectWithMessage("/owner/horses", "message", "Das Bild wurde entfernt.");
+  redirectWithMessage(redirectPath, "message", "Das Bild wurde entfernt.");
 }
 export async function createCalendarBlockAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
@@ -1370,16 +1386,17 @@ export async function declineBookingRequestAction(formData: FormData) {
 
 export async function deleteHorseAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
+  const redirectPath = getOwnerRedirectPath(formData, "/owner/pferde-verwalten");
   const horseId = asString(formData.get("horseId"));
 
   if (!horseId) {
-    redirectWithMessage("/owner/horses", "error", "Das Pferdeprofil konnte nicht gefunden werden.");
+    redirectWithMessage(redirectPath, "error", "Das Pferdeprofil konnte nicht gefunden werden.");
   }
 
   const horse = await getOwnedHorse(supabase, horseId, user.id);
 
   if (!horse) {
-    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Pferdeprofile loeschen.");
+    redirectWithMessage(redirectPath, "error", "Du kannst nur eigene Pferdeprofile loeschen.");
   }
 
   const { data: imagesData } = await supabase
@@ -1409,19 +1426,20 @@ export async function deleteHorseAction(formData: FormData) {
     logSupabaseError("Horse delete failed", error);
 
     if (error.code === "23503") {
-      redirectWithMessage("/owner/horses", "error", "Das Pferd hat noch aktive Termine oder Anfragen und kann derzeit nicht geloescht werden.");
+      redirectWithMessage(redirectPath, "error", "Das Pferd hat noch aktive Termine oder Anfragen und kann derzeit nicht geloescht werden.");
     }
 
-    redirectWithMessage("/owner/horses", "error", "Pferdeprofil konnte nicht geloescht werden.");
+    redirectWithMessage(redirectPath, "error", "Pferdeprofil konnte nicht geloescht werden.");
   }
 
   revalidatePath("/owner/horses");
+  revalidatePath("/owner/pferde-verwalten");
   revalidatePath("/dashboard");
   revalidatePath("/suchen");
   revalidatePath("/owner/anfragen");
   revalidatePath("/anfragen");
   revalidatePath(`/pferde/${horseId}`);
-  redirectWithMessage("/owner/horses", "message", "Das Pferdeprofil wurde geloescht.");
+  redirectWithMessage(redirectPath, "message", "Das Pferdeprofil wurde geloescht.");
 }
 
 export async function saveRiderProfileAction(formData: FormData) {

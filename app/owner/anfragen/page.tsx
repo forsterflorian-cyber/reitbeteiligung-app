@@ -150,7 +150,7 @@ export default async function OwnerAnfragenPage({
           <p className="text-sm text-stone-600">Nimm Probetermine an, lehne sie ab oder schalte eine Reitbeteiligung nach dem Termin frei.</p>
         </div>
         {items.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+          <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
             Fuer deine Pferdeprofile liegen noch keine Probetermin-Anfragen vor.
           </div>
         ) : (
@@ -163,7 +163,7 @@ export default async function OwnerAnfragenPage({
               const hasUnread = hasUnreadMessage(conversation, conversation ? latestMessages.get(conversation.id) ?? null : null, user.id);
 
               return (
-                <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft" key={request.id}>
+                <div className="rounded-2xl border border-stone-200 bg-white p-5" key={request.id}>
                   <div className="space-y-4">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Pferdeprofil</p>
@@ -245,7 +245,7 @@ export default async function OwnerAnfragenPage({
           <p className="text-sm text-stone-600">Hier bearbeitest du konkrete Buchungsanfragen innerhalb deiner Verfuegbarkeitsfenster.</p>
         </div>
         {bookingItems.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+          <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
             Fuer deine Pferdeprofile liegen noch keine Terminanfragen vor.
           </div>
         ) : (
@@ -257,7 +257,7 @@ export default async function OwnerAnfragenPage({
               const hasUnread = hasUnreadMessage(conversation, conversation ? latestMessages.get(conversation.id) ?? null : null, user.id);
 
               return (
-                <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft" key={request.id}>
+                <div className="rounded-2xl border border-stone-200 bg-white p-5" key={request.id}>
                   <div className="space-y-4">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Terminanfrage</p>

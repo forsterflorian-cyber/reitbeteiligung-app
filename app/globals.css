@@ -1,4 +1,4 @@
-﻿@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -14,10 +14,7 @@ body {
 }
 
 body {
-  @apply min-h-screen bg-sand text-ink antialiased;
-  background-image:
-    radial-gradient(circle at top right, rgba(183, 110, 76, 0.18), transparent 30%),
-    radial-gradient(circle at left 20%, rgba(35, 64, 56, 0.08), transparent 25%);
+  @apply min-h-screen bg-stone-50 text-ink antialiased;
 }
 
 main {
@@ -31,7 +28,7 @@ a {
 input:not([type="checkbox"]):not([type="radio"]),
 textarea,
 select {
-  @apply w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-ink shadow-sm outline-none transition focus:border-forest focus:ring-2 focus:ring-forest/20;
+  @apply w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base text-ink outline-none transition focus:border-forest focus:ring-2 focus:ring-forest/10;
   min-height: 44px;
 }
 

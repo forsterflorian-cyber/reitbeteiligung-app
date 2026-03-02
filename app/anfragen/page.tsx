@@ -142,7 +142,7 @@ export default async function AnfragenPage({
           <p className="text-sm text-stone-600">Hier siehst du den Status deiner Probetermin-Anfragen und ob du bereits freigeschaltet wurdest.</p>
         </div>
         {items.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+          <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
             Du hast noch keine Probetermin-Anfragen gestellt.
           </div>
         ) : (
@@ -156,7 +156,7 @@ export default async function AnfragenPage({
               const ownerName = contact?.partner_name?.trim() || "Pferdehalter";
 
               return (
-                <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft" key={request.id}>
+                <div className="rounded-2xl border border-stone-200 bg-white p-5" key={request.id}>
                   <div className="space-y-3">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Probetermin</p>
@@ -195,7 +195,7 @@ export default async function AnfragenPage({
           <p className="text-sm text-stone-600">Nur freigeschaltete Reiter koennen innerhalb eines Verfuegbarkeitsfensters einen Termin anfragen.</p>
         </div>
         {bookingItems.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+          <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
             Du hast noch keine Terminanfrage gestellt.
           </div>
         ) : (
@@ -207,7 +207,7 @@ export default async function AnfragenPage({
               const ownerName = contact?.partner_name?.trim() || "Pferdehalter";
 
               return (
-                <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft" key={request.id}>
+                <div className="rounded-2xl border border-stone-200 bg-white p-5" key={request.id}>
                   <div className="space-y-3">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Terminanfrage</p>

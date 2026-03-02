@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { loginAction } from "@/app/actions";
@@ -22,7 +22,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const message = readSearchParam(searchParams, "message");
 
   return (
-    <div className="mx-auto w-full max-w-md space-y-5 rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+    <div className="mx-auto w-full max-w-md space-y-5 rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
       <div className="space-y-2">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Anmelden</p>
         <h1 className="text-3xl font-semibold text-forest">Willkommen zurueck</h1>

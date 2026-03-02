@@ -1,4 +1,4 @@
-﻿import { requestPasswordResetAction } from "@/app/actions";
+import { requestPasswordResetAction } from "@/app/actions";
 import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
 import { readSearchParam } from "@/lib/search-params";
@@ -12,7 +12,7 @@ export default function PasswortVergessenPage({ searchParams }: PasswordForgotte
   const message = readSearchParam(searchParams, "message");
 
   return (
-    <div className="mx-auto w-full max-w-md space-y-5 rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+    <div className="mx-auto w-full max-w-md space-y-5 rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
       <div className="space-y-2">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Passwort vergessen</p>
         <h1 className="text-3xl font-semibold text-forest">Link zum Zuruecksetzen anfordern</h1>

@@ -1,4 +1,4 @@
-﻿import { saveRiderProfileAction } from "@/app/actions";
+import { saveRiderProfileAction } from "@/app/actions";
 import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
 import { requireProfile } from "@/lib/auth";
@@ -30,7 +30,7 @@ export default async function RiderProfilePage({ searchParams }: RiderProfilePag
       </div>
       <Notice text={error} tone="error" />
       <Notice text={message} tone="success" />
-      <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
         <h2 className="text-xl font-semibold text-ink">Deine Angaben</h2>
         <form action={saveRiderProfileAction} className="mt-4 space-y-4">
           <div>

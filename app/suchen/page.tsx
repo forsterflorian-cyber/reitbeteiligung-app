@@ -32,11 +32,11 @@ export default async function SuchenPage() {
       <Notice text={horsesLoadErrorMessage} tone="error" />
       <div className="space-y-3">
         {horsesError ? (
-          <div className="rounded-3xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
             Die Pferdeprofile konnten derzeit nicht geladen werden. Bitte pruefe spaeter erneut oder oeffne /diagnose.
           </div>
         ) : horses.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
+          <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
             Aktuell sind keine freigeschalteten Reitbeteiligungen sichtbar.
           </div>
         ) : (
@@ -44,7 +44,7 @@ export default async function SuchenPage() {
             const age = getHorseAge(horse.birth_year ?? null);
 
             return (
-              <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft" key={horse.id}>
+              <div className="rounded-2xl border border-stone-200 bg-white p-5" key={horse.id}>
                 <div className="space-y-3">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Pferdeprofil</p>

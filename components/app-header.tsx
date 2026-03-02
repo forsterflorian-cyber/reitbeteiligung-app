@@ -24,15 +24,16 @@ const guestItems = [
 ] as const satisfies readonly NavItem[];
 
 const riderItems = [
-  { href: "/dashboard" as Route, label: "Übersicht" },
+  { href: "/dashboard" as Route, label: "Uebersicht" },
   { href: "/suchen" as Route, label: "Suchen" },
   { href: "/anfragen" as Route, label: "Anfragen" },
   { href: "/profil" as Route, label: "Profil" }
 ] as const satisfies readonly NavItem[];
 
 const ownerItems = [
-  { href: "/dashboard" as Route, label: "Übersicht" },
-  { href: "/owner/horses" as Route, label: "Pferde verwalten" },
+  { href: "/dashboard" as Route, label: "Uebersicht" },
+  { href: "/owner/horses" as Route, label: "Neues Pferd" },
+  { href: "/owner/pferde-verwalten" as Route, label: "Pferde verwalten" },
   { href: "/owner/anfragen" as Route, label: "Anfragen" },
   { href: "/profil" as Route, label: "Profil" }
 ] as const satisfies readonly NavItem[];
@@ -43,8 +44,8 @@ export function AppHeader({ email, profile }: AppHeaderProps) {
   const displayName = profile ? getProfileDisplayName(profile, email) : null;
 
   return (
-    <header className="border-b border-stone-200 bg-white/90 backdrop-blur">
-      <div className="mx-auto flex max-w-2xl flex-col gap-3 px-4 py-4 sm:px-5 md:px-6">
+    <header className="border-b border-stone-200 bg-white">
+      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4 sm:px-5 lg:px-8">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
             <Link className="text-base font-semibold text-forest sm:text-lg" href="/">
@@ -53,12 +54,12 @@ export function AppHeader({ email, profile }: AppHeaderProps) {
             {profile ? <p className="text-xs font-semibold uppercase tracking-[0.14em] text-clay">{roleLabel}</p> : null}
             {profile ? <p className="text-sm text-stone-600">{displayName}</p> : null}
           </div>
-          {email ? <span className="max-w-[12rem] truncate pt-1 text-xs text-stone-500">{email}</span> : null}
+          {email ? <span className="max-w-[14rem] truncate pt-1 text-xs text-stone-500">{email}</span> : null}
         </div>
-        <div className="hidden items-center justify-between gap-4 md:flex">
-          <nav className="flex flex-wrap items-center gap-4 text-sm text-stone-600">
+        <div className="hidden items-center justify-between gap-6 md:flex">
+          <nav className="flex flex-wrap items-center gap-3 text-sm text-stone-600 lg:gap-5">
             {primaryItems.map((item) => (
-              <Link className="hover:text-forest" href={item.href} key={`${item.href}-${item.label}`}>
+              <Link className="rounded-lg px-2 py-1 hover:bg-stone-100 hover:text-forest" href={item.href} key={`${item.href}-${item.label}`}>
                 {item.label}
               </Link>
             ))}

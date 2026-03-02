@@ -50,7 +50,7 @@ function DiagnosticsJson({ value }: { value: unknown }) {
 
 function DiagnosticsCard({ count, description, error, rows, title }: DiagnosticsCardProps) {
   return (
-    <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+    <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
       <div className="space-y-3">
         <div>
           <h2 className="text-lg font-semibold text-ink">{title}</h2>
@@ -116,7 +116,7 @@ export default async function DiagnosePage() {
         <p className="text-sm text-stone-600 sm:text-base">Diese Seite zeigt direkt die Server-Abfragen mit deiner aktuellen Sitzung und den dazugehoerigen Fehlern.</p>
       </div>
 
-      <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
         <div className="space-y-3">
           <h2 className="text-lg font-semibold text-ink">Authentifizierung</h2>
           <p className="text-sm text-stone-600">Auth User ID aus dem Supabase Server-Client.</p>
@@ -125,7 +125,7 @@ export default async function DiagnosePage() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
         <div className="space-y-3">
           <h2 className="text-lg font-semibold text-ink">Profil</h2>
           <p className="text-sm text-stone-600">select * from profiles where id = user.id</p>
@@ -158,7 +158,7 @@ export default async function DiagnosePage() {
           title="Eigene Pferdeprofile"
         />
       ) : (
-        <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+        <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
           <p className="text-sm text-stone-600">Die Owner-Abfrage wird nur angezeigt, wenn dein Profil die Rolle &quot;owner&quot; hat.</p>
         </section>
       )}

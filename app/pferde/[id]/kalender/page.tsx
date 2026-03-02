@@ -117,7 +117,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
       <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={detailHref}>
         Zurueck zum Pferdeprofil
       </Link>
-      <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
         <div className="space-y-3">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Kalender</p>
           <h1 className="text-3xl font-semibold text-forest sm:text-4xl">{horse.title}</h1>
@@ -129,7 +129,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
       <Notice text={error} tone="error" />
       <Notice text={message} tone="success" />
       {occupancyError ? <Notice text="Der Kalender konnte nicht geladen werden." tone="error" /> : null}
-      <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
         <div className="space-y-4">
           <div>
             <h2 className="text-xl font-semibold text-ink">Belegte Zeitraeume</h2>
@@ -158,7 +158,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           )}
         </div>
       </section>
-      <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
         <div className="space-y-4">
           <div>
             <h2 className="text-xl font-semibold text-ink">Verfuegbare Zeitfenster</h2>
@@ -188,7 +188,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         </div>
       </section>
       {isRider ? (
-        <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+        <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
           <div className="space-y-4">
             <div>
               <h2 className="text-xl font-semibold text-ink">Termin anfragen</h2>
@@ -266,7 +266,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
       ) : null}
       {isOwner ? (
         <>
-          <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+          <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-ink">Verfuegbarkeitsfenster anlegen</h2>
               <p className="text-sm text-stone-600">Diese Fenster werden freigeschalteten Reitern fuer Terminanfragen angezeigt.</p>
@@ -284,7 +284,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
               <SubmitButton idleLabel="Verfuegbarkeitsfenster speichern" pendingLabel="Wird gespeichert..." />
             </form>
           </section>
-          <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+          <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-ink">Eigene Verfuegbarkeitsfenster</h2>
               <p className="text-sm text-stone-600">Beim Entfernen werden offene Terminanfragen in diesem Fenster automatisch mit entfernt.</p>
@@ -315,7 +315,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
               </div>
             )}
           </section>
-          <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+          <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-ink">Zeitraum blockieren</h2>
               <p className="text-sm text-stone-600">Blockierte Zeitraeume erscheinen sofort als belegt.</p>
@@ -333,7 +333,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
               <SubmitButton idleLabel="Zeitraum blockieren" pendingLabel="Wird gespeichert..." />
             </form>
           </section>
-          <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+          <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-ink">Eigene Sperren</h2>
               <p className="text-sm text-stone-600">Nur diese Eintraege kannst du wieder entfernen.</p>
@@ -369,7 +369,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
               </div>
             )}
           </section>
-          <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+          <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-ink">Offene Terminanfragen</h2>
               <p className="text-sm text-stone-600">Nimm einen angefragten Termin an oder lehne ihn ab.</p>

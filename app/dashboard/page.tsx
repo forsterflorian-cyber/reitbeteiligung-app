@@ -34,58 +34,71 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .select("id, owner_id, title, plz, description, active, created_at")
       .eq("owner_id", user.id)
       .order("created_at", { ascending: false })
-      .limit(4);
+      .limit(5);
 
     const ownerHorses = (horses as Horse[] | null) ?? [];
 
     return (
-      <div className="space-y-5">
+      <div className="space-y-6">
         <div className="space-y-2">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Übersicht</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-clay">Uebersicht</p>
           <h1 className="text-3xl font-semibold text-forest sm:text-4xl">Bereich fuer Pferdehalter</h1>
           <p className="text-sm text-stone-600 sm:text-base">
-            Verwalte deine Reitbeteiligung mobil, halte Inserate aktuell und pruefe schnell, was bereits freigeschaltet ist.
+            Verwalte neue Pferde, bestehende Pferdeprofile, Anfragen und spaeter auch Verfuegbarkeiten in einer klaren Verwaltungsansicht.
           </p>
         </div>
         <Notice text={message} tone="success" />
-        <div className="space-y-3">
-          <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft">
-            <p className="text-sm text-stone-500">Reitbeteiligungen</p>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="rounded-2xl border border-stone-200 bg-white p-5">
+            <p className="text-sm text-stone-500">Pferdeprofile</p>
             <p className="mt-2 text-4xl font-semibold text-forest">{ownerHorses.length}</p>
           </div>
-          <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft">
-            <p className="text-sm text-stone-500">Freischalten</p>
-            <p className="mt-2 text-xl font-semibold text-ink">{profile.is_premium ? "Bereits freigeschaltet" : "Noch nicht freigeschaltet"}</p>
-            <p className="mt-2 text-sm text-stone-600">Mit Premium kannst du spaeter Verfuegbarkeiten und Termin anfragen freischalten.</p>
+          <div className="rounded-2xl border border-stone-200 bg-white p-5">
+            <p className="text-sm text-stone-500">Premium</p>
+            <p className="mt-2 text-lg font-semibold text-ink">{profile.is_premium ? "Aktiv" : "Nicht aktiv"}</p>
+            <p className="mt-2 text-sm text-stone-600">Mit Premium aktivierst du spaeter Verfuegbarkeiten und Terminanfragen.</p>
           </div>
-          <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft">
+          <div className="rounded-2xl border border-stone-200 bg-white p-5">
             <p className="text-sm text-stone-500">Schnellzugriff</p>
-            <Link className="mt-2 inline-flex text-sm font-semibold text-forest hover:text-clay" href="/owner/horses">
-              Reitbeteiligung bearbeiten
-            </Link>
+            <div className="mt-3 flex flex-col gap-2">
+              <Link className="inline-flex min-h-[44px] items-center rounded-xl border border-stone-300 px-4 py-2 text-sm font-semibold text-ink hover:border-forest hover:text-forest" href="/owner/horses">
+                Neues Pferd anlegen
+              </Link>
+              <Link className="inline-flex min-h-[44px] items-center rounded-xl border border-stone-300 px-4 py-2 text-sm font-semibold text-ink hover:border-forest hover:text-forest" href="/owner/pferde-verwalten">
+                Pferde verwalten
+              </Link>
+            </div>
           </div>
         </div>
-        <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft">
-          <div className="space-y-1">
-            <h2 className="text-xl font-semibold text-ink">Letzte Reitbeteiligungen</h2>
-            <Link className="text-sm font-semibold text-forest hover:text-clay" href="/owner/horses">
-              Alle Reitbeteiligungen ansehen
+        <section className="rounded-2xl border border-stone-200 bg-white p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-ink">Letzte Pferdeprofile</h2>
+              <p className="mt-1 text-sm text-stone-600">Die letzten angelegten Pferde mit Status und direktem Zugriff.</p>
+            </div>
+            <Link className="inline-flex min-h-[44px] items-center rounded-xl border border-stone-300 px-4 py-2 text-sm font-semibold text-ink hover:border-forest hover:text-forest" href="/owner/pferde-verwalten">
+              Alle anzeigen
             </Link>
           </div>
           <div className="mt-4 space-y-3">
             {ownerHorses.length === 0 ? (
-              <p className="rounded-2xl bg-sand p-4 text-sm text-stone-600">Du hast noch keine Reitbeteiligung angelegt.</p>
+              <p className="rounded-xl border border-dashed border-stone-300 bg-stone-50 p-4 text-sm text-stone-600">Du hast noch kein Pferd angelegt.</p>
             ) : (
               ownerHorses.map((horse) => (
-                <div className="rounded-2xl bg-sand p-4" key={horse.id}>
-                  <div className="space-y-2">
+                <div className="rounded-xl border border-stone-200 p-4" key={horse.id}>
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                       <p className="font-semibold text-ink">{horse.title}</p>
                       <p className="text-sm text-stone-600">PLZ {horse.plz}</p>
                     </div>
-                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${horse.active ? "bg-emerald-100 text-emerald-700" : "bg-stone-200 text-stone-600"}`}>
-                      {horse.active ? "Freigeschaltet" : "Nicht freigeschaltet"}
-                    </span>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${horse.active ? "bg-emerald-100 text-emerald-700" : "bg-stone-200 text-stone-600"}`}>
+                        {horse.active ? "Aktiv" : "Inaktiv"}
+                      </span>
+                      <Link className="inline-flex min-h-[44px] items-center rounded-xl border border-stone-300 px-4 py-2 text-sm font-semibold text-ink hover:border-forest hover:text-forest" href={`/pferde/${horse.id}`}>
+                        Pferdeprofil ansehen
+                      </Link>
+                    </div>
                   </div>
                 </div>
               ))
@@ -109,43 +122,43 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const trials = (trialRequests as TrialRequest[] | null) ?? [];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Übersicht</p>
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-clay">Uebersicht</p>
         <h1 className="text-3xl font-semibold text-forest sm:text-4xl">Bereich fuer Reiter</h1>
-        <p className="text-sm text-stone-600 sm:text-base">Halte dein Profil aktuell und verfolge Probetermin-Anfragen in einer kompakten mobilen Ansicht.</p>
+        <p className="text-sm text-stone-600 sm:text-base">Halte dein Profil aktuell und verfolge Probetermin-Anfragen in einer kompakten, klaren Ansicht.</p>
       </div>
       <Notice text={message} tone="success" />
-      <div className="space-y-3">
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-sm text-stone-500">Profilstatus</p>
-          <p className="mt-2 text-xl font-semibold text-ink">{riderProfile ? "Bereit" : "Bitte vervollstaendigen"}</p>
+          <p className="mt-2 text-lg font-semibold text-ink">{riderProfile ? "Bereit" : "Bitte vervollstaendigen"}</p>
         </div>
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft">
+        <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-sm text-stone-500">Probetermin-Anfragen</p>
           <p className="mt-2 text-4xl font-semibold text-forest">{trials.length}</p>
         </div>
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft">
+        <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-sm text-stone-500">Schnellzugriff</p>
-          <Link className="mt-2 inline-flex text-sm font-semibold text-forest hover:text-clay" href="/rider/profile">
+          <Link className="mt-3 inline-flex min-h-[44px] items-center rounded-xl border border-stone-300 px-4 py-2 text-sm font-semibold text-ink hover:border-forest hover:text-forest" href="/rider/profile">
             Reiterprofil bearbeiten
           </Link>
         </div>
       </div>
-      <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft">
+      <section className="rounded-2xl border border-stone-200 bg-white p-5">
         <h2 className="text-xl font-semibold text-ink">Neueste Probetermine</h2>
         <div className="mt-4 space-y-3">
           {trials.length === 0 ? (
-            <p className="rounded-2xl bg-sand p-4 text-sm text-stone-600">Du hast noch keine Probetermin-Anfragen.</p>
+            <p className="rounded-xl border border-dashed border-stone-300 bg-stone-50 p-4 text-sm text-stone-600">Du hast noch keine Probetermin-Anfragen.</p>
           ) : (
             trials.map((trial) => (
-              <div className="rounded-2xl bg-sand p-4" key={trial.id}>
+              <div className="rounded-xl border border-stone-200 p-4" key={trial.id}>
                 <div className="space-y-2">
                   <div>
                     <p className="font-semibold text-ink">Probetermin {trial.id.slice(0, 8)}</p>
                     <p className="text-sm text-stone-600">{trial.message ?? "Keine Nachricht hinterlegt."}</p>
                   </div>
-                  <span className="inline-flex rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-forest">
+                  <span className="inline-flex rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-forest">
                     {translateStatus(trial.status)}
                   </span>
                 </div>

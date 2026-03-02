@@ -126,7 +126,7 @@ export function ChatThread({ conversationId, currentUserId, initialMessages, par
 
   return (
     <div className="space-y-4">
-      <div className="max-h-[56vh] space-y-3 overflow-y-auto rounded-3xl border border-stone-200 bg-white p-4 shadow-soft sm:p-5">
+      <div className="max-h-[56vh] space-y-3 overflow-y-auto rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
         {messages.length === 0 ? (
           <p className="rounded-2xl bg-sand p-4 text-sm text-stone-600">Noch keine Nachrichten. Nutzt den Chat, um den Probetermin abzustimmen.</p>
         ) : (
@@ -136,7 +136,7 @@ export function ChatThread({ conversationId, currentUserId, initialMessages, par
             return (
               <div className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`} key={message.id}>
                 <div
-                  className={`max-w-[85%] rounded-3xl px-4 py-3 text-sm shadow-sm ${
+                  className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
                     isOwnMessage ? "bg-forest text-white" : "bg-sand text-ink"
                   }`}
                 >

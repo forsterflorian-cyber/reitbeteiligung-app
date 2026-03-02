@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 
 import "@/app/globals.css";
 import { AppHeader } from "@/components/app-header";
@@ -7,7 +7,7 @@ import { getViewerContext } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "reitbeteiligung.app",
-  description: "Reitbeteiligungen mit klaren Rollen, mobilen Ablaeufen und einfacher Übersicht."
+  description: "Reitbeteiligungen mit klaren Rollen, mobilen Ablaeufen und einfacher Uebersicht."
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -18,7 +18,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <AppHeader email={user?.email} profile={profile} />
         <main>
-          <div className="mx-auto w-full max-w-md px-4 py-5 pb-24 sm:max-w-lg sm:px-5 sm:py-6 sm:pb-24 md:max-w-2xl md:px-6 md:py-8 md:pb-8">
+          <div className="mx-auto w-full max-w-md px-4 py-5 pb-24 sm:max-w-2xl sm:px-5 sm:py-6 sm:pb-24 lg:max-w-5xl lg:px-8 lg:py-8 lg:pb-10 xl:max-w-6xl">
             {children}
           </div>
         </main>
@@ -27,4 +27,3 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     </html>
   );
 }
-

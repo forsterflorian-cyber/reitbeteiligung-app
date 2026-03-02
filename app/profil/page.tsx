@@ -42,17 +42,17 @@ export default async function ProfilPage({
       <Notice text={error} tone="error" />
       <Notice text={message} tone="success" />
       <div className="space-y-3">
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft">
+        <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-sm text-stone-500">Konto</p>
           <p className="mt-2 text-base font-semibold text-ink">{user.email}</p>
         </div>
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft">
+        <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-sm text-stone-500">Rolle</p>
           <p className="mt-2 text-base font-semibold text-ink">{roleLabel}</p>
           <p className="mt-2 text-sm text-stone-600">{profile.role === "owner" ? "Verwalte deine Pferdeprofile, Chats und Freischaltungen." : "Pflege dein Reiterprofil und behalte Probetermine im Blick."}</p>
         </div>
       </div>
-      <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-ink">Sichtbare Angaben</h2>
           <p className="text-sm text-stone-600">Diese Angaben verwenden wir in Chats, Anfragen und freigeschalteten Kontaktdaten.</p>
@@ -70,15 +70,15 @@ export default async function ProfilPage({
         </form>
       </section>
       {profile.role === "owner" ? (
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft">
+        <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-sm text-stone-500">Freischalten</p>
           <p className="mt-2 text-base font-semibold text-ink">{profile.is_premium ? "Freigeschaltet" : "Nicht freigeschaltet"}</p>
-          <Link className="mt-3 inline-flex text-sm font-semibold text-forest hover:text-clay" href="/owner/horses">
+          <Link className="mt-3 inline-flex text-sm font-semibold text-forest hover:text-clay" href="/owner/pferde-verwalten">
             Zu den Pferdeprofilen
           </Link>
         </div>
       ) : (
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft">
+        <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-sm text-stone-500">Reiterprofil</p>
           <p className="mt-2 text-base font-semibold text-ink">{riderProfile ? "Vorhanden" : "Noch unvollstaendig"}</p>
           <Link className="mt-3 inline-flex text-sm font-semibold text-forest hover:text-clay" href="/rider/profile">
@@ -86,7 +86,7 @@ export default async function ProfilPage({
           </Link>
         </div>
       )}
-      <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft">
+      <div className="rounded-2xl border border-stone-200 bg-white p-5">
         <LogoutForm />
       </div>
     </div>

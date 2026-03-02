@@ -110,11 +110,11 @@ export default async function PferdDetailPage({
       <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href="/suchen">
         Zurueck zur Suche
       </Link>
-      <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
         <div className="space-y-4">
           {images.length > 0 ? (
             <div className="space-y-3">
-              <img alt={horse.title} className="h-56 w-full rounded-3xl object-cover" src={images[0].url} />
+              <img alt={horse.title} className="h-56 w-full rounded-2xl object-cover" src={images[0].url} />
               {images.length > 1 ? (
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                   {images.slice(1).map((image, index) => (
@@ -124,7 +124,7 @@ export default async function PferdDetailPage({
               ) : null}
             </div>
           ) : (
-            <div className="rounded-3xl border border-dashed border-stone-300 bg-sand p-5 text-sm text-stone-600">Noch keine Bilder hinterlegt.</div>
+            <div className="rounded-2xl border border-dashed border-stone-300 bg-sand p-5 text-sm text-stone-600">Noch keine Bilder hinterlegt.</div>
           )}
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Pferdeprofil</p>
@@ -157,7 +157,7 @@ export default async function PferdDetailPage({
       <Notice text={error} tone="error" />
       <Notice text={message} tone="success" />
       {profile?.role === "rider" ? (
-        <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+        <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
           <div className="space-y-4">
             <div>
               <h2 className="text-xl font-semibold text-ink">Probetermin anfragen</h2>
@@ -197,7 +197,7 @@ export default async function PferdDetailPage({
         </Link>
       ) : null}
       {profile?.role === "owner" ? (
-        <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+        <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
           <p className="text-sm text-stone-600">Du bist als Pferdehalter angemeldet. Probetermine verwaltest du unter deinen Anfragen.</p>
           <Link className="mt-3 inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href="/owner/anfragen">
             Zu den Anfragen

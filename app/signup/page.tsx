@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { signupAction } from "@/app/actions";
@@ -21,7 +21,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
   const error = readSearchParam(searchParams, "error");
 
   return (
-    <div className="mx-auto w-full max-w-md space-y-5 rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
+    <div className="mx-auto w-full max-w-md space-y-5 rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
       <div className="space-y-2">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Registrieren</p>
         <h1 className="text-3xl font-semibold text-forest">Dein Konto anlegen</h1>
