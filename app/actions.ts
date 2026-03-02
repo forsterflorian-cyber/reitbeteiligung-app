@@ -732,23 +732,26 @@ export async function saveHorseAction(formData: FormData) {
     const { error } = await supabase.from("horses").update(horseValues).eq("id", horseId).eq("owner_id", user.id);
 
     if (error) {
-      redirectWithMessage("/owner/horses", "error", "Die Reitbeteiligung konnte nicht gespeichert werden.");
+      redirectWithMessage("/owner/horses", "error", "Das Pferdeprofil konnte nicht gespeichert werden.");
     }
   } else {
     const { error } = await supabase.from("horses").insert({
-      ...horseValues,
-      owner_id: user.id
+      active,
+      description,
+      owner_id: user.id,
+      plz,
+      title
     });
 
     if (error) {
-      redirectWithMessage("/owner/horses", "error", "Die Reitbeteiligung konnte nicht gespeichert werden.");
+      redirectWithMessage("/owner/horses", "error", "Das Pferdeprofil konnte nicht gespeichert werden.");
     }
   }
 
   revalidatePath("/owner/horses");
   revalidatePath("/dashboard");
   revalidatePath("/suchen");
-  redirectWithMessage("/owner/horses", "message", "Die Reitbeteiligung wurde gespeichert.");
+  redirectWithMessage("/owner/horses", "message", "Das Pferdeprofil wurde gespeichert.");
 }
 
 export async function uploadHorseImagesAction(formData: FormData) {

@@ -62,18 +62,18 @@ export default async function OwnerHorsesPage({ searchParams }: OwnerHorsesPageP
     <div className="space-y-5">
       <div className="space-y-2">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Inserat</p>
-        <h1 className="text-3xl font-semibold text-forest sm:text-4xl">Reitbeteiligung anlegen</h1>
-        <p className="text-sm text-stone-600 sm:text-base">Bearbeite deine Reitbeteiligung in einer mobilen Einspaltenansicht ohne horizontales Scrollen.</p>
+        <h1 className="text-3xl font-semibold text-forest sm:text-4xl">Pferdeprofil anlegen</h1>
+        <p className="text-sm text-stone-600 sm:text-base">Bearbeite dein Pferdeprofil in einer mobilen Einspaltenansicht ohne horizontales Scrollen.</p>
       </div>
       <Notice text={error} tone="error" />
       <Notice text={message} tone="success" />
       <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
-        <h2 className="text-xl font-semibold text-ink">Neue Reitbeteiligung</h2>
+        <h2 className="text-xl font-semibold text-ink">Neues Pferdeprofil</h2>
         <p className="mt-2 text-sm text-stone-600">Bilder kannst du nach dem ersten Speichern hinzufuegen.</p>
         <form action={saveHorseAction} className="mt-4 space-y-4">
           <div>
             <label htmlFor="title">Titel</label>
-            <input id="title" name="title" placeholder="Ruhige Reitbeteiligung in Potsdam" required type="text" />
+            <input id="title" name="title" placeholder="Freizeitpferd in Potsdam" required type="text" />
           </div>
           <div>
             <label htmlFor="plz">PLZ</label>
@@ -112,16 +112,16 @@ export default async function OwnerHorsesPage({ searchParams }: OwnerHorsesPageP
           </div>
           <label className="flex min-h-[44px] items-center gap-3 rounded-2xl border border-stone-300 px-4 py-3 text-sm text-ink">
             <input className="h-4 w-4 rounded border-stone-300" defaultChecked name="active" type="checkbox" />
-            Reitbeteiligung freischalten
+            Pferdeprofil veroeffentlichen
           </label>
-          <SubmitButton idleLabel="Reitbeteiligung speichern" pendingLabel="Wird gespeichert..." />
+          <SubmitButton idleLabel="Pferdeprofil speichern" pendingLabel="Wird gespeichert..." />
         </form>
       </section>
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold text-ink">Bestehende Reitbeteiligungen</h2>
+        <h2 className="text-xl font-semibold text-ink">Bestehende Pferdeprofile</h2>
         {horses.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
-            Noch keine Reitbeteiligung vorhanden.
+            Noch kein Pferdeprofil vorhanden.
           </div>
         ) : (
           horses.map((horse) => {
@@ -173,9 +173,9 @@ export default async function OwnerHorsesPage({ searchParams }: OwnerHorsesPageP
                   </div>
                   <label className="flex min-h-[44px] items-center gap-3 rounded-2xl border border-stone-300 px-4 py-3 text-sm text-ink">
                     <input className="h-4 w-4 rounded border-stone-300" defaultChecked={horse.active} name="active" type="checkbox" />
-                    Reitbeteiligung freischalten
+                    Pferdeprofil veroeffentlichen
                   </label>
-                  <SubmitButton idleLabel="Reitbeteiligung aktualisieren" pendingLabel="Wird aktualisiert..." />
+                  <SubmitButton idleLabel="Pferdeprofil aktualisieren" pendingLabel="Wird aktualisiert..." />
                 </form>
                 <Link
                   className="mt-4 inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay"
