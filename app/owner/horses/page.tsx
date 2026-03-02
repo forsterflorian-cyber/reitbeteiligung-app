@@ -47,13 +47,14 @@ export default async function OwnerHorsesPage({ searchParams }: OwnerHorsesPageP
 
   const error = readSearchParam(searchParams, "error");
   const message = readSearchParam(searchParams, "message");
-  const { data, error: horsesError } = await supabase
+  const { data: horsesData, error: horsesError } = await supabase
     .from("horses")
     .select(HORSE_SELECT_FIELDS)
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
 
-  const horses = (data as Horse[] | null) ?? [];
+  const horses = Array.isArray(horsesData) ? (horsesData as Horse[]) : [];
+  console.log("[owner/horses] horses length", horses.length);
   const horsesLoadErrorMessage = horsesError ? `Pferdeprofile konnten nicht geladen werden: ${horsesError.message}` : null;
   const horseIds = horses.map((horse) => horse.id);
 
@@ -91,6 +92,22 @@ export default async function OwnerHorsesPage({ searchParams }: OwnerHorsesPageP
       <Notice text={error} tone="error" />
       <Notice text={horsesLoadErrorMessage} tone="error" />
       <Notice text={message} tone="success" />
+      {horses.length > 0 ? (
+        <section className="rounded-3xl border border-stone-200 bg-white p-4 shadow-soft">
+          <p className="text-sm font-semibold text-ink">Direktliste</p>
+          <div className="mt-3 flex flex-col gap-2">
+            {horses.map((horse) => (
+              <Link
+                className="rounded-2xl border border-stone-200 px-4 py-3 text-sm font-semibold text-forest hover:border-forest/40 hover:text-clay"
+                href={`/pferde/${horse.id}` as Route}
+                key={horse.id}
+              >
+                {horse.title} - {horse.plz}
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
       <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
         <h2 className="text-xl font-semibold text-ink">Neues Pferdeprofil</h2>
         <p className="mt-2 text-sm text-stone-600">Bilder kannst du nach dem ersten Speichern hinzufuegen.</p>

@@ -18,7 +18,7 @@ export default async function SuchenPage() {
     .order("created_at", { ascending: false })
     .limit(8);
 
-  const horses = (horsesData as Horse[] | null) ?? [];
+  const horses = Array.isArray(horsesData) ? (horsesData as Horse[]) : [];
   const horsesLoadErrorMessage = horsesError ? `Pferdeprofile konnten nicht geladen werden: ${horsesError.message}` : null;
   console.log("[suchen] horses length", horses.length);
   const horseIds = horses.map((horse) => horse.id);
@@ -32,7 +32,7 @@ export default async function SuchenPage() {
       .in("horse_id", horseIds)
       .order("created_at", { ascending: true });
 
-    const images = (imageData as HorseImage[] | null) ?? [];
+    const images = Array.isArray(imageData) ? (imageData as HorseImage[]) : [];
 
     images.forEach((image) => {
       if (!imageMap.has(image.horse_id)) {
@@ -50,15 +50,21 @@ export default async function SuchenPage() {
       </div>
       {!user ? <Notice text="Melde dich an, um einen Probetermin anzufragen und spaeter freigeschaltet zu werden." /> : null}
       <Notice text={horsesLoadErrorMessage} tone="error" />
-      {!horsesError && horses.length > 0 ? (
-        <div className="rounded-3xl border border-stone-200 bg-white p-4 text-sm text-stone-700 shadow-soft">
-          <p className="font-semibold text-ink">Debug-Liste</p>
-          <div className="mt-2 space-y-1">
+      {horses.length > 0 ? (
+        <section className="rounded-3xl border border-stone-200 bg-white p-4 shadow-soft">
+          <p className="text-sm font-semibold text-ink">Direktliste</p>
+          <div className="mt-3 flex flex-col gap-2">
             {horses.map((horse) => (
-              <div key={horse.id}>{horse.title}</div>
+              <Link
+                className="rounded-2xl border border-stone-200 px-4 py-3 text-sm font-semibold text-forest hover:border-forest/40 hover:text-clay"
+                href={`/pferde/${horse.id}` as Route}
+                key={horse.id}
+              >
+                {horse.title} - {horse.plz}
+              </Link>
             ))}
           </div>
-        </div>
+        </section>
       ) : null}
       <div className="space-y-3">
         {horsesError ? (
