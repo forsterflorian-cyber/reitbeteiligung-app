@@ -18,18 +18,20 @@ export type Horse = {
   plz: string;
   description: string | null;
   active: boolean;
-  stockmass_cm: number | null;
-  rasse: string | null;
-  farbe: string | null;
-  geschlecht: string | null;
-  alter: number | null;
+  height_cm?: number | null;
+  breed?: string | null;
+  color?: string | null;
+  sex?: string | null;
+  birth_year?: number | null;
   created_at: string;
 };
 
 export type HorseImage = {
   id: string;
   horse_id: string;
-  storage_path: string;
+  path?: string | null;
+  storage_path?: string | null;
+  position?: number | null;
   created_at: string;
 };
 

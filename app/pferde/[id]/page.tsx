@@ -9,7 +9,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { isApproved } from "@/lib/approvals";
 import { getProfileByUserId } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { HORSE_IMAGE_SELECT_FIELDS, HORSE_SELECT_FIELDS, getHorseImageUrl } from "@/lib/horses";
+import { HORSE_IMAGE_SELECT_FIELDS, HORSE_SELECT_FIELDS, getHorseAge, getHorseImageUrl, sortHorseImages } from "@/lib/horses";
 import { readSearchParam } from "@/lib/search-params";
 import type { Horse, HorseImage, TrialRequest, TrialRequestStatus } from "@/types/database";
 
@@ -29,12 +29,14 @@ function riderStatusText(status: TrialRequestStatus) {
 }
 
 function horseFacts(horse: Horse) {
+  const age = getHorseAge(horse.birth_year ?? null);
+
   return [
-    horse.stockmass_cm ? `${horse.stockmass_cm} cm Stockmass` : null,
-    horse.rasse ? `Rasse: ${horse.rasse}` : null,
-    horse.farbe ? `Farbe: ${horse.farbe}` : null,
-    horse.geschlecht ? `Geschlecht: ${horse.geschlecht}` : null,
-    horse.alter ? `Alter: ${horse.alter} Jahre` : null
+    horse.height_cm ? `${horse.height_cm} cm Stockmass` : null,
+    horse.breed ? `Rasse: ${horse.breed}` : null,
+    horse.color ? `Farbe: ${horse.color}` : null,
+    horse.sex ? `Geschlecht: ${horse.sex}` : null,
+    age !== null ? `Alter: ${age} Jahre` : null
   ].filter((value): value is string => Boolean(value));
 }
 
@@ -60,17 +62,32 @@ export default async function PferdDetailPage({
     notFound();
   }
 
-  const { data: imageData } = await supabase
-    .from("horse_images")
-    .select(HORSE_IMAGE_SELECT_FIELDS)
-    .eq("horse_id", horse.id)
-    .order("created_at", { ascending: true })
-    .limit(5);
+  const canReadImages = profile?.role === "owner" && user?.id === horse.owner_id;
+  let images: Array<HorseImage & { url: string }> = [];
 
-  const images = ((imageData as HorseImage[] | null) ?? []).map((image) => ({
-    ...image,
-    url: getHorseImageUrl(supabase, image.storage_path)
-  }));
+  if (canReadImages) {
+    const { data: imageData } = await supabase
+      .from("horse_images")
+      .select(HORSE_IMAGE_SELECT_FIELDS)
+      .eq("horse_id", horse.id)
+      .order("created_at", { ascending: true })
+      .limit(5);
+
+    const rawImages = sortHorseImages(
+      (Array.isArray(imageData) ? (imageData as HorseImage[]) : []).filter(
+        (image): image is HorseImage & { path?: string | null; storage_path?: string | null } => Boolean((image.path ?? image.storage_path) && image.id)
+      )
+    );
+
+    const resolvedImages = await Promise.all(
+      rawImages.map(async (image) => {
+        const url = await getHorseImageUrl(supabase, image.path ?? image.storage_path ?? null);
+        return url ? { ...image, url } : null;
+      })
+    );
+
+    images = resolvedImages.filter((image): image is HorseImage & { url: string } => Boolean(image));
+  }
 
   let latestRequest: TrialRequest | null = null;
   let approved = false;

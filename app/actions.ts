@@ -5,10 +5,13 @@ import { redirect } from "next/navigation";
 
 import { requireOnboardingUser, requireProfile } from "@/lib/auth";
 import {
+  HORSE_GESCHLECHTER,
   HORSE_IMAGE_BUCKET,
   HORSE_IMAGE_SELECT_FIELDS,
   MAX_HORSE_IMAGES,
-  createHorseImageStoragePath
+  createHorseImageStoragePath,
+  isHorseGeschlecht,
+  sortHorseImages
 } from "@/lib/horses";
 import { asInteger, asOptionalString, asString, isRole } from "@/lib/forms";
 import {
@@ -35,7 +38,7 @@ const RRULE_WEEKDAYS: Record<string, number> = {
 
 type OwnerRequestRecord = Pick<TrialRequest, "id" | "horse_id" | "rider_id" | "status">;
 type HorseOwnerRecord = Pick<Horse, "id" | "owner_id">;
-type HorseImageRecord = Pick<HorseImage, "id" | "horse_id" | "storage_path" | "created_at">;
+type HorseImageRecord = Pick<HorseImage, "id" | "horse_id" | "path" | "storage_path" | "position" | "created_at">;
 type CalendarBlockRecord = Pick<CalendarBlock, "id" | "horse_id" | "start_at" | "end_at" | "created_at">;
 type AvailabilityRuleRecord = Pick<AvailabilityRule, "id" | "horse_id" | "slot_id" | "start_at" | "end_at" | "active" | "created_at">;
 type BookingRequestRecord = Pick<BookingRequest, "id" | "slot_id" | "availability_rule_id" | "horse_id" | "rider_id" | "status" | "requested_start_at" | "requested_end_at" | "recurrence_rrule" | "created_at">;
@@ -690,17 +693,39 @@ export async function saveHorseAction(formData: FormData) {
   const title = asString(formData.get("title"));
   const plz = asString(formData.get("plz"));
   const description = asOptionalString(formData.get("description"));
+  const heightCm = asInteger(formData.get("heightCm"));
+  const breed = asOptionalString(formData.get("breed"));
+  const color = asOptionalString(formData.get("color"));
+  const sexValue = asOptionalString(formData.get("sex"));
+  const birthYear = asInteger(formData.get("birthYear"));
   const active = formData.get("active") === "on";
+  const currentYear = new Date().getFullYear();
 
   if (title.length < 2 || plz.length < 3) {
     redirectWithMessage("/owner/horses", "error", "Titel und PLZ sind erforderlich.");
   }
 
+  if (heightCm !== null && (heightCm < 50 || heightCm > 220)) {
+    redirectWithMessage("/owner/horses", "error", "Das Stockmass muss zwischen 50 und 220 cm liegen.");
+  }
+
+  if (birthYear !== null && (birthYear < 1980 || birthYear > currentYear)) {
+    redirectWithMessage("/owner/horses", "error", `Das Geburtsjahr muss zwischen 1980 und ${currentYear} liegen.`);
+  }
+
+  if (sexValue && !isHorseGeschlecht(sexValue)) {
+    redirectWithMessage("/owner/horses", "error", `Bitte waehle ${HORSE_GESCHLECHTER.join(", ")} fuer das Geschlecht.`);
+  }
 
   const horseValues = {
     active,
+    birth_year: birthYear,
+    breed,
+    color,
     description,
+    height_cm: heightCm,
     plz,
+    sex: sexValue,
     title
   };
 
@@ -754,23 +779,41 @@ export async function uploadHorseImagesAction(formData: FormData) {
 
   const { data: existingImagesData } = await supabase
     .from("horse_images")
-    .select("id, horse_id, storage_path, created_at")
+    .select(HORSE_IMAGE_SELECT_FIELDS)
     .eq("horse_id", horseId)
     .order("created_at", { ascending: true });
 
-  const existingImages = (existingImagesData as HorseImageRecord[] | null) ?? [];
+  const existingImages = sortHorseImages(
+    (Array.isArray(existingImagesData) ? (existingImagesData as HorseImageRecord[]) : []).filter((image) => image.id)
+  );
 
   if (existingImages.length + files.length > MAX_HORSE_IMAGES) {
     redirectWithMessage("/owner/horses", "error", `Es koennen maximal ${MAX_HORSE_IMAGES} Bilder gespeichert werden.`);
   }
 
+  const nextPosition = existingImages.reduce((maxPosition, image) => {
+    const position = typeof image.position === "number" ? image.position : 0;
+    return Math.max(maxPosition, position + 1);
+  }, 0);
+
+  const uploads = files.map((file, index) => {
+    const imageId = crypto.randomUUID();
+    const path = createHorseImageStoragePath(horseId, imageId, file.name);
+
+    return {
+      file,
+      id: imageId,
+      path,
+      position: nextPosition + index
+    };
+  });
+
   const uploadedPaths: string[] = [];
 
-  for (const file of files) {
-    const storagePath = createHorseImageStoragePath(user.id, horseId, file.name);
-    const { error } = await supabase.storage.from(HORSE_IMAGE_BUCKET).upload(storagePath, file, {
+  for (const upload of uploads) {
+    const { error } = await supabase.storage.from(HORSE_IMAGE_BUCKET).upload(upload.path, upload.file, {
       cacheControl: "3600",
-      contentType: file.type || undefined,
+      contentType: upload.file.type || undefined,
       upsert: false
     });
 
@@ -788,12 +831,15 @@ export async function uploadHorseImagesAction(formData: FormData) {
       redirectWithMessage("/owner/horses", "error", "Die Bilder konnten nicht hochgeladen werden.");
     }
 
-    uploadedPaths.push(storagePath);
+    uploadedPaths.push(upload.path);
   }
 
-  const imageRows = uploadedPaths.map((storagePath) => ({
+  const imageRows = uploads.map((upload) => ({
     horse_id: horseId,
-    storage_path: storagePath
+    id: upload.id,
+    path: upload.path,
+    position: upload.position,
+    storage_path: upload.path
   }));
 
   const { error: insertError } = await supabase.from("horse_images").insert(imageRows);
@@ -836,7 +882,13 @@ export async function deleteHorseImageAction(formData: FormData) {
     redirectWithMessage("/owner/horses", "error", "Du kannst nur Bilder fuer eigene Pferdeprofile loeschen.");
   }
 
-  const { error: storageError } = await supabase.storage.from(HORSE_IMAGE_BUCKET).remove([image.storage_path]);
+  const imagePath = image.path ?? image.storage_path ?? null;
+
+  if (!imagePath) {
+    redirectWithMessage("/owner/horses", "error", "Das Bild konnte nicht geloescht werden.");
+  }
+
+  const { error: storageError } = await supabase.storage.from(HORSE_IMAGE_BUCKET).remove([imagePath]);
 
   if (storageError) {
     logSupabaseError("Horse image storage delete failed", storageError);
@@ -1279,12 +1331,14 @@ export async function deleteHorseAction(formData: FormData) {
 
   const { data: imagesData } = await supabase
     .from("horse_images")
-    .select("id, horse_id, storage_path, created_at")
+    .select(HORSE_IMAGE_SELECT_FIELDS)
     .eq("horse_id", horseId)
     .order("created_at", { ascending: true });
 
-  const images = (imagesData as HorseImageRecord[] | null) ?? [];
-  const imagePaths = images.map((image) => image.storage_path);
+  const images = sortHorseImages(
+    (Array.isArray(imagesData) ? (imagesData as HorseImageRecord[]) : []).filter((image) => image.id)
+  );
+  const imagePaths = images.map((image) => image.path ?? image.storage_path ?? null).filter((path): path is string => Boolean(path));
 
   if (imagePaths.length > 0) {
     const { error: storageError } = await supabase.storage.from(HORSE_IMAGE_BUCKET).remove(imagePaths);
@@ -1300,6 +1354,11 @@ export async function deleteHorseAction(formData: FormData) {
 
   if (error) {
     logSupabaseError("Horse delete failed", error);
+
+    if (error.code === "23503") {
+      redirectWithMessage("/owner/horses", "error", "Das Pferd hat noch aktive Termine oder Anfragen und kann derzeit nicht geloescht werden.");
+    }
+
     redirectWithMessage("/owner/horses", "error", "Pferdeprofil konnte nicht geloescht werden.");
   }
 
