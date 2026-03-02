@@ -6,11 +6,22 @@ import { requestTrialAction } from "@/app/actions";
 import { Notice } from "@/components/notice";
 import { StatusBadge } from "@/components/status-badge";
 import { SubmitButton } from "@/components/submit-button";
+import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionCard } from "@/components/ui/section-card";
 import { isApproved } from "@/lib/approvals";
 import { getProfileByUserId } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
-import { HORSE_IMAGE_SELECT_FIELDS, HORSE_SELECT_FIELDS, getHorseAge, getHorseImageUrl, sortHorseImages } from "@/lib/horses";
+import {
+  HORSE_IMAGE_SELECT_FIELDS,
+  HORSE_SELECT_FIELDS,
+  getHorseAge,
+  getHorseImageUrl,
+  sortHorseImages
+} from "@/lib/horses";
 import { readSearchParam } from "@/lib/search-params";
+import { createClient } from "@/lib/supabase/server";
 import type { Horse, HorseImage, TrialRequest, TrialRequestStatus } from "@/types/database";
 
 function riderStatusText(status: TrialRequestStatus) {
@@ -55,7 +66,6 @@ export default async function PferdDetailPage({
   const error = readSearchParam(searchParams, "error");
   const message = readSearchParam(searchParams, "message");
   const { data } = await supabase.from("horses").select(HORSE_SELECT_FIELDS).eq("id", params.id).maybeSingle();
-
   const horse = (data as Horse | null) ?? null;
 
   if (!horse) {
@@ -71,7 +81,8 @@ export default async function PferdDetailPage({
 
   const rawImages = sortHorseImages(
     (Array.isArray(imageData) ? (imageData as HorseImage[]) : []).filter(
-      (image): image is HorseImage & { path?: string | null; storage_path?: string | null } => Boolean((image.path ?? image.storage_path) && image.id)
+      (image): image is HorseImage & { path?: string | null; storage_path?: string | null } =>
+        Boolean((image.path ?? image.storage_path) && image.id)
     )
   );
 
@@ -87,6 +98,7 @@ export default async function PferdDetailPage({
   let latestRequest: TrialRequest | null = null;
   let approved = false;
 
+  // Only the current rider's latest trial request matters for the CTA state.
   if (profile?.role === "rider" && user) {
     const { data: requestData } = await supabase
       .from("trial_requests")
@@ -106,114 +118,154 @@ export default async function PferdDetailPage({
   const calendarHref = `/pferde/${horse.id}/kalender` as Route;
 
   return (
-    <div className="space-y-5">
-      <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-blue-800 hover:text-blue-700" href="/suchen">
+    <div className="space-y-6 sm:space-y-8">
+      <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-emerald-800 hover:bg-transparent")} href="/suchen">
         Zurueck zur Suche
       </Link>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-        <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
-          {images.length > 0 ? (
-            <div className="space-y-3 p-3 sm:p-4">
-              <img alt={horse.title} className="h-64 w-full rounded-xl object-cover sm:h-80" src={images[0].url} />
-              {images.length > 1 ? (
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                  {images.slice(1).map((image, index) => (
-                    <img alt={`Pferdebild ${index + 2} von ${horse.title}`} className="h-20 w-full rounded-xl object-cover sm:h-24" key={image.id} src={image.url} />
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="m-4 flex h-64 items-center justify-center rounded-xl border border-dashed border-stone-300 bg-stone-50 text-sm text-stone-600 sm:h-80">
-              Noch keine Bilder hinterlegt.
-            </div>
-          )}
-        </section>
-        <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
-          <div className="bg-gradient-to-r from-blue-800 to-blue-700 px-5 py-4 text-white sm:px-6">
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-blue-100">Pferdeprofil</p>
-            <h1 className="mt-2 text-3xl font-semibold">{horse.title}</h1>
-            <p className="mt-2 text-sm text-blue-50">Standort: {horse.plz}</p>
+
+      <PageHeader
+        actions={
+          <>
+            {profile?.role === "rider" ? (
+              <a className={buttonVariants("primary", "w-full sm:w-auto")} href="#probetermin">
+                Probetermin anfragen
+              </a>
+            ) : null}
+            {!user ? (
+              <Link className={buttonVariants("primary", "w-full sm:w-auto")} href="/login">
+                Anmelden um anzufragen
+              </Link>
+            ) : null}
+            <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href={calendarHref}>
+              Kalender ansehen
+            </Link>
+          </>
+        }
+        subtitle={`Standort ${horse.plz}. Probetermine, Freischaltung und spaetere Terminbuchung laufen ueber einen klaren Ablauf.`}
+        title={horse.title}
+      />
+
+      <Notice text={error} tone="error" />
+      <Notice text={message} tone="success" />
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+        <SectionCard subtitle="Bilder und erste Eindruecke auf einen Blick." title="Galerie">
+          <div className="space-y-4">
+            {images.length > 0 ? (
+              <>
+                <img alt={horse.title} className="h-64 w-full rounded-2xl object-cover sm:h-80" src={images[0].url} />
+                {images.length > 1 ? (
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {images.slice(1).map((image, index) => (
+                      <img
+                        alt={`Pferdebild ${index + 2} von ${horse.title}`}
+                        className="h-24 w-full rounded-2xl object-cover"
+                        key={image.id}
+                        src={image.url}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <EmptyState
+                description="Dieses Pferdeprofil hat aktuell noch keine Bilder."
+                title="Noch keine Bilder hinterlegt"
+              />
+            )}
           </div>
-          <div className="space-y-4 px-5 py-5 sm:px-6">
+        </SectionCard>
+
+        <SectionCard subtitle="Grunddaten, Status und die wichtigsten Eckpunkte." title="Auf einen Blick">
+          <div className="space-y-5">
+            <div className="flex flex-wrap gap-2">
+              <Badge tone={horse.active ? "approved" : "neutral"}>{horse.active ? "Aktiv" : "Nicht aktiv"}</Badge>
+              <Badge tone="neutral">PLZ {horse.plz}</Badge>
+            </div>
             {facts.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {facts.map((fact) => (
-                  <div className="flex items-center gap-2 text-sm text-stone-700" key={fact}>
-                    <span className="h-2.5 w-2.5 rounded-full bg-blue-700" />
+                  <div className="flex items-start gap-3 text-sm leading-6 text-stone-600" key={fact}>
+                    <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-emerald-700" />
                     <span>{fact}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-stone-600">Zu diesem Pferd liegen noch keine Zusatzangaben vor.</p>
+              <EmptyState
+                description="Zu diesem Pferd liegen noch keine weiteren Merkmale vor."
+                title="Noch keine Zusatzangaben"
+              />
             )}
-            <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${horse.active ? "bg-emerald-100 text-emerald-800" : "bg-stone-200 text-stone-700"}`}>
-              {horse.active ? "Aktiv" : "Nicht aktiv"}
-            </span>
-            <div className="space-y-3 border-t border-stone-200 pt-4">
-              {profile?.role === "rider" ? (
-                <a className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-800" href="#probetermin">
-                  Probetermin anfragen
-                </a>
-              ) : null}
-              {!user ? (
-                <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-800" href="/login">
-                  Anmelden um Probetermin anzufragen
+            {profile?.role === "owner" ? (
+              <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                <p className="text-sm leading-6 text-stone-600">
+                  Du bist als Pferdehalter angemeldet. Probetermine, Freischaltungen und weitere Anfragen verwaltest du gesammelt in deinem Anfragenbereich.
+                </p>
+                <Link className={buttonVariants("secondary", "mt-4 w-full sm:w-auto")} href="/owner/anfragen">
+                  Zu den Anfragen
                 </Link>
-              ) : null}
-              <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 px-4 py-3 text-sm font-semibold text-stone-900 hover:border-blue-700 hover:text-blue-800" href={calendarHref}>
-                Kalender ansehen
-              </Link>
-            </div>
+              </div>
+            ) : null}
           </div>
-        </section>
+        </SectionCard>
       </div>
-      <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
-        <h2 className="text-xl font-semibold text-stone-900">Beschreibung</h2>
-        <p className="mt-3 text-sm text-stone-600 sm:text-base">{horse.description ?? "Fuer dieses Pferdeprofil liegt noch keine Beschreibung vor."}</p>
-      </section>
-      <Notice text={error} tone="error" />
-      <Notice text={message} tone="success" />
+
+      <SectionCard subtitle="Das Pferdeprofil in ganzen Saetzen, ohne dass du dich durch Nachrichten suchen musst." title="Beschreibung">
+        <p className="text-sm leading-7 text-stone-600 sm:text-base">
+          {horse.description?.trim() || "Fuer dieses Pferdeprofil liegt noch keine Beschreibung vor."}
+        </p>
+      </SectionCard>
+
       {profile?.role === "rider" ? (
-        <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white" id="probetermin">
-          <div className="bg-gradient-to-r from-blue-800 to-blue-700 px-5 py-4 text-white sm:px-6">
-            <h2 className="text-2xl font-semibold">Probetermin anfragen</h2>
-            <p className="mt-2 text-sm text-blue-50">Sende dem Pferdehalter eine kurze Nachricht zu deiner Anfrage.</p>
-          </div>
-          <div className="space-y-4 px-5 py-5 sm:px-6">
-            {approved ? (
-              <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+        <SectionCard
+          bodyClassName="space-y-4"
+          subtitle="Vor der Freischaltung bleibt die Kommunikation intern. Kontaktdaten werden erst danach sichtbar."
+          title="Probetermin anfragen"
+        >
+          {approved ? (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="space-y-3">
                 <StatusBadge status="approved" />
-                <p className="text-sm text-stone-600">Du bist fuer dieses Pferd bereits freigeschaltet und kannst spaeter freie Termine anfragen.</p>
+                <p className="text-sm leading-6 text-stone-600">
+                  Du bist fuer dieses Pferd bereits freigeschaltet und kannst spaeter freie Termine anfragen.
+                </p>
               </div>
-            ) : null}
-            {latestRequest ? (
-              <div className="space-y-3 rounded-xl border border-stone-200 bg-stone-50 p-4">
+            </div>
+          ) : null}
+
+          {latestRequest ? (
+            <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+              <div className="space-y-3">
                 <StatusBadge status={latestRequest.status} />
-                <p className="text-sm text-stone-600">{riderStatusText(latestRequest.status)}</p>
+                <p className="text-sm leading-6 text-stone-600">{riderStatusText(latestRequest.status)}</p>
               </div>
-            ) : null}
-            {canRequest ? (
-              <form action={requestTrialAction} className="space-y-4">
-                <input name="horseId" type="hidden" value={horse.id} />
-                <div>
-                  <label htmlFor="message">Nachricht (optional)</label>
-                  <textarea id="message" name="message" placeholder="Stelle dich kurz vor und nenne deinen Wunsch fuer den Probetermin." rows={5} />
-                </div>
-                <SubmitButton idleLabel="Probetermin anfragen" pendingLabel="Wird gesendet..." />
-              </form>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
-      {profile?.role === "owner" ? (
-        <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
-          <p className="text-sm text-stone-600">Du bist als Pferdehalter angemeldet. Probetermine verwaltest du unter deinen Anfragen.</p>
-          <Link className="mt-3 inline-flex min-h-[44px] items-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800" href="/owner/anfragen">
-            Zu den Anfragen
-          </Link>
-        </section>
+            </div>
+          ) : null}
+
+          {canRequest ? (
+            <form action={requestTrialAction} className="space-y-4" id="probetermin">
+              <input name="horseId" type="hidden" value={horse.id} />
+              <div>
+                <label htmlFor="message">Nachricht (optional)</label>
+                <textarea
+                  id="message"
+                  name="message"
+                  placeholder="Stelle dich kurz vor und nenne deinen Wunsch fuer den Probetermin."
+                  rows={5}
+                />
+              </div>
+              <SubmitButton idleLabel="Probetermin anfragen" pendingLabel="Wird gesendet..." />
+            </form>
+          ) : null}
+
+          {!approved && !latestRequest && !canRequest ? (
+            <EmptyState
+              description="Aktuell kannst du fuer dieses Pferd keinen neuen Probetermin anfragen."
+              title="Anfrage derzeit nicht moeglich"
+            />
+          ) : null}
+        </SectionCard>
       ) : null}
     </div>
   );
