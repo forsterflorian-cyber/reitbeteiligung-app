@@ -40,6 +40,35 @@ type CalendarOccupancyRow = {
   end_at: string;
 };
 
+type TimelineTone = "available" | "occupied" | "pending";
+
+type TimelineSegment = {
+  key: string;
+  left: number;
+  width: number;
+  title: string;
+  tone: TimelineTone;
+};
+
+type TimelineLane = {
+  key: string;
+  label: string;
+  tone: TimelineTone;
+  segments: TimelineSegment[];
+};
+
+type TimelineDayRow = {
+  key: string;
+  label: string;
+  meta: string;
+  isToday: boolean;
+  lanes: TimelineLane[];
+};
+
+const CALENDAR_TIMELINE_DAY_COUNT = 7;
+const CALENDAR_TIMELINE_START_HOUR = 8;
+const CALENDAR_TIMELINE_END_HOUR = 22;
+
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("de-DE", {
     dateStyle: "medium",
@@ -51,6 +80,13 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat("de-DE", {
     day: "2-digit",
     month: "short"
+  }).format(new Date(value));
+}
+
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat("de-DE", {
+    hour: "2-digit",
+    minute: "2-digit"
   }).format(new Date(value));
 }
 
@@ -100,6 +136,108 @@ function buildUpcomingDays(count: number) {
   }
 
   return days;
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function buildTimelineHours() {
+  const hours: number[] = [];
+
+  for (let hour = CALENDAR_TIMELINE_START_HOUR; hour < CALENDAR_TIMELINE_END_HOUR; hour += 1) {
+    hours.push(hour);
+  }
+
+  return hours;
+}
+
+function timelineToneClassName(tone: TimelineTone) {
+  if (tone === "available") {
+    return "border-emerald-200 bg-emerald-100 text-emerald-900";
+  }
+
+  if (tone === "pending") {
+    return "border-amber-200 bg-amber-100 text-amber-900";
+  }
+
+  return "border-rose-200 bg-rose-100 text-rose-900";
+}
+
+function buildTimelineSegment(dayDate: Date, startAt: string, endAt: string, title: string, tone: TimelineTone, key: string) {
+  const visibleWindowStart = new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate(), CALENDAR_TIMELINE_START_HOUR, 0, 0, 0);
+  const visibleWindowEnd = new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate(), CALENDAR_TIMELINE_END_HOUR, 0, 0, 0);
+  const startTime = Math.max(new Date(startAt).getTime(), visibleWindowStart.getTime());
+  const endTime = Math.min(new Date(endAt).getTime(), visibleWindowEnd.getTime());
+
+  if (endTime <= startTime) {
+    return null;
+  }
+
+  const totalVisibleMinutes = (CALENDAR_TIMELINE_END_HOUR - CALENDAR_TIMELINE_START_HOUR) * 60;
+  const startOffsetMinutes = (startTime - visibleWindowStart.getTime()) / 60000;
+  const durationMinutes = (endTime - startTime) / 60000;
+
+  return {
+    key,
+    left: clampNumber((startOffsetMinutes / totalVisibleMinutes) * 100, 0, 100),
+    width: clampNumber((durationMinutes / totalVisibleMinutes) * 100, 2.5, 100),
+    title,
+    tone
+  } satisfies TimelineSegment;
+}
+
+function buildTimelineRows({
+  days,
+  rules,
+  occupancy,
+  pendingRequests,
+  includePendingLane
+}: {
+  days: Date[];
+  rules: AvailabilityRule[];
+  occupancy: CalendarOccupancyRow[];
+  pendingRequests: BookingRequest[];
+  includePendingLane: boolean;
+}) {
+  const weekdayFormatter = new Intl.DateTimeFormat("de-DE", { weekday: "long" });
+  const dateFormatter = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "long" });
+  const todayKey = toDayKey(new Date());
+
+  return days.map((dayDate) => {
+    // Feste Stundenraster machen freie Zeiten, Belegung und offene Anfragen direkt vergleichbar.
+    const availableSegments = rules
+      .filter((rule) => overlapsDay(rule.start_at, rule.end_at, dayDate))
+      .map((rule) => buildTimelineSegment(dayDate, rule.start_at, rule.end_at, `Verfügbar ${formatTime(rule.start_at)}–${formatTime(rule.end_at)}`, "available", rule.id))
+      .filter((segment): segment is TimelineSegment => Boolean(segment));
+
+    const occupiedSegments = occupancy
+      .filter((entry) => overlapsDay(entry.start_at, entry.end_at, dayDate))
+      .map((entry, index) => buildTimelineSegment(dayDate, entry.start_at, entry.end_at, `Belegt ${formatTime(entry.start_at)}–${formatTime(entry.end_at)}`, "occupied", `${entry.source}-${entry.start_at}-${entry.end_at}-${index}`))
+      .filter((segment): segment is TimelineSegment => Boolean(segment));
+
+    const pendingSegments = pendingRequests
+      .filter((request) => request.requested_start_at && request.requested_end_at && overlapsDay(request.requested_start_at, request.requested_end_at, dayDate))
+      .map((request) => buildTimelineSegment(dayDate, request.requested_start_at as string, request.requested_end_at as string, `Anfrage ${formatTime(request.requested_start_at as string)}–${formatTime(request.requested_end_at as string)}`, "pending", request.id))
+      .filter((segment): segment is TimelineSegment => Boolean(segment));
+
+    const lanes: TimelineLane[] = [
+      { key: "available", label: "Verfügbar", tone: "available", segments: availableSegments },
+      { key: "occupied", label: "Belegt", tone: "occupied", segments: occupiedSegments }
+    ];
+
+    if (includePendingLane) {
+      lanes.push({ key: "pending", label: "Anfragen", tone: "pending", segments: pendingSegments });
+    }
+
+    return {
+      key: toDayKey(dayDate),
+      label: weekdayFormatter.format(dayDate),
+      meta: dateFormatter.format(dayDate),
+      isToday: toDayKey(dayDate) === todayKey,
+      lanes
+    } satisfies TimelineDayRow;
+  });
 }
 
 export default async function PferdKalenderPage({ params, searchParams }: PferdKalenderPageProps) {
@@ -170,29 +308,15 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const ownerBookingRequests = (ownerBookingRequestsResult.data as BookingRequest[] | null) ?? [];
   const riderBookingRequests = (riderBookingRequestsResult.data as BookingRequest[] | null) ?? [];
   const ruleMap = new Map(rules.map((rule) => [rule.id, rule]));
-  const upcomingDays = buildUpcomingDays(14);
-
-  const dayOverview = upcomingDays.map((day) => {
-    const occupiedCount = occupancy.filter((entry) => overlapsDay(entry.start_at, entry.end_at, day)).length;
-    const availableCount = rules.filter((rule) => overlapsDay(rule.start_at, rule.end_at, day)).length;
-    const requestCount = ownerBookingRequests.filter(
-      (request) =>
-        request.status === "requested" &&
-        request.requested_start_at &&
-        request.requested_end_at &&
-        overlapsDay(request.requested_start_at, request.requested_end_at, day)
-    ).length;
-
-    return {
-      availableCount,
-      date: day,
-      isToday: toDayKey(day) === toDayKey(new Date()),
-      occupiedCount,
-      requestCount
-    };
-  });
-
   const requestedOwnerBookingItems = ownerBookingRequests.filter((request) => request.status === "requested");
+  const timelineHours = buildTimelineHours();
+  const timelineRows = buildTimelineRows({
+    days: buildUpcomingDays(CALENDAR_TIMELINE_DAY_COUNT),
+    includePendingLane: isOwner,
+    occupancy,
+    pendingRequests: requestedOwnerBookingItems,
+    rules
+  });
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -231,45 +355,80 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         </div>
       </div>
 
-      <SectionCard subtitle="Schneller Überblick über freie Zeiten, belegte Bereiche und offene Anfragen." title="Nächste 14 Tage">
+      <SectionCard
+        subtitle="Wie im Planungsassistenten: Tage links, Uhrzeiten oben und freie, belegte oder angefragte Zeiten direkt in einer Zeitleiste."
+        title={`Wochenplanung für ${horse.title}`}
+      >
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            <Badge tone="approved">Freie Fenster</Badge>
-            <Badge tone="rejected">Belegt</Badge>
-            {isOwner ? <Badge tone="pending">Anfrage wartet</Badge> : null}
+            <Badge tone="approved">Verfügbare Zeiten</Badge>
+            <Badge tone="rejected">Belegte Zeiten</Badge>
+            {isOwner ? <Badge tone="pending">Offene Anfragen</Badge> : null}
           </div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
-            {dayOverview.map((day) => (
-              <Card className={day.isToday ? "border-stone-300 bg-sand p-3" : "p-3"} key={toDayKey(day.date)}>
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-stone-500">
-                        {day.date.toLocaleDateString("de-DE", { weekday: "short" })}
-                      </p>
-                      <p className="mt-1 text-lg font-semibold text-stone-900">{formatDate(day.date.toISOString())}</p>
-                    </div>
-                    {day.isToday ? <Badge tone="approved">Heute</Badge> : null}
-                  </div>
-                  <div className="space-y-2 text-xs font-semibold">
-                    <div className="flex items-center justify-between rounded-xl bg-sand px-3 py-2 text-forest">
-                      <span>Frei</span>
-                      <span>{day.availableCount}</span>
-                    </div>
-                    <div className="flex items-center justify-between rounded-xl bg-rose-50 px-3 py-2 text-rose-700">
-                      <span>Belegt</span>
-                      <span>{day.occupiedCount}</span>
-                    </div>
-                    {isOwner ? (
-                      <div className="flex items-center justify-between rounded-xl bg-amber-50 px-3 py-2 text-amber-700">
-                        <span>Anfragen</span>
-                        <span>{day.requestCount}</span>
-                      </div>
-                    ) : null}
-                  </div>
+
+          <div className="overflow-x-auto">
+            <div className="min-w-[980px] rounded-2xl border border-stone-200 bg-white shadow-sm">
+              <div className="grid grid-cols-[180px_minmax(0,1fr)] border-b border-stone-200 bg-stone-50/80">
+                <div className="border-r border-stone-200 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Tag & Spur</p>
                 </div>
-              </Card>
-            ))}
+                <div className="grid" style={{ gridTemplateColumns: `repeat(${timelineHours.length}, minmax(72px, 1fr))` }}>
+                  {timelineHours.map((hour) => (
+                    <div className="border-r border-stone-200/70 px-3 py-3 text-xs font-semibold text-stone-500 last:border-r-0" key={hour}>
+                      {`${String(hour).padStart(2, "0")}:00`}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="divide-y divide-stone-200">
+                {timelineRows.map((row) => (
+                  <div className="grid grid-cols-[180px_minmax(0,1fr)]" key={row.key}>
+                    <div className="border-r border-stone-200 px-4 py-4">
+                      <div className="space-y-2">
+                        <p className="text-sm font-semibold capitalize text-stone-900">{row.label}</p>
+                        <p className="text-xs text-stone-500">{row.meta}</p>
+                        {row.isToday ? <Badge tone="info">Heute</Badge> : null}
+                      </div>
+                    </div>
+
+                    <div className="divide-y divide-stone-200/80">
+                      {row.lanes.map((lane) => (
+                        <div className="grid grid-cols-[108px_minmax(0,1fr)]" key={`${row.key}-${lane.key}`}>
+                          <div className="border-r border-stone-200 bg-stone-50/60 px-3 py-4">
+                            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500">{lane.label}</span>
+                          </div>
+                          <div className="px-3 py-3">
+                            <div className="relative min-h-[44px]">
+                              <div className="pointer-events-none absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${timelineHours.length}, minmax(0, 1fr))` }}>
+                                {timelineHours.map((hour) => (
+                                  <div className="border-r border-stone-100 last:border-r-0" key={`${row.key}-${lane.key}-${hour}`} />
+                                ))}
+                              </div>
+
+                              {lane.segments.length === 0 ? (
+                                <div className="relative z-10 flex h-11 items-center text-xs text-stone-400">Keine Einträge</div>
+                              ) : (
+                                lane.segments.map((segment) => (
+                                  <div
+                                    className={`absolute top-1/2 z-10 flex h-11 -translate-y-1/2 items-center overflow-hidden rounded-xl border px-3 text-xs font-semibold shadow-sm ${timelineToneClassName(segment.tone)}`}
+                                    key={segment.key}
+                                    style={{ left: `${segment.left}%`, width: `${segment.width}%` }}
+                                    title={segment.title}
+                                  >
+                                    <span className="truncate">{segment.title}</span>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </SectionCard>
@@ -278,11 +437,11 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         <div className="space-y-5">
           <SectionCard
             subtitle="Gebuchte Termine und blockierte Zeiten werden hier gesammelt als belegt dargestellt."
-            title="Belegte Zeitraeume"
+            title="Belegte Zeiträume"
           >
             <div className="space-y-3">
               {occupancy.length === 0 ? (
-                <EmptyState description="Aktuell sind keine belegten Zeitraeume eingetragen." title="Noch nichts belegt" />
+                <EmptyState description="Aktuell sind keine belegten Zeiträume eingetragen." title="Noch nichts belegt" />
               ) : (
                 occupancy.map((entry, index) => (
                   <Card className="p-4" key={`${entry.source}-${entry.start_at}-${entry.end_at}-${index}`}>
@@ -300,7 +459,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           </SectionCard>
 
           <SectionCard
-            subtitle="Innerhalb dieser Zeitfenster koennen freigeschaltete Reiter einen einzelnen Termin anfragen."
+            subtitle="Innerhalb dieser Zeitfenster können freigeschaltete Reiter einen einzelnen Termin anfragen."
             title="Verfügbare Zeitfenster"
           >
             <div className="space-y-3">
@@ -366,7 +525,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                 ) : (
                   <EmptyState
                     description="Aktuell gibt es keine offenen Verfügbarkeitsfenster für dieses Pferd."
-                    title="Kein Zeitfenster verfuegbar"
+                    title="Kein Zeitfenster verfügbar"
                   />
                 )
               ) : (
@@ -522,7 +681,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                                       ? formatDateRange(request.requested_start_at, request.requested_end_at)
                                       : "Zeitpunkt wird geprüft"}
                                   </p>
-                                  <p className="text-sm text-stone-600">Reiter {request.rider_id.slice(0, 8)}</p>
+                                  <p className="text-sm text-stone-600">Reiter-ID {request.rider_id.slice(0, 8)}</p>
                                   <p className="text-sm text-stone-600">{rule ? `Fenster: ${ruleLabel(rule)}` : "Kein Zeitfenster mehr vorhanden."}</p>
                                 </div>
                                 <StatusBadge status={request.status} />
