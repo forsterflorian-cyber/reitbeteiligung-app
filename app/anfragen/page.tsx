@@ -65,7 +65,7 @@ export default async function AnfragenPage({
   const [{ data: trialData }, { data: bookingData }] = await Promise.all([
     supabase
       .from("trial_requests")
-      .select("id, horse_id, rider_id, status, message, created_at")
+      .select("id, horse_id, rider_id, status, message, availability_rule_id, requested_start_at, requested_end_at, created_at")
       .eq("rider_id", user.id)
       .order("created_at", { ascending: false })
       .limit(12),
@@ -173,6 +173,9 @@ export default async function AnfragenPage({
                       <p className="font-semibold text-ink">{horse?.title ?? "Pferdeprofil nicht gefunden"}</p>
                       <p className="text-sm text-stone-600">{horse ? `Pferdehalter: ${ownerName}` : "Pferdeprofil nicht mehr verfügbar"}</p>
                     </div>
+                    {request.requested_start_at && request.requested_end_at ? (
+                      <p className="text-sm font-semibold text-ink">{formatDateRange(request.requested_start_at, request.requested_end_at)}</p>
+                    ) : null}
                     <p className="text-sm leading-6 text-stone-600">{request.message ?? "Keine Nachricht hinterlegt."}</p>
                     <div className="flex flex-wrap gap-2">
                       <StatusBadge status={request.status} />

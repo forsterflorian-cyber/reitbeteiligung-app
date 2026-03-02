@@ -37,6 +37,19 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+function formatDateTimeRange(startAt: string | null | undefined, endAt: string | null | undefined) {
+  if (!startAt || !endAt) {
+    return null;
+  }
+
+  return `${new Intl.DateTimeFormat("de-DE", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(new Date(startAt))} bis ${new Intl.DateTimeFormat("de-DE", {
+    timeStyle: "short"
+  }).format(new Date(endAt))}`;
+}
+
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const { profile, supabase, user } = await requireProfile();
   const message = readSearchParam(searchParams, "message");
@@ -65,7 +78,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       const [{ data: trialsData }, { data: bookingData }, { data: approvalsData }] = await Promise.all([
         supabase
           .from("trial_requests")
-          .select("id, horse_id, rider_id, status, message, created_at")
+          .select("id, horse_id, rider_id, status, message, availability_rule_id, requested_start_at, requested_end_at, created_at")
           .in("horse_id", horseIds)
           .eq("status", "requested")
           .order("created_at", { ascending: false })
@@ -126,7 +139,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     const pendingRequestCards: DashboardRequestCard[] = [
       ...pendingTrialRequests.map((request) => ({
         ctaLabel: "Details",
-        description: request.message?.trim() || "Keine Nachricht hinterlegt.",
+        description:
+        formatDateTimeRange(request.requested_start_at, request.requested_end_at) ??
+        request.message?.trim() ??
+        "Keine Nachricht hinterlegt.",
         eyebrow: "Probetermin",
         href: ownerRequestsHref,
         meta: formatDate(request.created_at),
@@ -250,7 +266,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     supabase.from("rider_profiles").select("user_id").eq("user_id", user.id).maybeSingle(),
     supabase
       .from("trial_requests")
-      .select("id, horse_id, rider_id, status, message, created_at")
+      .select("id, horse_id, rider_id, status, message, availability_rule_id, requested_start_at, requested_end_at, created_at")
       .eq("rider_id", user.id)
       .order("created_at", { ascending: false })
       .limit(5)
@@ -339,7 +355,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               return (
                 <RequestCard
                   ctaLabel="Details"
-                  description={trial.message?.trim() || "Keine Nachricht hinterlegt."}
+                  description={formatDateTimeRange(trial.requested_start_at, trial.requested_end_at) ?? trial.message?.trim() ?? "Keine Nachricht hinterlegt."}
                   eyebrow={horse?.plz ? `PLZ ${horse.plz}` : "Pferdeprofil"}
                   href={riderRequestsHref}
                   key={trial.id}

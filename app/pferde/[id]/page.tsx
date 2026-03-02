@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { isApproved } from "@/lib/approvals";
+import { getUpcomingTrialSlots, type TrialSlot } from "@/lib/trial-slots";
 import { getProfileByUserId } from "@/lib/auth";
 import {
   HORSE_IMAGE_SELECT_FIELDS,
@@ -22,14 +23,14 @@ import {
 } from "@/lib/horses";
 import { readSearchParam } from "@/lib/search-params";
 import { createClient } from "@/lib/supabase/server";
-import type { Horse, HorseImage, TrialRequest, TrialRequestStatus } from "@/types/database";
+import type { AvailabilityRule, Horse, HorseImage, TrialRequest, TrialRequestStatus } from "@/types/database";
 
 function riderStatusText(status: TrialRequestStatus) {
   switch (status) {
     case "requested":
       return "Deine Anfrage ist eingegangen. Der Pferdehalter entscheidet als Nächstes.";
     case "accepted":
-      return "Der Probetermin wurde angenommen. Vereinbart jetzt die Durchfuehrung.";
+      return "Der Probetermin wurde angenommen. Vereinbart jetzt die Durchführung.";
     case "completed":
       return "Der Probetermin wurde als durchgeführt markiert. Warte jetzt auf die Freischaltung.";
     case "declined":
@@ -37,6 +38,15 @@ function riderStatusText(status: TrialRequestStatus) {
     default:
       return null;
   }
+}
+
+function formatTrialSlotRange(startAt: string, endAt: string) {
+  return `${new Intl.DateTimeFormat("de-DE", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(new Date(startAt))} bis ${new Intl.DateTimeFormat("de-DE", {
+    timeStyle: "short"
+  }).format(new Date(endAt))}`;
 }
 
 function horseFacts(horse: Horse) {
@@ -97,23 +107,56 @@ export default async function PferdDetailPage({
 
   let latestRequest: TrialRequest | null = null;
   let approved = false;
+  let trialSlots: TrialSlot[] = [];
 
   // Only the current rider's latest trial request matters for the CTA state.
   if (profile?.role === "rider" && user) {
-    const { data: requestData } = await supabase
-      .from("trial_requests")
-      .select("id, horse_id, rider_id, status, message, created_at")
-      .eq("horse_id", horse.id)
-      .eq("rider_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const nowIso = new Date().toISOString();
+    const [{ data: requestData }, { data: ruleData }, { data: occupancyData }, { data: reservedTrialData }] = await Promise.all([
+      supabase
+        .from("trial_requests")
+        .select("id, horse_id, rider_id, status, message, availability_rule_id, requested_start_at, requested_end_at, created_at")
+        .eq("horse_id", horse.id)
+        .eq("rider_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("availability_rules")
+        .select("id, horse_id, slot_id, start_at, end_at, active, created_at")
+        .eq("horse_id", horse.id)
+        .eq("active", true)
+        .gte("end_at", nowIso)
+        .order("start_at", { ascending: true })
+        .limit(24),
+      supabase.rpc("get_horse_calendar_occupancy", {
+        p_horse_id: horse.id
+      }),
+      supabase
+        .from("trial_requests")
+        .select("availability_rule_id, requested_start_at, requested_end_at, status")
+        .eq("horse_id", horse.id)
+        .neq("status", "declined")
+    ]);
 
     latestRequest = (requestData as TrialRequest | null) ?? null;
     approved = await isApproved(horse.id, user.id, supabase);
+
+    trialSlots = !approved && (!latestRequest || latestRequest.status === "declined")
+      ? getUpcomingTrialSlots({
+          occupiedRanges: ((occupancyData as Array<{ start_at: string; end_at: string }> | null) ?? []),
+          reservedRequests: ((reservedTrialData as Array<Pick<TrialRequest, "availability_rule_id" | "requested_start_at" | "requested_end_at" | "status">> | null) ?? []),
+          rules: ((ruleData as AvailabilityRule[] | null) ?? [])
+        })
+      : [];
   }
 
-  const canRequest = profile?.role === "rider" && (!latestRequest || latestRequest.status === "declined") && !approved;
+  const latestRequestedSlotLabel =
+    latestRequest?.requested_start_at && latestRequest?.requested_end_at
+      ? formatTrialSlotRange(latestRequest.requested_start_at, latestRequest.requested_end_at)
+      : null;
+  const canSelectTrialSlot = profile?.role === "rider" && !approved && (!latestRequest || latestRequest.status === "declined");
+  const canRequest = canSelectTrialSlot && trialSlots.length > 0;
   const facts = horseFacts(horse);
   const calendarHref = `/pferde/${horse.id}/kalender` as Route;
 
@@ -213,7 +256,7 @@ export default async function PferdDetailPage({
 
       <SectionCard subtitle="Das Pferdeprofil in ganzen Saetzen, ohne dass du dich durch Nachrichten suchen musst." title="Beschreibung">
         <p className="text-sm leading-7 text-stone-600 sm:text-base">
-          {horse.description?.trim() || "Fuer dieses Pferdeprofil liegt noch keine Beschreibung vor."}
+          {horse.description?.trim() || "Für dieses Pferdeprofil liegt noch keine Beschreibung vor."}
         </p>
       </SectionCard>
 
@@ -228,8 +271,11 @@ export default async function PferdDetailPage({
               <div className="space-y-3">
                 <StatusBadge status="approved" />
                 <p className="text-sm leading-6 text-stone-600">
-                  Du bist für dieses Pferd bereits freigeschaltet und kannst später freie Termine anfragen.
+                  Du bist für dieses Pferd bereits freigeschaltet. Konkrete Reittermine fragst du jetzt im Kalender an.
                 </p>
+                <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href={calendarHref}>
+                  Zum Kalender
+                </Link>
               </div>
             </div>
           ) : null}
@@ -238,6 +284,7 @@ export default async function PferdDetailPage({
             <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
               <div className="space-y-3">
                 <StatusBadge status={latestRequest.status} />
+                {latestRequestedSlotLabel ? <p className="text-sm font-semibold text-stone-900">{latestRequestedSlotLabel}</p> : null}
                 <p className="text-sm leading-6 text-stone-600">{riderStatusText(latestRequest.status)}</p>
               </div>
             </div>
@@ -246,23 +293,45 @@ export default async function PferdDetailPage({
           {canRequest ? (
             <form action={requestTrialAction} className="space-y-4" id="probetermin">
               <input name="horseId" type="hidden" value={horse.id} />
+              <div className="space-y-2">
+                <label>Die nächsten freien Probetermine</label>
+                <div className="space-y-2">
+                  {trialSlots.map((slot, index) => (
+                    <label className="block" key={slot.availabilityRuleId}>
+                      <input
+                        className="peer sr-only"
+                        defaultChecked={index === 0}
+                        name="availabilityRuleId"
+                        required
+                        type="radio"
+                        value={slot.availabilityRuleId}
+                      />
+                      <span className="flex min-h-[52px] items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                        <span>{formatTrialSlotRange(slot.startAt, slot.endAt)}</span>
+                        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500 peer-checked:text-forest">Auswählen</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-sm text-stone-600">Die nächsten 10 freien Termine werden direkt aus dem Kalender übernommen.</p>
+              </div>
               <div>
                 <label htmlFor="message">Nachricht (optional)</label>
                 <textarea
                   id="message"
                   name="message"
-                  placeholder="Stelle dich kurz vor und nenne deinen Wunsch für den Probetermin."
-                  rows={5}
+                  placeholder="Stelle dich kurz vor oder gib einen wichtigen Hinweis zum Probetermin mit."
+                  rows={4}
                 />
               </div>
               <SubmitButton idleLabel="Probetermin anfragen" pendingLabel="Wird gesendet..." />
             </form>
           ) : null}
 
-          {!approved && !latestRequest && !canRequest ? (
+          {canSelectTrialSlot && !canRequest ? (
             <EmptyState
-              description="Aktuell kannst du für dieses Pferd keinen neuen Probetermin anfragen."
-              title="Anfrage derzeit nicht möglich"
+              description="Aktuell sind keine konkreten Probetermine freigeschaltet. Schau später erneut vorbei oder öffne den Kalender."
+              title="Noch keine Probetermine verfügbar"
             />
           ) : null}
         </SectionCard>

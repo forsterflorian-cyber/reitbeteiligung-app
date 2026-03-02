@@ -50,6 +50,9 @@ export type TrialRequest = {
   rider_id: string;
   status: TrialRequestStatus;
   message: string | null;
+  availability_rule_id?: string | null;
+  requested_start_at?: string | null;
+  requested_end_at?: string | null;
   created_at: string;
 };
 

@@ -584,45 +584,90 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                           <p className="ui-eyebrow">Standardzeiten</p>
                           <p className="mt-2 ui-inline-meta">Das gewählte Wochenmuster wird für die nächsten 8 Wochen als Verfügbarkeit angelegt.</p>
                         </div>
-                        <div>
-                          <label htmlFor="availabilityPreset">Wochenmuster</label>
-                          <select defaultValue="weekdays" id="availabilityPreset" name="availabilityPreset" required>
-                            <option value="daily">Jeden Tag</option>
-                            <option value="weekdays">Nur unter der Woche</option>
-                            <option value="weekends">Nur am Wochenende</option>
-                            <option value="custom">Eigene Wochentage</option>
-                          </select>
-                        </div>
                         <fieldset className="space-y-3">
-                          <legend className="text-sm font-medium text-stone-900">Eigene Wochentage (nur für „Eigene Wochentage“)</legend>
-                          <div className="ui-choice-grid">
-                            <label className="ui-choice-chip">
-                              <input name="weekday" type="checkbox" value="1" />
-                              <span>Montag</span>
+                          <legend className="text-sm font-medium text-stone-900">Wochenmuster</legend>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <label className="block">
+                              <input className="peer sr-only" defaultChecked name="availabilityPreset" type="radio" value="weekdays" />
+                              <span className="flex min-h-[52px] flex-col justify-center rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                                <span>Werktage</span>
+                                <span className="mt-1 text-xs text-stone-500 peer-checked:text-forest">Montag bis Freitag</span>
+                              </span>
                             </label>
-                            <label className="ui-choice-chip">
-                              <input name="weekday" type="checkbox" value="2" />
-                              <span>Dienstag</span>
+                            <label className="block">
+                              <input className="peer sr-only" name="availabilityPreset" type="radio" value="daily" />
+                              <span className="flex min-h-[52px] flex-col justify-center rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                                <span>Jeden Tag</span>
+                                <span className="mt-1 text-xs text-stone-500 peer-checked:text-forest">Für die komplette Woche</span>
+                              </span>
                             </label>
-                            <label className="ui-choice-chip">
-                              <input name="weekday" type="checkbox" value="3" />
-                              <span>Mittwoch</span>
+                            <label className="block">
+                              <input className="peer sr-only" name="availabilityPreset" type="radio" value="weekends" />
+                              <span className="flex min-h-[52px] flex-col justify-center rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                                <span>Wochenende</span>
+                                <span className="mt-1 text-xs text-stone-500 peer-checked:text-forest">Samstag und Sonntag</span>
+                              </span>
                             </label>
-                            <label className="ui-choice-chip">
-                              <input name="weekday" type="checkbox" value="4" />
-                              <span>Donnerstag</span>
+                            <label className="block">
+                              <input className="peer sr-only" name="availabilityPreset" type="radio" value="custom" />
+                              <span className="flex min-h-[52px] flex-col justify-center rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                                <span>Eigene Tage</span>
+                                <span className="mt-1 text-xs text-stone-500 peer-checked:text-forest">Nur die Auswahl unten</span>
+                              </span>
                             </label>
-                            <label className="ui-choice-chip">
-                              <input name="weekday" type="checkbox" value="5" />
-                              <span>Freitag</span>
+                          </div>
+                        </fieldset>
+                        <fieldset className="space-y-3">
+                          <legend className="text-sm font-medium text-stone-900">Wochenraster für eigene Tage</legend>
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                            <label className="block">
+                              <input className="peer sr-only" name="weekday" type="checkbox" value="1" />
+                              <span className="flex min-h-[84px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                                <span>Mo</span>
+                                <span className="text-xs text-stone-500 peer-checked:text-forest">Montag</span>
+                              </span>
                             </label>
-                            <label className="ui-choice-chip">
-                              <input name="weekday" type="checkbox" value="6" />
-                              <span>Samstag</span>
+                            <label className="block">
+                              <input className="peer sr-only" name="weekday" type="checkbox" value="2" />
+                              <span className="flex min-h-[84px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                                <span>Di</span>
+                                <span className="text-xs text-stone-500 peer-checked:text-forest">Dienstag</span>
+                              </span>
                             </label>
-                            <label className="ui-choice-chip sm:col-span-2">
-                              <input name="weekday" type="checkbox" value="0" />
-                              <span>Sonntag</span>
+                            <label className="block">
+                              <input className="peer sr-only" name="weekday" type="checkbox" value="3" />
+                              <span className="flex min-h-[84px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                                <span>Mi</span>
+                                <span className="text-xs text-stone-500 peer-checked:text-forest">Mittwoch</span>
+                              </span>
+                            </label>
+                            <label className="block">
+                              <input className="peer sr-only" name="weekday" type="checkbox" value="4" />
+                              <span className="flex min-h-[84px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                                <span>Do</span>
+                                <span className="text-xs text-stone-500 peer-checked:text-forest">Donnerstag</span>
+                              </span>
+                            </label>
+                            <label className="block">
+                              <input className="peer sr-only" name="weekday" type="checkbox" value="5" />
+                              <span className="flex min-h-[84px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                                <span>Fr</span>
+                                <span className="text-xs text-stone-500 peer-checked:text-forest">Freitag</span>
+                              </span>
+                            </label>
+                            <label className="block">
+                              <input className="peer sr-only" name="weekday" type="checkbox" value="6" />
+                              <span className="flex min-h-[84px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                                <span>Sa</span>
+                                <span className="text-xs text-stone-500 peer-checked:text-forest">Samstag</span>
+                              </span>
+                            </label>
+                            <label className="block">
+                              <input className="peer sr-only" name="weekday" type="checkbox" value="0" />
+                              <span className="flex min-h-[84px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                                <span>So</span>
+                                <span className="text-xs text-stone-500 peer-checked:text-forest">Sonntag</span>
+                              </span>
                             </label>
                           </div>
                         </fieldset>
@@ -783,6 +828,3 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     </div>
   );
 }
-
-
-
