@@ -354,6 +354,42 @@ export async function saveHorseAction(formData: FormData) {
   redirectWithMessage("/owner/horses", "message", "Die Reitbeteiligung wurde gespeichert.");
 }
 
+export async function deleteHorseAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const horseId = asString(formData.get("horseId"));
+
+  if (!horseId) {
+    redirectWithMessage("/owner/horses", "error", "Das Pferdeprofil konnte nicht gefunden werden.");
+  }
+
+  const { data: horse } = await supabase
+    .from("horses")
+    .select("id")
+    .eq("id", horseId)
+    .eq("owner_id", user.id)
+    .maybeSingle();
+
+  if (!horse) {
+    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Pferdeprofile loeschen.");
+  }
+
+  const { error } = await supabase.rpc("delete_owner_horse", {
+    p_horse_id: horseId
+  });
+
+  if (error) {
+    logSupabaseError("Horse delete failed", error);
+    redirectWithMessage("/owner/horses", "error", "Pferdeprofil konnte nicht geloescht werden.");
+  }
+
+  revalidatePath("/owner/horses");
+  revalidatePath("/dashboard");
+  revalidatePath("/suchen");
+  revalidatePath("/owner/anfragen");
+  revalidatePath("/anfragen");
+  redirectWithMessage("/owner/horses", "message", "Das Pferdeprofil wurde geloescht.");
+}
+
 export async function saveRiderProfileAction(formData: FormData) {
   const { supabase, user } = await requireProfile("rider");
   const experience = asOptionalString(formData.get("experience"));

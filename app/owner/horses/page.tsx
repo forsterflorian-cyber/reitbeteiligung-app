@@ -1,4 +1,5 @@
-﻿import { saveHorseAction } from "@/app/actions";
+import { deleteHorseAction, saveHorseAction } from "@/app/actions";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
 import { requireProfile } from "@/lib/auth";
@@ -8,6 +9,9 @@ import type { Horse } from "@/types/database";
 type OwnerHorsesPageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
 };
+
+const deletePrompt =
+  "Moechtest du dieses Pferdeprofil wirklich loeschen? Alle Probetermine, Freischaltungen, Verfuegbarkeiten und Chats werden mitgeloescht.";
 
 export default async function OwnerHorsesPage({ searchParams }: OwnerHorsesPageProps) {
   const { supabase, user } = await requireProfile("owner");
@@ -60,9 +64,9 @@ export default async function OwnerHorsesPage({ searchParams }: OwnerHorsesPageP
           </div>
         ) : (
           horses.map((horse) => (
-            <form action={saveHorseAction} className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6" key={horse.id}>
-              <input name="horseId" type="hidden" value={horse.id} />
-              <div className="space-y-4">
+            <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6" key={horse.id}>
+              <form action={saveHorseAction} className="space-y-4">
+                <input name="horseId" type="hidden" value={horse.id} />
                 <div>
                   <label htmlFor={`title-${horse.id}`}>Titel</label>
                   <input defaultValue={horse.title} id={`title-${horse.id}`} name="title" required type="text" />
@@ -80,8 +84,20 @@ export default async function OwnerHorsesPage({ searchParams }: OwnerHorsesPageP
                   Reitbeteiligung freischalten
                 </label>
                 <SubmitButton idleLabel="Reitbeteiligung aktualisieren" pendingLabel="Wird aktualisiert..." />
+              </form>
+              <div className="mt-4 border-t border-stone-200 pt-4">
+                <p className="text-sm text-stone-600">Dieses Pferdeprofil wird inklusive aller zugehoerigen Anfragen, Freischaltungen, Verfuegbarkeiten und Chats geloescht.</p>
+                <form action={deleteHorseAction} className="mt-3">
+                  <input name="horseId" type="hidden" value={horse.id} />
+                  <ConfirmSubmitButton
+                    className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl border border-rose-300 bg-white px-5 py-3 text-base font-semibold text-rose-700 hover:border-rose-400 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-70"
+                    confirmMessage={deletePrompt}
+                    idleLabel="Pferdeprofil loeschen"
+                    pendingLabel="Wird geloescht..."
+                  />
+                </form>
               </div>
-            </form>
+            </div>
           ))
         )}
       </section>
