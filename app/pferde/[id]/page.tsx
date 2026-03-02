@@ -7,8 +7,9 @@ import { StatusBadge } from "@/components/status-badge";
 import { SubmitButton } from "@/components/submit-button";
 import { isApproved } from "@/lib/approvals";
 import { getViewerContext } from "@/lib/auth";
+import { HORSE_IMAGE_SELECT_FIELDS, HORSE_SELECT_FIELDS, getHorseImageUrl } from "@/lib/horses";
 import { readSearchParam } from "@/lib/search-params";
-import type { Horse, TrialRequest, TrialRequestStatus } from "@/types/database";
+import type { Horse, HorseImage, TrialRequest, TrialRequestStatus } from "@/types/database";
 
 function riderStatusText(status: TrialRequestStatus) {
   switch (status) {
@@ -25,6 +26,16 @@ function riderStatusText(status: TrialRequestStatus) {
   }
 }
 
+function horseFacts(horse: Horse) {
+  return [
+    horse.stockmass_cm ? `${horse.stockmass_cm} cm Stockmass` : null,
+    horse.rasse ? `Rasse: ${horse.rasse}` : null,
+    horse.farbe ? `Farbe: ${horse.farbe}` : null,
+    horse.geschlecht ? `Geschlecht: ${horse.geschlecht}` : null,
+    horse.alter ? `Alter: ${horse.alter} Jahre` : null
+  ].filter((value): value is string => Boolean(value));
+}
+
 export default async function PferdDetailPage({
   params,
   searchParams
@@ -35,17 +46,25 @@ export default async function PferdDetailPage({
   const { profile, supabase, user } = await getViewerContext();
   const error = readSearchParam(searchParams, "error");
   const message = readSearchParam(searchParams, "message");
-  const { data } = await supabase
-    .from("horses")
-    .select("id, owner_id, title, plz, description, active, created_at")
-    .eq("id", params.id)
-    .maybeSingle();
+  const { data } = await supabase.from("horses").select(HORSE_SELECT_FIELDS).eq("id", params.id).maybeSingle();
 
   const horse = (data as Horse | null) ?? null;
 
   if (!horse) {
     notFound();
   }
+
+  const { data: imageData } = await supabase
+    .from("horse_images")
+    .select(HORSE_IMAGE_SELECT_FIELDS)
+    .eq("horse_id", horse.id)
+    .order("created_at", { ascending: true })
+    .limit(5);
+
+  const images = ((imageData as HorseImage[] | null) ?? []).map((image) => ({
+    ...image,
+    url: getHorseImageUrl(supabase, image.storage_path)
+  }));
 
   let latestRequest: TrialRequest | null = null;
   let approved = false;
@@ -65,6 +84,7 @@ export default async function PferdDetailPage({
   }
 
   const canRequest = profile?.role === "rider" && (!latestRequest || latestRequest.status === "declined") && !approved;
+  const facts = horseFacts(horse);
 
   return (
     <div className="space-y-5">
@@ -73,13 +93,36 @@ export default async function PferdDetailPage({
       </Link>
       <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
         <div className="space-y-4">
+          {images.length > 0 ? (
+            <div className="space-y-3">
+              <img alt={horse.title} className="h-56 w-full rounded-3xl object-cover" src={images[0].url} />
+              {images.length > 1 ? (
+                <div className="grid grid-cols-4 gap-2">
+                  {images.slice(1).map((image) => (
+                    <img alt={horse.title} className="h-16 w-full rounded-2xl object-cover" key={image.id} src={image.url} />
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Pferdeprofil</p>
             <h1 className="mt-2 text-3xl font-semibold text-forest sm:text-4xl">{horse.title}</h1>
             <p className="mt-2 text-sm text-stone-600">PLZ {horse.plz}</p>
           </div>
+          {facts.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {facts.map((fact) => (
+                <span className="inline-flex rounded-full bg-sand px-3 py-1 text-xs font-semibold text-ink" key={fact}>
+                  {fact}
+                </span>
+              ))}
+            </div>
+          ) : null}
           <p className="text-sm text-stone-600 sm:text-base">{horse.description ?? "Fuer dieses Pferdeprofil liegt noch keine Beschreibung vor."}</p>
-          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${horse.active ? "bg-emerald-100 text-emerald-800" : "bg-stone-200 text-stone-700"}`}>{horse.active ? "Aktiv" : "Nicht aktiv"}</span>
+          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${horse.active ? "bg-emerald-100 text-emerald-800" : "bg-stone-200 text-stone-700"}`}>
+            {horse.active ? "Aktiv" : "Nicht aktiv"}
+          </span>
         </div>
       </section>
       <Notice text={error} tone="error" />
