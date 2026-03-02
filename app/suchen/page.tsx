@@ -2,7 +2,7 @@ import type { Route } from "next";
 import Link from "next/link";
 
 import { Notice } from "@/components/notice";
-import { getViewerContext } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { HORSE_IMAGE_SELECT_FIELDS, HORSE_SELECT_FIELDS, getHorseImageUrl } from "@/lib/horses";
 import type { Horse, HorseImage } from "@/types/database";
 
@@ -16,7 +16,10 @@ function horseFacts(horse: Horse) {
 }
 
 export default async function SuchenPage() {
-  const { user, supabase } = await getViewerContext();
+  const supabase = createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
   const { data } = await supabase
     .from("horses")
     .select(HORSE_SELECT_FIELDS)

@@ -7,7 +7,8 @@ import { Notice } from "@/components/notice";
 import { StatusBadge } from "@/components/status-badge";
 import { SubmitButton } from "@/components/submit-button";
 import { isApproved } from "@/lib/approvals";
-import { getViewerContext } from "@/lib/auth";
+import { getProfileByUserId } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { HORSE_IMAGE_SELECT_FIELDS, HORSE_SELECT_FIELDS, getHorseImageUrl } from "@/lib/horses";
 import { readSearchParam } from "@/lib/search-params";
 import type { Horse, HorseImage, TrialRequest, TrialRequestStatus } from "@/types/database";
@@ -44,7 +45,11 @@ export default async function PferdDetailPage({
   params: { id: string };
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  const { profile, supabase, user } = await getViewerContext();
+  const supabase = createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  const profile = user ? await getProfileByUserId(supabase, user.id) : null;
   const error = readSearchParam(searchParams, "error");
   const message = readSearchParam(searchParams, "message");
   const { data } = await supabase.from("horses").select(HORSE_SELECT_FIELDS).eq("id", params.id).maybeSingle();

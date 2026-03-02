@@ -1,12 +1,14 @@
 import type { Route } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { deleteHorseAction, deleteHorseImageAction, saveHorseAction, uploadHorseImagesAction } from "@/app/actions";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
 import { HORSE_GESCHLECHTER, HORSE_IMAGE_SELECT_FIELDS, HORSE_SELECT_FIELDS, MAX_HORSE_IMAGES, getHorseImageUrl } from "@/lib/horses";
-import { requireProfile } from "@/lib/auth";
+import { getProfileByUserId } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { readSearchParam } from "@/lib/search-params";
 import type { Horse, HorseImage } from "@/types/database";
 
@@ -22,7 +24,27 @@ const deletePrompt =
   "Moechtest du dieses Pferdeprofil wirklich loeschen? Alle Probetermine, Freischaltungen, Verfuegbarkeiten, Kalender-Sperren, Bilder und Chats werden mitgeloescht.";
 
 export default async function OwnerHorsesPage({ searchParams }: OwnerHorsesPageProps) {
-  const { supabase, user } = await requireProfile("owner");
+  const supabase = createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  console.log("[owner/horses] auth user", user.id);
+
+  const profile = await getProfileByUserId(supabase, user.id);
+
+  if (!profile) {
+    redirect("/onboarding");
+  }
+
+  if (profile.role !== "owner") {
+    redirect("/dashboard");
+  }
+
   const error = readSearchParam(searchParams, "error");
   const message = readSearchParam(searchParams, "message");
   const { data } = await supabase

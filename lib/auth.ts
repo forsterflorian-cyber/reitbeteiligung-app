@@ -5,7 +5,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile, UserRole } from "@/types/database";
 
-async function getProfileByUserId(supabase: SupabaseClient, userId: string) {
+export async function getProfileByUserId(supabase: SupabaseClient, userId: string) {
   const { data } = await supabase
     .from("profiles")
     .select("id, role, is_premium, created_at")
