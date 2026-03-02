@@ -6,11 +6,42 @@ import { redirect } from "next/navigation";
 import { requireOnboardingUser, requireProfile } from "@/lib/auth";
 import { asInteger, asOptionalString, asString, isRole } from "@/lib/forms";
 import { createClient } from "@/lib/supabase/server";
+import type { TrialRequest } from "@/types/database";
 
 const PASSWORD_RESET_REDIRECT_URL = "https://reitbeteiligung.app/passwort-zuruecksetzen";
 
+type OwnerRequestRecord = Pick<TrialRequest, "id" | "horse_id" | "rider_id" | "status">;
+
 function redirectWithMessage(path: string, key: "error" | "message", message: string): never {
   redirect(`${path}?${key}=${encodeURIComponent(message)}`);
+}
+
+async function getOwnedTrialRequest(requestId: string, ownerId: string) {
+  const supabase = createClient();
+  const { data: request } = await supabase
+    .from("trial_requests")
+    .select("id, horse_id, rider_id, status")
+    .eq("id", requestId)
+    .maybeSingle();
+
+  const typedRequest = (request as OwnerRequestRecord | null) ?? null;
+
+  if (!typedRequest) {
+    return null;
+  }
+
+  const { data: horse } = await supabase
+    .from("horses")
+    .select("id")
+    .eq("id", typedRequest.horse_id)
+    .eq("owner_id", ownerId)
+    .maybeSingle();
+
+  if (!horse) {
+    return null;
+  }
+
+  return { request: typedRequest, supabase };
 }
 
 export async function signupAction(formData: FormData) {
@@ -92,6 +123,120 @@ export async function requestPasswordResetAction(formData: FormData) {
   );
 }
 
+export async function requestTrialAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("rider");
+  const horseId = asString(formData.get("horseId"));
+  const message = asOptionalString(formData.get("message"));
+
+  if (!horseId) {
+    redirectWithMessage("/suchen", "error", "Das Pferd konnte nicht gefunden werden.");
+  }
+
+  const { data: horse } = await supabase
+    .from("horses")
+    .select("id")
+    .eq("id", horseId)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (!horse) {
+    redirectWithMessage("/suchen", "error", "Dieses Pferd ist aktuell nicht verfuegbar.");
+  }
+
+  const { error } = await supabase.from("trial_requests").insert({
+    horse_id: horseId,
+    message,
+    rider_id: user.id,
+    status: "requested"
+  });
+
+  if (error) {
+    redirectWithMessage(`/pferde/${horseId}`, "error", "Die Anfrage fuer den Probetermin konnte nicht gespeichert werden.");
+  }
+
+  revalidatePath(`/pferde/${horseId}`);
+  revalidatePath("/anfragen");
+  revalidatePath("/owner/anfragen");
+  redirectWithMessage(`/pferde/${horseId}`, "message", "Deine Anfrage fuer den Probetermin wurde gesendet.");
+}
+
+export async function updateTrialRequestStatusAction(formData: FormData) {
+  const { user } = await requireProfile("owner");
+  const requestId = asString(formData.get("requestId"));
+  const nextStatus = asString(formData.get("status"));
+
+  if (!requestId || !["accepted", "declined", "completed"].includes(nextStatus)) {
+    redirectWithMessage("/owner/anfragen", "error", "Die Aktion ist ungueltig.");
+  }
+
+  const record = await getOwnedTrialRequest(requestId, user.id);
+
+  if (!record) {
+    redirectWithMessage("/owner/anfragen", "error", "Die Anfrage konnte nicht gefunden werden.");
+  }
+
+  if (nextStatus === "completed" && record.request.status !== "accepted") {
+    redirectWithMessage("/owner/anfragen", "error", "Nur angenommene Probetermine koennen als durchgefuehrt markiert werden.");
+  }
+
+  if ((nextStatus === "accepted" || nextStatus === "declined") && record.request.status !== "requested") {
+    redirectWithMessage("/owner/anfragen", "error", "Diese Anfrage kann nicht mehr geaendert werden.");
+  }
+
+  const { error } = await record.supabase
+    .from("trial_requests")
+    .update({ status: nextStatus })
+    .eq("id", requestId);
+
+  if (error) {
+    redirectWithMessage("/owner/anfragen", "error", "Der Status konnte nicht aktualisiert werden.");
+  }
+
+  revalidatePath("/owner/anfragen");
+  revalidatePath("/anfragen");
+  redirectWithMessage("/owner/anfragen", "message", "Der Status wurde aktualisiert.");
+}
+
+export async function updateApprovalAction(formData: FormData) {
+  const { user } = await requireProfile("owner");
+  const requestId = asString(formData.get("requestId"));
+  const nextStatus = asString(formData.get("status"));
+
+  if (!requestId || !["approved", "revoked"].includes(nextStatus)) {
+    redirectWithMessage("/owner/anfragen", "error", "Die Freischaltung ist ungueltig.");
+  }
+
+  const record = await getOwnedTrialRequest(requestId, user.id);
+
+  if (!record) {
+    redirectWithMessage("/owner/anfragen", "error", "Die Anfrage konnte nicht gefunden werden.");
+  }
+
+  if (record.request.status !== "completed") {
+    redirectWithMessage("/owner/anfragen", "error", "Nur durchgefuehrte Probetermine koennen freigeschaltet werden.");
+  }
+
+  const { error } = await record.supabase.from("approvals").upsert(
+    {
+      horse_id: record.request.horse_id,
+      rider_id: record.request.rider_id,
+      status: nextStatus
+    },
+    {
+      onConflict: "horse_id,rider_id"
+    }
+  );
+
+  if (error) {
+    redirectWithMessage("/owner/anfragen", "error", "Die Freischaltung konnte nicht gespeichert werden.");
+  }
+
+  revalidatePath("/owner/anfragen");
+  revalidatePath(`/pferde/${record.request.horse_id}`);
+  const successMessage = nextStatus === "approved" ? "Die Reitbeteiligung wurde freigeschaltet." : "Die Freischaltung wurde entzogen.";
+  redirectWithMessage("/owner/anfragen", "message", successMessage);
+}
+
 export async function logoutAction() {
   const supabase = createClient();
   await supabase.auth.signOut();
@@ -157,6 +302,7 @@ export async function saveHorseAction(formData: FormData) {
 
   revalidatePath("/owner/horses");
   revalidatePath("/dashboard");
+  revalidatePath("/suchen");
   redirectWithMessage("/owner/horses", "message", "Die Reitbeteiligung wurde gespeichert.");
 }
 

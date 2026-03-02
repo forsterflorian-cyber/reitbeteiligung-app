@@ -24,7 +24,7 @@ export function AppHeader({ email, profile }: AppHeaderProps) {
           href: profile.role === "owner" ? "/owner/horses" : "/suchen",
           label: profile.role === "owner" ? "Inserat" : "Pferdeprofil"
         },
-        { href: "/anfragen", label: "Anfragen" },
+        { href: profile.role === "owner" ? "/owner/anfragen" : "/anfragen", label: "Anfragen" },
         { href: "/profil", label: "Profil" }
       ]
     : [

@@ -26,15 +26,15 @@ export function MobileNav({ profile }: MobileNavProps) {
           href: profile.role === "owner" ? "/owner/horses" : "/suchen",
           label: profile.role === "owner" ? "Inserat" : "Pferdeprofil"
         },
-        { href: "/anfragen", label: "Anfragen" },
+        { href: profile.role === "owner" ? "/owner/anfragen" : "/anfragen", label: "Anfragen" },
         { href: "/profil", label: "Profil" }
       ]
     : [
         { href: "/", label: "Start" },
         { href: "/suchen", label: "Suchen" },
-        { href: "/owner/horses", label: "Inserat" },
-        { href: "/anfragen", label: "Anfragen" },
-        { href: "/profil", label: "Profil" }
+        { href: "/login", label: "Inserat" },
+        { href: "/login", label: "Anfragen" },
+        { href: "/login", label: "Profil" }
       ];
 
   return (

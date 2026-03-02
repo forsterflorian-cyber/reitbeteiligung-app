@@ -1,4 +1,4 @@
-export type UserRole = "owner" | "rider";
+﻿export type UserRole = "owner" | "rider";
 
 export type Profile = {
   id: string;
@@ -30,6 +30,13 @@ export type TrialRequest = {
   rider_id: string;
   status: string;
   message: string | null;
+  created_at: string;
+};
+
+export type Approval = {
+  horse_id: string;
+  rider_id: string;
+  status: string;
   created_at: string;
 };
 
