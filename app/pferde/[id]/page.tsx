@@ -107,70 +107,89 @@ export default async function PferdDetailPage({
 
   return (
     <div className="space-y-5">
-      <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href="/suchen">
+      <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-blue-800 hover:text-blue-700" href="/suchen">
         Zurueck zur Suche
       </Link>
-      <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
-        <div className="space-y-4">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+        <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
           {images.length > 0 ? (
-            <div className="space-y-3">
-              <img alt={horse.title} className="h-56 w-full rounded-2xl object-cover" src={images[0].url} />
+            <div className="space-y-3 p-3 sm:p-4">
+              <img alt={horse.title} className="h-64 w-full rounded-xl object-cover sm:h-80" src={images[0].url} />
               {images.length > 1 ? (
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                   {images.slice(1).map((image, index) => (
-                    <img alt={`Pferdebild ${index + 2} von ${horse.title}`} className="h-20 w-full rounded-2xl object-cover sm:h-24" key={image.id} src={image.url} />
+                    <img alt={`Pferdebild ${index + 2} von ${horse.title}`} className="h-20 w-full rounded-xl object-cover sm:h-24" key={image.id} src={image.url} />
                   ))}
                 </div>
               ) : null}
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-stone-300 bg-sand p-5 text-sm text-stone-600">Noch keine Bilder hinterlegt.</div>
-          )}
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Pferdeprofil</p>
-            <h1 className="mt-2 text-3xl font-semibold text-forest sm:text-4xl">{horse.title}</h1>
-            <p className="mt-2 text-sm text-stone-600">PLZ {horse.plz}</p>
-          </div>
-          {facts.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {facts.map((fact) => (
-                <span className="inline-flex rounded-full bg-sand px-3 py-1 text-xs font-semibold text-ink" key={fact}>
-                  {fact}
-                </span>
-              ))}
+            <div className="m-4 flex h-64 items-center justify-center rounded-xl border border-dashed border-stone-300 bg-stone-50 text-sm text-stone-600 sm:h-80">
+              Noch keine Bilder hinterlegt.
             </div>
-          ) : null}
-          <p className="text-sm text-stone-600 sm:text-base">{horse.description ?? "Fuer dieses Pferdeprofil liegt noch keine Beschreibung vor."}</p>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          )}
+        </section>
+        <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
+          <div className="bg-gradient-to-r from-blue-800 to-blue-700 px-5 py-4 text-white sm:px-6">
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-blue-100">Pferdeprofil</p>
+            <h1 className="mt-2 text-3xl font-semibold">{horse.title}</h1>
+            <p className="mt-2 text-sm text-blue-50">Standort: {horse.plz}</p>
+          </div>
+          <div className="space-y-4 px-5 py-5 sm:px-6">
+            {facts.length > 0 ? (
+              <div className="space-y-2">
+                {facts.map((fact) => (
+                  <div className="flex items-center gap-2 text-sm text-stone-700" key={fact}>
+                    <span className="h-2.5 w-2.5 rounded-full bg-blue-700" />
+                    <span>{fact}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-stone-600">Zu diesem Pferd liegen noch keine Zusatzangaben vor.</p>
+            )}
             <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${horse.active ? "bg-emerald-100 text-emerald-800" : "bg-stone-200 text-stone-700"}`}>
               {horse.active ? "Aktiv" : "Nicht aktiv"}
             </span>
-            <Link
-              className="inline-flex min-h-[44px] items-center justify-center rounded-2xl border border-stone-300 px-4 py-2 text-sm font-semibold text-ink hover:border-forest hover:text-forest"
-              href={calendarHref}
-            >
-              Kalender ansehen
-            </Link>
+            <div className="space-y-3 border-t border-stone-200 pt-4">
+              {profile?.role === "rider" ? (
+                <a className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-800" href="#probetermin">
+                  Probetermin anfragen
+                </a>
+              ) : null}
+              {!user ? (
+                <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-800" href="/login">
+                  Anmelden um Probetermin anzufragen
+                </Link>
+              ) : null}
+              <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 px-4 py-3 text-sm font-semibold text-stone-900 hover:border-blue-700 hover:text-blue-800" href={calendarHref}>
+                Kalender ansehen
+              </Link>
+            </div>
           </div>
-        </div>
+        </section>
+      </div>
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
+        <h2 className="text-xl font-semibold text-stone-900">Beschreibung</h2>
+        <p className="mt-3 text-sm text-stone-600 sm:text-base">{horse.description ?? "Fuer dieses Pferdeprofil liegt noch keine Beschreibung vor."}</p>
       </section>
       <Notice text={error} tone="error" />
       <Notice text={message} tone="success" />
       {profile?.role === "rider" ? (
-        <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
-          <div className="space-y-4">
-            <div>
-              <h2 className="text-xl font-semibold text-ink">Probetermin anfragen</h2>
-              <p className="mt-2 text-sm text-stone-600">Sende dem Pferdehalter eine kurze Nachricht zu deiner Anfrage.</p>
-            </div>
+        <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white" id="probetermin">
+          <div className="bg-gradient-to-r from-blue-800 to-blue-700 px-5 py-4 text-white sm:px-6">
+            <h2 className="text-2xl font-semibold">Probetermin anfragen</h2>
+            <p className="mt-2 text-sm text-blue-50">Sende dem Pferdehalter eine kurze Nachricht zu deiner Anfrage.</p>
+          </div>
+          <div className="space-y-4 px-5 py-5 sm:px-6">
             {approved ? (
-              <div className="space-y-3 rounded-2xl bg-sand p-4">
+              <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                 <StatusBadge status="approved" />
                 <p className="text-sm text-stone-600">Du bist fuer dieses Pferd bereits freigeschaltet und kannst spaeter freie Termine anfragen.</p>
               </div>
             ) : null}
             {latestRequest ? (
-              <div className="space-y-3 rounded-2xl bg-sand p-4">
+              <div className="space-y-3 rounded-xl border border-stone-200 bg-stone-50 p-4">
                 <StatusBadge status={latestRequest.status} />
                 <p className="text-sm text-stone-600">{riderStatusText(latestRequest.status)}</p>
               </div>
@@ -188,18 +207,10 @@ export default async function PferdDetailPage({
           </div>
         </section>
       ) : null}
-      {!user ? (
-        <Link
-          className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-forest px-4 py-3 text-sm font-semibold text-white hover:bg-forest/90"
-          href="/login"
-        >
-          Anmelden um Probetermin anzufragen
-        </Link>
-      ) : null}
       {profile?.role === "owner" ? (
         <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
           <p className="text-sm text-stone-600">Du bist als Pferdehalter angemeldet. Probetermine verwaltest du unter deinen Anfragen.</p>
-          <Link className="mt-3 inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href="/owner/anfragen">
+          <Link className="mt-3 inline-flex min-h-[44px] items-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800" href="/owner/anfragen">
             Zu den Anfragen
           </Link>
         </section>

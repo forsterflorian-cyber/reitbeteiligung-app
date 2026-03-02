@@ -16,7 +16,7 @@ import {
   sortHorseImages
 } from "@/lib/horses";
 import { readSearchParam } from "@/lib/search-params";
-import type { Horse, HorseImage } from "@/types/database";
+import type { BookingRequest, Horse, HorseImage, TrialRequest } from "@/types/database";
 
 type HorseImageWithUrl = HorseImage & {
   url: string;
@@ -24,6 +24,12 @@ type HorseImageWithUrl = HorseImage & {
 
 const deletePrompt =
   "Moechtest du dieses Pferdeprofil wirklich loeschen? Bilder werden entfernt. Weitere Anfragen, Freischaltungen, Verfuegbarkeiten, Kalender-Sperren und Chats werden je nach Datenlage mitgeloescht oder blockieren das Loeschen.";
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("de-DE", {
+    dateStyle: "medium"
+  }).format(new Date(value));
+}
 
 export default async function OwnerManageHorsesPage({
   searchParams
@@ -49,13 +55,27 @@ export default async function OwnerManageHorsesPage({
 
   let horseImages: HorseImageWithUrl[] = [];
   let horseImagesErrorMessage: string | null = null;
+  let openTrialRequests: TrialRequest[] = [];
+  let openBookingRequests: BookingRequest[] = [];
 
   if (horseIds.length > 0) {
-    const { data: imageData, error: imageError } = await supabase
-      .from("horse_images")
-      .select(HORSE_IMAGE_SELECT_FIELDS)
-      .in("horse_id", horseIds)
-      .order("created_at", { ascending: true });
+    const [{ data: imageData, error: imageError }, { data: trialData }, { data: bookingData }] = await Promise.all([
+      supabase
+        .from("horse_images")
+        .select(HORSE_IMAGE_SELECT_FIELDS)
+        .in("horse_id", horseIds)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("trial_requests")
+        .select("id, horse_id, rider_id, status, message, created_at")
+        .in("horse_id", horseIds)
+        .eq("status", "requested"),
+      supabase
+        .from("booking_requests")
+        .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, recurrence_rrule, created_at")
+        .in("horse_id", horseIds)
+        .eq("status", "requested")
+    ]);
 
     if (imageError) {
       horseImagesErrorMessage = `Pferdebilder konnten nicht geladen werden: ${imageError.message}`;
@@ -75,9 +95,13 @@ export default async function OwnerManageHorsesPage({
     );
 
     horseImages = resolvedImages.filter((image): image is HorseImageWithUrl => Boolean(image));
+    openTrialRequests = (trialData as TrialRequest[] | null) ?? [];
+    openBookingRequests = (bookingData as BookingRequest[] | null) ?? [];
   }
 
   const imageMap = new Map<string, HorseImageWithUrl[]>();
+  const openTrialCountByHorse = new Map<string, number>();
+  const openBookingCountByHorse = new Map<string, number>();
 
   horseImages.forEach((image) => {
     const existing = imageMap.get(image.horse_id) ?? [];
@@ -85,24 +109,65 @@ export default async function OwnerManageHorsesPage({
     imageMap.set(image.horse_id, existing);
   });
 
+  openTrialRequests.forEach((request) => {
+    openTrialCountByHorse.set(request.horse_id, (openTrialCountByHorse.get(request.horse_id) ?? 0) + 1);
+  });
+
+  openBookingRequests.forEach((request) => {
+    openBookingCountByHorse.set(request.horse_id, (openBookingCountByHorse.get(request.horse_id) ?? 0) + 1);
+  });
+
+  const activeHorseCount = horses.filter((horse) => horse.active).length;
+  const inactiveHorseCount = horses.length - activeHorseCount;
+  const horseWithImagesCount = horses.filter((horse) => (imageMap.get(horse.id)?.length ?? 0) > 0).length;
+  const totalOpenRequests = openTrialRequests.length + openBookingRequests.length;
+
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-clay">Pferdehalter</p>
-        <h1 className="text-3xl font-semibold text-forest sm:text-4xl">Pferde verwalten</h1>
-        <p className="text-sm text-stone-600 sm:text-base">
-          Hier siehst du alle angelegten Pferde mit Basisinfos und klaren Aktionen fuer Ansicht, Bearbeiten, Kalender und Loeschen.
-        </p>
-      </div>
+      <section className="overflow-hidden rounded-2xl border border-blue-800 bg-gradient-to-br from-blue-800 via-blue-700 to-blue-600 text-white">
+        <div className="space-y-5 px-5 py-6 sm:px-6">
+          <div className="space-y-2">
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-blue-100">Pferdehalter</p>
+            <h1 className="text-3xl font-semibold sm:text-4xl">Pferde verwalten</h1>
+            <p className="max-w-3xl text-sm text-blue-50 sm:text-base">
+              Deine Verwaltungsansicht fuer Desktop und Mobil: Bilder, Status, offene Anfragen und die wichtigsten Aktionen liegen direkt an jedem Pferdeprofil.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-semibold text-blue-800 hover:bg-blue-50" href={createPath}>
+              Neues Pferd anlegen
+            </Link>
+            <Link className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-blue-300/60 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10" href="/owner/anfragen">
+              Reitbeteiligungen ansehen
+            </Link>
+          </div>
+        </div>
+      </section>
       <Notice text={error} tone="error" />
       <Notice text={horsesLoadErrorMessage} tone="error" />
       <Notice text={horseImagesErrorMessage} tone="error" />
       <Notice text={message} tone="success" />
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-stone-600">{horses.length === 0 ? "Noch kein Pferd angelegt." : `${horses.length} Pferdeprofil${horses.length === 1 ? "" : "e"} vorhanden.`}</p>
-        <Link className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-forest px-4 py-3 text-sm font-semibold text-white hover:bg-forest/90" href={createPath}>
-          Neues Pferd anlegen
-        </Link>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-2xl border border-stone-200 bg-white p-5">
+          <p className="text-sm font-semibold text-stone-500">Pferdeprofile</p>
+          <p className="mt-3 text-4xl font-semibold text-blue-800">{horses.length}</p>
+          <p className="mt-2 text-sm text-stone-600">Insgesamt angelegte Pferdeprofile.</p>
+        </div>
+        <div className="rounded-2xl border border-stone-200 bg-white p-5">
+          <p className="text-sm font-semibold text-stone-500">Aktiv</p>
+          <p className="mt-3 text-4xl font-semibold text-blue-800">{activeHorseCount}</p>
+          <p className="mt-2 text-sm text-stone-600">{inactiveHorseCount} inaktiv oder noch nicht veroeffentlicht.</p>
+        </div>
+        <div className="rounded-2xl border border-stone-200 bg-white p-5">
+          <p className="text-sm font-semibold text-stone-500">Mit Bildern</p>
+          <p className="mt-3 text-4xl font-semibold text-blue-800">{horseWithImagesCount}</p>
+          <p className="mt-2 text-sm text-stone-600">{horses.length - horseWithImagesCount} ohne Galeriebilder.</p>
+        </div>
+        <div className="rounded-2xl border border-stone-200 bg-white p-5">
+          <p className="text-sm font-semibold text-stone-500">Offene Anfragen</p>
+          <p className="mt-3 text-4xl font-semibold text-blue-800">{totalOpenRequests}</p>
+          <p className="mt-2 text-sm text-stone-600">{openTrialRequests.length} Probetermine und {openBookingRequests.length} Terminanfragen warten.</p>
+        </div>
       </div>
       {horsesError ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
@@ -119,25 +184,31 @@ export default async function OwnerManageHorsesPage({
             const primaryImage = images[0]?.url ?? null;
             const age = getHorseAge(horse.birth_year ?? null);
             const imageCountLabel = `${images.length} / ${MAX_HORSE_IMAGES} Bilder`;
+            const trialCount = openTrialCountByHorse.get(horse.id) ?? 0;
+            const bookingCount = openBookingCountByHorse.get(horse.id) ?? 0;
             const isEditing = editTarget === horse.id;
             const editPath = `${managePath}?edit=${horse.id}`;
 
             return (
               <article className="rounded-2xl border border-stone-200 bg-white p-5" key={horse.id}>
-                <div className="grid gap-4 lg:grid-cols-[180px_minmax(0,1fr)] lg:items-start">
-                  {primaryImage ? (
-                    <img alt={horse.title} className="h-40 w-full rounded-xl object-cover lg:h-32" src={primaryImage} />
-                  ) : (
-                    <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-stone-300 bg-stone-50 text-sm text-stone-500">
-                      Kein Bild
-                    </div>
-                  )}
+                <div className="grid gap-5 xl:grid-cols-[180px_minmax(0,1fr)_280px] xl:items-start">
+                  <div className="space-y-3">
+                    {primaryImage ? (
+                      <img alt={horse.title} className="h-40 w-full rounded-xl object-cover xl:h-32" src={primaryImage} />
+                    ) : (
+                      <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-stone-300 bg-stone-50 text-sm text-stone-500">
+                        Kein Bild
+                      </div>
+                    )}
+                    <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-600">{imageCountLabel}</div>
+                  </div>
                   <div className="space-y-4">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div className="space-y-1">
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-clay">Pferdeprofil</p>
-                        <h2 className="text-xl font-semibold text-ink">{horse.title}</h2>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">Pferdeprofil</p>
+                        <h2 className="text-xl font-semibold text-stone-900">{horse.title}</h2>
                         <p className="text-sm text-stone-600">PLZ {horse.plz}</p>
+                        <p className="text-xs text-stone-500">Angelegt am {formatDate(horse.created_at)}</p>
                       </div>
                       <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${horse.active ? "bg-emerald-100 text-emerald-800" : "bg-stone-200 text-stone-700"}`}>
                         {horse.active ? "Aktiv" : "Inaktiv"}
@@ -149,42 +220,50 @@ export default async function OwnerManageHorsesPage({
                       <div>{horse.color ? `Farbe: ${horse.color}` : "Farbe: offen"}</div>
                       <div>{horse.sex ? `Geschlecht: ${horse.sex}` : "Geschlecht: offen"}</div>
                       <div>{age !== null ? `Alter: ${age} Jahre` : "Alter: offen"}</div>
-                      <div>{imageCountLabel}</div>
+                      <div>{horse.description?.trim() ? "Beschreibung vorhanden" : "Beschreibung: offen"}</div>
                     </div>
-                    <div className="flex flex-col gap-2 xl:flex-row xl:flex-wrap">
-                      <Link className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-stone-300 px-4 py-2 text-sm font-semibold text-ink hover:border-forest hover:text-forest" href={`/pferde/${horse.id}` as Route}>
-                        Pferdeprofil ansehen
-                      </Link>
-                      <Link
-                        className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-stone-300 px-4 py-2 text-sm font-semibold text-ink hover:border-forest hover:text-forest"
-                        href={{ pathname: managePath as Route, query: { edit: horse.id }, hash: `bearbeiten-${horse.id}` }}
-                      >
-                        Pferd bearbeiten
-                      </Link>
-                      <Link className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-stone-300 px-4 py-2 text-sm font-semibold text-ink hover:border-forest hover:text-forest" href={`/pferde/${horse.id}/kalender` as Route}>
-                        Kalender
-                      </Link>
-                      <form action={deleteHorseAction}>
-                        <input name="horseId" type="hidden" value={horse.id} />
-                        <input name="redirectTo" type="hidden" value={managePath} />
-                        <ConfirmSubmitButton
-                          className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:border-rose-400 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-70"
-                          confirmMessage={deletePrompt}
-                          idleLabel="Pferd loeschen"
-                          pendingLabel="Wird geloescht..."
-                        />
-                      </form>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800">{trialCount} offene Probetermine</span>
+                      <span className="inline-flex rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-700">{bookingCount} offene Terminanfragen</span>
                     </div>
+                  </div>
+                  <div className="space-y-2 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Aktionen</p>
+                    <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800" href={`/pferde/${horse.id}` as Route}>
+                      Pferdeprofil ansehen
+                    </Link>
+                    <Link
+                      className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 hover:border-blue-700 hover:text-blue-800"
+                      href={{ pathname: managePath as Route, query: { edit: horse.id }, hash: `bearbeiten-${horse.id}` }}
+                    >
+                      Pferd editieren
+                    </Link>
+                    <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 hover:border-blue-700 hover:text-blue-800" href="/owner/anfragen">
+                      Reitbeteiligungen ansehen
+                    </Link>
+                    <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 hover:border-blue-700 hover:text-blue-800" href={`/pferde/${horse.id}/kalender` as Route}>
+                      Kalender
+                    </Link>
+                    <form action={deleteHorseAction}>
+                      <input name="horseId" type="hidden" value={horse.id} />
+                      <input name="redirectTo" type="hidden" value={managePath} />
+                      <ConfirmSubmitButton
+                        className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:border-rose-400 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-70"
+                        confirmMessage={deletePrompt}
+                        idleLabel="Pferd loeschen"
+                        pendingLabel="Wird geloescht..."
+                      />
+                    </form>
                   </div>
                 </div>
                 {isEditing ? (
-                  <div className="mt-5 border-t border-stone-200 pt-5" id={`bearbeiten-${horse.id}`}>
-                    <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+                  <div className="mt-5 overflow-hidden rounded-2xl border border-blue-100 bg-blue-50/60" id={`bearbeiten-${horse.id}`}>
+                    <div className="border-b border-blue-100 px-5 py-4">
+                      <h3 className="text-lg font-semibold text-stone-900">Pferdeprofil bearbeiten</h3>
+                      <p className="mt-1 text-sm text-stone-600">Stammdaten, Sichtbarkeit und Galerie direkt an einem Ort.</p>
+                    </div>
+                    <div className="grid gap-5 px-5 py-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
                       <section className="space-y-4">
-                        <div>
-                          <h3 className="text-lg font-semibold text-ink">Pferdeprofil bearbeiten</h3>
-                          <p className="mt-1 text-sm text-stone-600">Aendere Stammdaten, Sichtbarkeit und Beschreibung deines Pferdes.</p>
-                        </div>
                         <form action={saveHorseAction} className="space-y-4">
                           <input name="horseId" type="hidden" value={horse.id} />
                           <input name="redirectTo" type="hidden" value={editPath} />
@@ -233,7 +312,7 @@ export default async function OwnerManageHorsesPage({
                             <label htmlFor={`description-${horse.id}`}>Beschreibung</label>
                             <textarea defaultValue={horse.description ?? ""} id={`description-${horse.id}`} name="description" rows={5} />
                           </div>
-                          <label className="flex min-h-[44px] items-center gap-3 rounded-xl border border-stone-300 px-4 py-3 text-sm text-ink">
+                          <label className="flex min-h-[44px] items-center gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-900">
                             <input className="h-4 w-4 rounded border-stone-300" defaultChecked={horse.active} name="active" type="checkbox" />
                             Pferdeprofil veroeffentlichen
                           </label>
@@ -242,8 +321,8 @@ export default async function OwnerManageHorsesPage({
                       </section>
                       <section className="space-y-4">
                         <div>
-                          <h3 className="text-lg font-semibold text-ink">Bilder verwalten</h3>
-                          <p className="mt-1 text-sm text-stone-600">Lade Bilder hoch, entferne sie wieder und halte die Galerie aktuell.</p>
+                          <h3 className="text-lg font-semibold text-stone-900">Bilder verwalten</h3>
+                          <p className="mt-1 text-sm text-stone-600">Lade bis zu {MAX_HORSE_IMAGES} Bilder hoch und halte die Galerie aktuell.</p>
                         </div>
                         {images.length > 0 ? (
                           <div className="grid grid-cols-2 gap-3">
@@ -254,7 +333,7 @@ export default async function OwnerManageHorsesPage({
                                   <input name="imageId" type="hidden" value={image.id} />
                                   <input name="redirectTo" type="hidden" value={editPath} />
                                   <ConfirmSubmitButton
-                                    className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-ink hover:border-forest hover:text-forest disabled:cursor-not-allowed disabled:opacity-70"
+                                    className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 hover:border-blue-700 hover:text-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
                                     confirmMessage="Moechtest du dieses Bild wirklich entfernen?"
                                     idleLabel="Bild entfernen"
                                     pendingLabel="Wird entfernt..."
@@ -264,14 +343,10 @@ export default async function OwnerManageHorsesPage({
                             ))}
                           </div>
                         ) : (
-                          <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 p-4 text-sm text-stone-600">
-                            Noch keine Bilder hochgeladen.
-                          </div>
+                          <div className="rounded-xl border border-dashed border-stone-300 bg-white p-4 text-sm text-stone-600">Noch keine Bilder hochgeladen.</div>
                         )}
                         {images.length >= MAX_HORSE_IMAGES ? (
-                          <div className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-600">
-                            Die maximale Anzahl von {MAX_HORSE_IMAGES} Bildern ist erreicht.
-                          </div>
+                          <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-600">Die maximale Anzahl von {MAX_HORSE_IMAGES} Bildern ist erreicht.</div>
                         ) : (
                           <form action={uploadHorseImagesAction} className="space-y-3" encType="multipart/form-data">
                             <input name="horseId" type="hidden" value={horse.id} />
