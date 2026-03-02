@@ -43,3 +43,57 @@ label {
 button {
   @apply touch-manipulation transition;
 }
+
+@layer components {
+  .surface-panel {
+    @apply rounded-2xl border border-stone-200 bg-white shadow-sm;
+  }
+
+  .section-card-header {
+    @apply flex flex-col gap-3 border-b border-stone-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6;
+  }
+
+  .section-card-body {
+    @apply px-5 py-5 sm:px-6;
+  }
+
+  .ui-eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.14em] text-stone-500;
+  }
+
+  .ui-inline-meta {
+    @apply text-sm leading-6 text-stone-600;
+  }
+
+  .ui-subpanel {
+    @apply rounded-2xl border border-stone-200 bg-stone-50 p-4;
+  }
+
+  .ui-form-stack {
+    @apply space-y-4;
+  }
+
+  .ui-field-grid {
+    @apply grid gap-4;
+  }
+
+  .ui-choice-grid {
+    @apply grid grid-cols-1 gap-2 sm:grid-cols-2;
+  }
+
+  .ui-choice-chip {
+    @apply mb-0 flex min-h-[48px] items-center gap-3 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm font-medium text-stone-700;
+  }
+
+  .ui-horse-context {
+    @apply rounded-2xl border border-stone-200 bg-white px-5 py-4 shadow-sm sm:px-6;
+  }
+
+  .ui-horse-context-grid {
+    @apply grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto];
+  }
+
+  .ui-kpi-row {
+    @apply flex flex-wrap gap-2;
+  }
+}

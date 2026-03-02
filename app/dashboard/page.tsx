@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { requireProfile } from "@/lib/auth";
+import { getOwnerPlan } from "@/lib/plans";
 import { getProfileDisplayName } from "@/lib/profiles";
 import { readSearchParam } from "@/lib/search-params";
 import type { BookingRequest, Horse, RiderProfile, TrialRequest } from "@/types/database";
@@ -43,6 +44,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   if (profile.role === "owner") {
     const ownerManageHref = "/owner/pferde-verwalten" as Route;
+    const ownerPlan = getOwnerPlan(profile);
     const ownerCreateHref = "/owner/horses" as Route;
     const ownerRequestsHref = "/owner/anfragen" as Route;
 
@@ -98,12 +100,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         helper: `${pendingTrialRequests.length} Probetermine und ${pendingBookingRequests.length} Terminanfragen warten auf dich.`
       },
       {
-        label: "Premium",
-        value: profile.is_premium ? "Aktiv" : "Nicht aktiv",
+        label: "Tarif",
+        value: ownerPlan.label,
         valueClassName: "text-xl",
-        helper: profile.is_premium
-          ? "Buchungsfunktionen sind fuer deine Pferde freigeschaltet."
-          : "Verfuegbarkeiten und Buchungen bleiben bis zum Upgrade gesperrt."
+        helper: ownerPlan.summary
       }
     ];
 
