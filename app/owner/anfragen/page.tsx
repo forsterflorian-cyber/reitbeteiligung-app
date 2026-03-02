@@ -4,6 +4,12 @@ import Link from "next/link";
 import { acceptBookingRequestAction, declineBookingRequestAction, updateApprovalAction, updateTrialRequestStatusAction } from "@/app/actions";
 import { Notice } from "@/components/notice";
 import { StatusBadge } from "@/components/status-badge";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionCard } from "@/components/ui/section-card";
 import { requireProfile } from "@/lib/auth";
 import { readSearchParam } from "@/lib/search-params";
 import type { Approval, BookingRequest, Conversation, Horse, Message, TrialRequest } from "@/types/database";
@@ -43,6 +49,11 @@ function hasUnreadMessage(conversation: Conversation | null, latestMessage: Mess
   const lastReadAt = conversation.owner_last_read_at ?? conversation.created_at;
   return Date.parse(latestMessage.created_at) > Date.parse(lastReadAt);
 }
+
+const inlineLinkClassName = buttonVariants(
+  "ghost",
+  "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay"
+);
 
 export default async function OwnerAnfragenPage({
   searchParams
@@ -136,23 +147,22 @@ export default async function OwnerAnfragenPage({
   }));
 
   return (
-    <div className="space-y-5">
-      <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Anfragen</p>
-        <h1 className="text-3xl font-semibold text-forest sm:text-4xl">Anfragen verwalten</h1>
-        <p className="text-sm text-stone-600 sm:text-base">Bearbeite Probetermine, Freischaltungen und konkrete Terminanfragen deiner Reiter.</p>
-      </div>
+    <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        subtitle="Bearbeite Probetermine, Freischaltungen und konkrete Terminanfragen deiner Reiter."
+        title="Anfragen verwalten"
+      />
       <Notice text={error} tone="error" />
       <Notice text={message} tone="success" />
-      <section className="space-y-3">
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-ink">Probetermine</h2>
-          <p className="text-sm text-stone-600">Nimm Probetermine an, lehne sie ab oder schalte eine Reitbeteiligung nach dem Termin frei.</p>
-        </div>
+      <SectionCard
+        subtitle="Nimm Probetermine an, lehne sie ab oder schalte eine Reitbeteiligung nach dem Termin frei."
+        title="Probetermine"
+      >
         {items.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
-            Fuer deine Pferdeprofile liegen noch keine Probetermin-Anfragen vor.
-          </div>
+          <EmptyState
+            description="Sobald Reiter Probetermine für deine Pferdeprofile anfragen, erscheinen sie hier gesammelt."
+            title="Noch keine Probetermin-Anfragen"
+          />
         ) : (
           <div className="space-y-3">
             {items.map((request) => {
@@ -163,21 +173,21 @@ export default async function OwnerAnfragenPage({
               const hasUnread = hasUnreadMessage(conversation, conversation ? latestMessages.get(conversation.id) ?? null : null, user.id);
 
               return (
-                <div className="rounded-2xl border border-stone-200 bg-white p-5" key={request.id}>
+                <Card className="p-5" key={request.id}>
                   <div className="space-y-4">
-                    <div>
+                    <div className="space-y-1">
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Pferdeprofil</p>
-                      <p className="mt-1 font-semibold text-ink">{request.horse?.title ?? "Pferdeprofil nicht gefunden"}</p>
-                      <p className="mt-1 text-sm text-stone-600">Reiter: {riderName}</p>
+                      <p className="font-semibold text-ink">{request.horse?.title ?? "Pferdeprofil nicht gefunden"}</p>
+                      <p className="text-sm text-stone-600">Reiter: {riderName}</p>
                     </div>
-                    <p className="text-sm text-stone-600">{request.message ?? "Keine Nachricht hinterlegt."}</p>
+                    <p className="text-sm leading-6 text-stone-600">{request.message ?? "Keine Nachricht hinterlegt."}</p>
                     <div className="flex flex-wrap gap-2">
                       <StatusBadge status={request.status} />
                       {approval ? <StatusBadge status={approval.status} /> : null}
-                      {hasUnread ? <span className="inline-flex rounded-full border border-stone-200 bg-sand px-3 py-1 text-xs font-semibold text-ink">Neue Nachricht</span> : null}
+                      {hasUnread ? <Badge tone="info">Neue Nachricht</Badge> : null}
                     </div>
                     {approval?.status === "approved" && conversation ? (
-                      <p className="rounded-xl border border-stone-200 bg-sand px-3 py-2 text-sm text-ink">Kontaktdaten sind jetzt im Chat sichtbar.</p>
+                      <Notice text="Kontaktdaten sind jetzt im Chat sichtbar." tone="success" />
                     ) : null}
                     <div className="space-y-2">
                       {request.status === "requested" ? (
@@ -185,16 +195,16 @@ export default async function OwnerAnfragenPage({
                           <form action={updateTrialRequestStatusAction}>
                             <input name="requestId" type="hidden" value={request.id} />
                             <input name="status" type="hidden" value="accepted" />
-                            <button className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-forest px-4 py-3 text-sm font-semibold text-white hover:bg-forest/90" type="submit">
+                            <Button className="w-full" type="submit" variant="primary">
                               Annehmen
-                            </button>
+                            </Button>
                           </form>
                           <form action={updateTrialRequestStatusAction}>
                             <input name="requestId" type="hidden" value={request.id} />
                             <input name="status" type="hidden" value="declined" />
-                            <button className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white hover:bg-rose-700" type="submit">
+                            <Button className="w-full border-rose-300 text-rose-700 hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700" type="submit" variant="secondary">
                               Ablehnen
-                            </button>
+                            </Button>
                           </form>
                         </div>
                       ) : null}
@@ -202,52 +212,51 @@ export default async function OwnerAnfragenPage({
                         <form action={updateTrialRequestStatusAction}>
                           <input name="requestId" type="hidden" value={request.id} />
                           <input name="status" type="hidden" value="completed" />
-                          <button className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-forest px-4 py-3 text-sm font-semibold text-white hover:bg-forest/90" type="submit">
+                          <Button className="w-full" type="submit" variant="primary">
                             Als durchgeführt markieren
-                          </button>
+                          </Button>
                         </form>
                       ) : null}
                       {request.status === "completed" ? (
                         <form action={updateApprovalAction}>
                           <input name="requestId" type="hidden" value={request.id} />
                           <input name="status" type="hidden" value={approval?.status === "approved" ? "revoked" : "approved"} />
-                          <button
-                            className={`inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold text-white ${
-                              approval?.status === "approved" ? "bg-stone-600 hover:bg-stone-700" : "bg-forest hover:bg-forest/90"
-                            }`}
+                          <Button
+                            className={approval?.status === "approved" ? "w-full" : "w-full"}
                             type="submit"
+                            variant={approval?.status === "approved" ? "secondary" : "primary"}
                           >
                             {approval?.status === "approved" ? "Freischaltung entziehen" : "Reitbeteiligung freischalten"}
-                          </button>
+                          </Button>
                         </form>
                       ) : null}
                     </div>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/pferde/${request.horse_id}` as Route}>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+                      <Link className={inlineLinkClassName} href={`/pferde/${request.horse_id}` as Route}>
                         Pferdeprofil ansehen
                       </Link>
                       {conversation ? (
-                        <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/chat/${conversation.id}` as Route}>
+                        <Link className={inlineLinkClassName} href={`/chat/${conversation.id}` as Route}>
                           Zum Chat
                         </Link>
                       ) : null}
                     </div>
                   </div>
-                </div>
+                </Card>
               );
             })}
           </div>
         )}
-      </section>
-      <section className="space-y-3">
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-ink">Terminanfragen</h2>
-          <p className="text-sm text-stone-600">Hier bearbeitest du konkrete Buchungsanfragen innerhalb deiner Verfügbarkeitsfenster.</p>
-        </div>
+      </SectionCard>
+      <SectionCard
+        subtitle="Hier bearbeitest du konkrete Buchungsanfragen innerhalb deiner Verfügbarkeitsfenster."
+        title="Terminanfragen"
+      >
         {bookingItems.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
-            Fuer deine Pferdeprofile liegen noch keine Terminanfragen vor.
-          </div>
+          <EmptyState
+            description="Sobald freigeschaltete Reiter konkrete Termine anfragen, erscheinen sie hier gesammelt."
+            title="Noch keine Terminanfragen"
+          />
         ) : (
           <div className="space-y-3">
             {bookingItems.map((request) => {
@@ -257,57 +266,55 @@ export default async function OwnerAnfragenPage({
               const hasUnread = hasUnreadMessage(conversation, conversation ? latestMessages.get(conversation.id) ?? null : null, user.id);
 
               return (
-                <div className="rounded-2xl border border-stone-200 bg-white p-5" key={request.id}>
+                <Card className="p-5" key={request.id}>
                   <div className="space-y-4">
-                    <div>
+                    <div className="space-y-1">
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Terminanfrage</p>
-                      <p className="mt-1 font-semibold text-ink">{request.horse?.title ?? "Pferdeprofil nicht gefunden"}</p>
-                      <p className="mt-1 text-sm text-stone-600">Reiter: {riderName}</p>
+                      <p className="font-semibold text-ink">{request.horse?.title ?? "Pferdeprofil nicht gefunden"}</p>
+                      <p className="text-sm text-stone-600">Reiter: {riderName}</p>
                     </div>
                     <p className="text-sm font-semibold text-ink">{formatDateRange(request.requested_start_at, request.requested_end_at)}</p>
                     {request.recurrence_rrule ? <p className="text-sm text-stone-600">Wiederholung: {request.recurrence_rrule}</p> : null}
                     <div className="flex flex-wrap gap-2">
                       <StatusBadge status={request.status} />
-                      {hasUnread ? <span className="inline-flex rounded-full border border-stone-200 bg-sand px-3 py-1 text-xs font-semibold text-ink">Neue Nachricht</span> : null}
+                      {hasUnread ? <Badge tone="info">Neue Nachricht</Badge> : null}
                     </div>
                     {request.status === "requested" ? (
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <form action={acceptBookingRequestAction}>
                           <input name="requestId" type="hidden" value={request.id} />
-                          <button className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-forest px-4 py-3 text-sm font-semibold text-white hover:bg-forest/90" type="submit">
+                          <Button className="w-full" type="submit" variant="primary">
                             Annehmen
-                          </button>
+                          </Button>
                         </form>
                         <form action={declineBookingRequestAction}>
                           <input name="requestId" type="hidden" value={request.id} />
-                          <button className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white hover:bg-rose-700" type="submit">
+                          <Button className="w-full border-rose-300 text-rose-700 hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700" type="submit" variant="secondary">
                             Ablehnen
-                          </button>
+                          </Button>
                         </form>
                       </div>
                     ) : null}
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/pferde/${request.horse_id}/kalender` as Route}>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+                      <Link className={inlineLinkClassName} href={`/pferde/${request.horse_id}/kalender` as Route}>
                         Zum Kalender
                       </Link>
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-                        <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/pferde/${request.horse_id}` as Route}>
-                          Pferdeprofil ansehen
+                      <Link className={inlineLinkClassName} href={`/pferde/${request.horse_id}` as Route}>
+                        Pferdeprofil ansehen
+                      </Link>
+                      {conversation ? (
+                        <Link className={inlineLinkClassName} href={`/chat/${conversation.id}` as Route}>
+                          Zum Chat
                         </Link>
-                        {conversation ? (
-                          <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/chat/${conversation.id}` as Route}>
-                            Zum Chat
-                          </Link>
-                        ) : null}
-                      </div>
+                      ) : null}
                     </div>
                   </div>
-                </div>
+                </Card>
               );
             })}
           </div>
         )}
-      </section>
+      </SectionCard>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { completeOnboardingAction } from "@/app/actions";
+import { AuthPanel } from "@/components/blocks/auth-panel";
 import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
 import { requireOnboardingUser } from "@/lib/auth";
@@ -13,12 +14,11 @@ export default async function OnboardingPage({ searchParams }: OnboardingPagePro
   const error = readSearchParam(searchParams, "error");
 
   return (
-    <div className="mx-auto w-full max-w-md space-y-5 rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
-      <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Onboarding</p>
-        <h1 className="text-3xl font-semibold text-forest">Profil vervollständigen</h1>
-        <p className="text-sm text-stone-600">Du bist als {user.email} angemeldet. Bitte hinterlege jetzt deine Rolle, deinen Namen und optional eine Telefonnummer.</p>
-      </div>
+    <AuthPanel
+      eyebrow="Onboarding"
+      subtitle={`Du bist als ${user.email} angemeldet. Bitte hinterlege jetzt deine Rolle, deinen Namen und optional eine Telefonnummer.`}
+      title="Profil vervollständigen"
+    >
       <Notice text={error} tone="error" />
       <form action={completeOnboardingAction} className="space-y-4">
         <div>
@@ -38,6 +38,6 @@ export default async function OnboardingPage({ searchParams }: OnboardingPagePro
         </div>
         <SubmitButton idleLabel="Profil anlegen" pendingLabel="Wird gespeichert..." />
       </form>
-    </div>
+    </AuthPanel>
   );
 }

@@ -3,6 +3,12 @@ import Link from "next/link";
 
 import { Notice } from "@/components/notice";
 import { StatusBadge } from "@/components/status-badge";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionCard } from "@/components/ui/section-card";
+import { buttonVariants } from "@/components/ui/button";
 import { requireProfile } from "@/lib/auth";
 import { readSearchParam } from "@/lib/search-params";
 import type { Approval, BookingRequest, Conversation, Horse, Message, TrialRequest } from "@/types/database";
@@ -42,6 +48,11 @@ function hasUnreadMessage(conversation: Conversation | null, latestMessage: Mess
   const lastReadAt = conversation.rider_last_read_at ?? conversation.created_at;
   return Date.parse(latestMessage.created_at) > Date.parse(lastReadAt);
 }
+
+const inlineLinkClassName = buttonVariants(
+  "ghost",
+  "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay"
+);
 
 export default async function AnfragenPage({
   searchParams
@@ -128,23 +139,22 @@ export default async function AnfragenPage({
   }));
 
   return (
-    <div className="space-y-5">
-      <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Anfragen</p>
-        <h1 className="text-3xl font-semibold text-forest sm:text-4xl">Meine Anfragen</h1>
-        <p className="text-sm text-stone-600 sm:text-base">Hier siehst du deine Probetermine, Freischaltungen und konkrete Terminanfragen.</p>
-      </div>
+    <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        subtitle="Hier siehst du deine Probetermine, Freischaltungen und konkrete Terminanfragen."
+        title="Meine Anfragen"
+      />
       <Notice text={error} tone="error" />
       <Notice text={message} tone="success" />
-      <section className="space-y-3">
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-ink">Meine Probetermine</h2>
-          <p className="text-sm text-stone-600">Hier siehst du den Status deiner Probetermin-Anfragen und ob du bereits freigeschaltet wurdest.</p>
-        </div>
+      <SectionCard
+        subtitle="Hier siehst du den Status deiner Probetermin-Anfragen und ob du bereits freigeschaltet wurdest."
+        title="Meine Probetermine"
+      >
         {items.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
-            Du hast noch keine Probetermin-Anfragen gestellt.
-          </div>
+          <EmptyState
+            description="Sobald du einen Probetermin anfragst, erscheint er hier mit Status, Chat und Freischaltung."
+            title="Noch keine Probetermin-Anfragen"
+          />
         ) : (
           <div className="space-y-3">
             {items.map((request) => {
@@ -156,48 +166,48 @@ export default async function AnfragenPage({
               const ownerName = contact?.partner_name?.trim() || "Pferdehalter";
 
               return (
-                <div className="rounded-2xl border border-stone-200 bg-white p-5" key={request.id}>
-                  <div className="space-y-3">
-                    <div>
+                <Card className="p-5" key={request.id}>
+                  <div className="space-y-4">
+                    <div className="space-y-1">
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Probetermin</p>
-                      <p className="mt-1 font-semibold text-ink">{horse?.title ?? "Pferdeprofil nicht gefunden"}</p>
-                      <p className="mt-1 text-sm text-stone-600">{horse ? `Pferdehalter: ${ownerName}` : "Pferdeprofil nicht mehr verfügbar"}</p>
+                      <p className="font-semibold text-ink">{horse?.title ?? "Pferdeprofil nicht gefunden"}</p>
+                      <p className="text-sm text-stone-600">{horse ? `Pferdehalter: ${ownerName}` : "Pferdeprofil nicht mehr verfügbar"}</p>
                     </div>
-                    <p className="text-sm text-stone-600">{request.message ?? "Keine Nachricht hinterlegt."}</p>
+                    <p className="text-sm leading-6 text-stone-600">{request.message ?? "Keine Nachricht hinterlegt."}</p>
                     <div className="flex flex-wrap gap-2">
                       <StatusBadge status={request.status} />
                       {approval ? <StatusBadge status={approval.status} /> : null}
-                      {hasUnread ? <span className="inline-flex rounded-full border border-stone-200 bg-sand px-3 py-1 text-xs font-semibold text-ink">Neue Nachricht</span> : null}
+                      {hasUnread ? <Badge tone="info">Neue Nachricht</Badge> : null}
                     </div>
                     {approval?.status === "approved" && conversation ? (
-                      <p className="rounded-xl border border-stone-200 bg-sand px-3 py-2 text-sm text-ink">Kontaktdaten sind jetzt im Chat sichtbar.</p>
+                      <Notice text="Kontaktdaten sind jetzt im Chat sichtbar." tone="success" />
                     ) : null}
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/pferde/${request.horse_id}` as Route}>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+                      <Link className={inlineLinkClassName} href={`/pferde/${request.horse_id}` as Route}>
                         Pferdeprofil ansehen
                       </Link>
                       {conversation ? (
-                        <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/chat/${conversation.id}` as Route}>
+                        <Link className={inlineLinkClassName} href={`/chat/${conversation.id}` as Route}>
                           Zum Chat
                         </Link>
                       ) : null}
                     </div>
                   </div>
-                </div>
+                </Card>
               );
             })}
           </div>
         )}
-      </section>
-      <section className="space-y-3">
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-ink">Meine Terminanfragen</h2>
-          <p className="text-sm text-stone-600">Nur freigeschaltete Reiter können innerhalb eines Verfügbarkeitsfensters einen Termin anfragen.</p>
-        </div>
+      </SectionCard>
+      <SectionCard
+        subtitle="Nur freigeschaltete Reiter können innerhalb eines Verfügbarkeitsfensters einen Termin anfragen."
+        title="Meine Terminanfragen"
+      >
         {bookingItems.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
-            Du hast noch keine Terminanfrage gestellt.
-          </div>
+          <EmptyState
+            description="Sobald du einen konkreten Termin anfragst, erscheint er hier mit Zeitfenster und aktuellem Status."
+            title="Noch keine Terminanfrage"
+          />
         ) : (
           <div className="space-y-3">
             {bookingItems.map((request) => {
@@ -207,41 +217,39 @@ export default async function AnfragenPage({
               const ownerName = contact?.partner_name?.trim() || "Pferdehalter";
 
               return (
-                <div className="rounded-2xl border border-stone-200 bg-white p-5" key={request.id}>
-                  <div className="space-y-3">
-                    <div>
+                <Card className="p-5" key={request.id}>
+                  <div className="space-y-4">
+                    <div className="space-y-1">
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Terminanfrage</p>
-                      <p className="mt-1 font-semibold text-ink">{request.horse?.title ?? "Pferdeprofil nicht gefunden"}</p>
-                      <p className="mt-1 text-sm text-stone-600">{request.horse ? `Pferdehalter: ${ownerName}` : "Pferdeprofil nicht mehr verfügbar"}</p>
+                      <p className="font-semibold text-ink">{request.horse?.title ?? "Pferdeprofil nicht gefunden"}</p>
+                      <p className="text-sm text-stone-600">{request.horse ? `Pferdehalter: ${ownerName}` : "Pferdeprofil nicht mehr verfügbar"}</p>
                     </div>
                     <p className="text-sm font-semibold text-ink">{formatDateRange(request.requested_start_at, request.requested_end_at)}</p>
                     {request.recurrence_rrule ? <p className="text-sm text-stone-600">Wiederholung: {request.recurrence_rrule}</p> : null}
                     <div className="flex flex-wrap gap-2">
                       <StatusBadge status={request.status} />
-                      {hasUnread ? <span className="inline-flex rounded-full border border-stone-200 bg-sand px-3 py-1 text-xs font-semibold text-ink">Neue Nachricht</span> : null}
+                      {hasUnread ? <Badge tone="info">Neue Nachricht</Badge> : null}
                     </div>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/pferde/${request.horse_id}/kalender` as Route}>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+                      <Link className={inlineLinkClassName} href={`/pferde/${request.horse_id}/kalender` as Route}>
                         Zum Kalender
                       </Link>
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-                        <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/pferde/${request.horse_id}` as Route}>
-                          Pferdeprofil ansehen
+                      <Link className={inlineLinkClassName} href={`/pferde/${request.horse_id}` as Route}>
+                        Pferdeprofil ansehen
+                      </Link>
+                      {conversation ? (
+                        <Link className={inlineLinkClassName} href={`/chat/${conversation.id}` as Route}>
+                          Zum Chat
                         </Link>
-                        {conversation ? (
-                          <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/chat/${conversation.id}` as Route}>
-                            Zum Chat
-                          </Link>
-                        ) : null}
-                      </div>
+                      ) : null}
                     </div>
                   </div>
-                </div>
+                </Card>
               );
             })}
           </div>
         )}
-      </section>
+      </SectionCard>
     </div>
   );
 }

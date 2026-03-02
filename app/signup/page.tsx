@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { signupAction } from "@/app/actions";
+import { AuthPanel } from "@/components/blocks/auth-panel";
 import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
 import { getPostAuthDestination } from "@/lib/auth";
@@ -21,12 +22,19 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
   const error = readSearchParam(searchParams, "error");
 
   return (
-    <div className="mx-auto w-full max-w-md space-y-5 rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
-      <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Registrieren</p>
-        <h1 className="text-3xl font-semibold text-forest">Dein Konto anlegen</h1>
-        <p className="text-sm text-stone-600">Danach wählst du im Onboarding, ob du als Pferdehalter oder Reiter startest.</p>
-      </div>
+    <AuthPanel
+      eyebrow="Registrieren"
+      subtitle="Danach wählst du im Onboarding, ob du als Pferdehalter oder Reiter startest."
+      title="Dein Konto anlegen"
+      footer={
+        <p className="text-sm text-stone-600">
+          Bereits registriert?{" "}
+          <Link className="font-semibold text-forest hover:text-clay" href="/login">
+            Zur Anmeldung
+          </Link>
+        </p>
+      }
+    >
       <Notice text={error} tone="error" />
       <form action={signupAction} className="space-y-4">
         <div>
@@ -39,12 +47,6 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
         </div>
         <SubmitButton idleLabel="Konto erstellen" pendingLabel="Registrierung läuft..." />
       </form>
-      <p className="text-sm text-stone-600">
-        Bereits registriert?{" "}
-        <Link className="font-semibold text-forest hover:text-clay" href="/login">
-          Zur Anmeldung
-        </Link>
-      </p>
-    </div>
+    </AuthPanel>
   );
 }

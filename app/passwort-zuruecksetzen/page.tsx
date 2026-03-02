@@ -1,9 +1,15 @@
+import { AuthPanel } from "@/components/blocks/auth-panel";
+
 import { PasswordResetForm } from "@/app/passwort-zuruecksetzen/reset-password-form";
 
 export default function PasswortZuruecksetzenPage() {
   return (
-    <div className="mx-auto w-full max-w-md rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
+    <AuthPanel
+      eyebrow="Passwort zurücksetzen"
+      subtitle="Öffne den Link aus deiner E-Mail auf diesem Gerät und wähle dann ein neues Passwort."
+      title="Neues Passwort festlegen"
+    >
       <PasswordResetForm />
-    </div>
+    </AuthPanel>
   );
 }

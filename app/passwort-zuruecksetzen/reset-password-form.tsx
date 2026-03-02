@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { Notice } from "@/components/notice";
+import { buttonVariants } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 
 type FormState = "checking" | "ready" | "saving";
@@ -144,11 +145,6 @@ export function PasswordResetForm() {
 
   return (
     <div className="space-y-5">
-      <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Passwort zurücksetzen</p>
-        <h1 className="text-3xl font-semibold text-forest">Neues Passwort festlegen</h1>
-        <p className="text-sm text-stone-600">Öffne den Link aus deiner E-Mail auf diesem Gerät und wähle dann ein neues Passwort.</p>
-      </div>
       <Notice text={error} tone="error" />
       <Notice text={message} tone={messageTone} />
       <form className="space-y-4" onSubmit={handleSubmit}>
@@ -176,15 +172,11 @@ export function PasswordResetForm() {
             value={confirmPassword}
           />
         </div>
-        <button
-          className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-forest px-5 py-3 text-base font-semibold text-white hover:bg-forest/90 disabled:cursor-not-allowed disabled:opacity-70"
-          disabled={isDisabled}
-          type="submit"
-        >
+        <button className={buttonVariants("primary", "w-full px-5 py-3 text-base")} disabled={isDisabled} type="submit">
           {status === "saving" ? "Wird aktualisiert..." : "Passwort speichern"}
         </button>
       </form>
-      <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href="/passwort-vergessen">
+      <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href="/passwort-vergessen">
         Neuen Link anfordern
       </Link>
     </div>

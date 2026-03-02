@@ -4,6 +4,9 @@ import Link from "next/link";
 import { saveHorseAction } from "@/app/actions";
 import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionCard } from "@/components/ui/section-card";
+import { buttonVariants } from "@/components/ui/button";
 import { requireProfile } from "@/lib/auth";
 import { HORSE_GESCHLECHTER } from "@/lib/horses";
 import { readSearchParam } from "@/lib/search-params";
@@ -19,23 +22,27 @@ export default async function OwnerHorsesPage({
   const message = readSearchParam(searchParams, "message");
   const { count } = await supabase.from("horses").select("id", { count: "exact", head: true }).eq("owner_id", user.id);
   const manageHref = "/owner/pferde-verwalten" as Route;
+  const existingCount = count ?? 0;
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-clay">Pferdehalter</p>
-        <h1 className="text-3xl font-semibold text-forest sm:text-4xl">Neues Pferd anlegen</h1>
-        <p className="text-sm text-stone-600 sm:text-base">
-          Lege hier ein neues Pferdeprofil an. Bestehende Pferde verwaltest du getrennt in der Übersicht für deine Pferde.
-        </p>
-      </div>
+    <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        actions={
+          <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href={manageHref}>
+            Zu Pferde verwalten
+          </Link>
+        }
+        subtitle="Lege hier ein neues Pferdeprofil an. Bestehende Pferde verwaltest du getrennt in deiner Übersicht."
+        title="Neues Pferd anlegen"
+      />
       <Notice text={error} tone="error" />
       <Notice text={message} tone="success" />
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
-        <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
-          <h2 className="text-xl font-semibold text-ink">Pferdeprofil</h2>
-          <p className="mt-2 text-sm text-stone-600">Bilder und weitere Pflegeoptionen stehen direkt nach dem ersten Speichern zur Verfügung.</p>
-          <form action={saveHorseAction} className="mt-5 space-y-4">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
+        <SectionCard
+          subtitle="Bilder und weitere Pflegeoptionen stehen direkt nach dem ersten Speichern zur Verfügung."
+          title="Pferdeprofil"
+        >
+          <form action={saveHorseAction} className="space-y-4">
             <div>
               <label htmlFor="title">Titel</label>
               <input id="title" name="title" placeholder="Freizeitpferd in Potsdam" required type="text" />
@@ -46,7 +53,7 @@ export default async function OwnerHorsesPage({
                 <input id="plz" name="plz" placeholder="14467" required type="text" />
               </div>
               <div>
-                <label htmlFor="heightCm">Stockmass (cm)</label>
+                <label htmlFor="heightCm">Stockmaß (cm)</label>
                 <input id="heightCm" max={220} min={50} name="heightCm" placeholder="165" type="number" />
               </div>
             </div>
@@ -87,22 +94,20 @@ export default async function OwnerHorsesPage({
             </label>
             <SubmitButton idleLabel="Pferdeprofil speichern" pendingLabel="Wird gespeichert..." />
           </form>
-        </section>
-        <aside className="space-y-4 rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-clay">Nächster Schritt</p>
-            <h2 className="mt-2 text-xl font-semibold text-ink">Pferde verwalten</h2>
+        </SectionCard>
+        <SectionCard subtitle="So geht es direkt nach dem ersten Speichern weiter." title="Nächster Schritt">
+          <div className="space-y-4 text-sm leading-6 text-stone-600">
+            <p>
+              {existingCount > 0
+                ? `Du hast aktuell ${existingCount} Pferdeprofil${existingCount === 1 ? "" : "e"} angelegt.`
+                : "Du hast aktuell noch kein Pferdeprofil angelegt."}
+            </p>
+            <p>Dort findest du eine strukturierte Liste mit Basisinfos, Bearbeiten, Löschen, Kalender und Bildverwaltung.</p>
+            <Link className={buttonVariants("secondary", "w-full")} href={manageHref}>
+              Zu Pferde verwalten
+            </Link>
           </div>
-          <p className="text-sm text-stone-600">
-            {count && count > 0
-              ? `Du hast aktuell ${count} Pferdeprofil${count === 1 ? "" : "e"} angelegt.`
-              : "Du hast aktuell noch kein Pferdeprofil angelegt."}
-          </p>
-          <p className="text-sm text-stone-600">Dort findest du eine strukturierte Liste mit Basisinfos, Bearbeiten, Löschen, Kalender und Bildverwaltung.</p>
-          <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 px-4 py-3 text-sm font-semibold text-ink hover:border-forest hover:text-forest" href={manageHref}>
-            Zu Pferde verwalten
-          </Link>
-        </aside>
+        </SectionCard>
       </div>
     </div>
   );

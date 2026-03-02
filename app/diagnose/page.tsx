@@ -1,5 +1,10 @@
 import { redirect } from "next/navigation";
 
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionCard } from "@/components/ui/section-card";
 import { createClient } from "@/lib/supabase/server";
 
 type DiagnosticsError = {
@@ -19,51 +24,47 @@ type DiagnosticsCardProps = {
 
 function DiagnosticsErrorBlock({ error }: { error: DiagnosticsError }) {
   if (!error) {
-    return <p className="text-sm text-forest">Kein Fehler.</p>;
+    return <p className="text-sm text-stone-600">Kein Fehler.</p>;
   }
 
   return (
-    <dl className="space-y-2 text-sm text-red-700">
-      <div>
-        <dt className="font-semibold text-red-800">Code</dt>
-        <dd>{String(error.code ?? "-")}</dd>
-      </div>
-      <div>
-        <dt className="font-semibold text-red-800">Meldung</dt>
-        <dd>{error.message ?? "-"}</dd>
-      </div>
-      <div>
-        <dt className="font-semibold text-red-800">Details</dt>
-        <dd>{error.details ?? "-"}</dd>
-      </div>
-      <div>
-        <dt className="font-semibold text-red-800">Hinweis</dt>
-        <dd>{error.hint ?? "-"}</dd>
-      </div>
-    </dl>
+    <div className="grid gap-3 sm:grid-cols-2">
+      <Card className="p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Code</p>
+        <p className="mt-2 text-sm text-rose-700">{String(error.code ?? "-")}</p>
+      </Card>
+      <Card className="p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Meldung</p>
+        <p className="mt-2 text-sm text-rose-700">{error.message ?? "-"}</p>
+      </Card>
+      <Card className="p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Details</p>
+        <p className="mt-2 text-sm text-rose-700">{error.details ?? "-"}</p>
+      </Card>
+      <Card className="p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Hinweis</p>
+        <p className="mt-2 text-sm text-rose-700">{error.hint ?? "-"}</p>
+      </Card>
+    </div>
   );
 }
 
 function DiagnosticsJson({ value }: { value: unknown }) {
-  return <pre className="mt-3 overflow-x-auto rounded-2xl bg-sand p-4 text-xs leading-6 text-ink">{JSON.stringify(value, null, 2)}</pre>;
+  return <pre className="overflow-x-auto rounded-2xl bg-sand p-4 text-xs leading-6 text-ink">{JSON.stringify(value, null, 2)}</pre>;
 }
 
 function DiagnosticsCard({ count, description, error, rows, title }: DiagnosticsCardProps) {
   return (
-    <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
-      <div className="space-y-3">
-        <div>
-          <h2 className="text-lg font-semibold text-ink">{title}</h2>
-          <p className="mt-1 text-sm text-stone-600">{description}</p>
-        </div>
-        <div className="flex flex-wrap gap-3 text-sm text-stone-700">
-          <span className="inline-flex rounded-full bg-sand px-3 py-1 font-semibold">Zeilen: {rows.length}</span>
-          {typeof count === "number" ? <span className="inline-flex rounded-full bg-sand px-3 py-1 font-semibold">Count: {count}</span> : null}
+    <SectionCard subtitle={description} title={title}>
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          <Badge tone="info">Zeilen: {rows.length}</Badge>
+          {typeof count === "number" ? <Badge tone="neutral">Count: {count}</Badge> : null}
         </div>
         <DiagnosticsErrorBlock error={error} />
         <DiagnosticsJson value={rows} />
       </div>
-    </section>
+    </SectionCard>
   );
 }
 
@@ -109,46 +110,29 @@ export default async function DiagnosePage() {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Diagnose</p>
-        <h1 className="text-3xl font-semibold text-forest sm:text-4xl">Pferde-Sichtbarkeit pruefen</h1>
-        <p className="text-sm text-stone-600 sm:text-base">Diese Seite zeigt direkt die Server-Abfragen mit deiner aktuellen Sitzung und den dazugehoerigen Fehlern.</p>
-      </div>
+    <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        subtitle="Diese Seite zeigt direkt die Server-Abfragen mit deiner aktuellen Sitzung und den dazugehörigen Fehlern."
+        title="Pferde-Sichtbarkeit prüfen"
+      />
 
-      <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-ink">Authentifizierung</h2>
-          <p className="text-sm text-stone-600">Auth User ID aus dem Supabase Server-Client.</p>
-          <div className="inline-flex rounded-full bg-sand px-3 py-1 text-sm font-semibold text-ink">{user.id}</div>
+      <SectionCard subtitle="Auth User ID aus dem Supabase Server-Client." title="Authentifizierung">
+        <div className="space-y-4">
+          <Badge tone="info">{user.id}</Badge>
           <DiagnosticsErrorBlock error={authError} />
         </div>
-      </section>
+      </SectionCard>
 
-      <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-ink">Profil</h2>
-          <p className="text-sm text-stone-600">select * from profiles where id = user.id</p>
-          <div className="inline-flex rounded-full bg-sand px-3 py-1 text-sm font-semibold text-ink">Zeilen: {profileRow ? 1 : 0}</div>
+      <SectionCard subtitle="select * from profiles where id = user.id" title="Profil">
+        <div className="space-y-4">
+          <Badge tone="info">Zeilen: {profileRow ? 1 : 0}</Badge>
           <DiagnosticsErrorBlock error={profileError} />
           <DiagnosticsJson value={profileRow} />
         </div>
-      </section>
+      </SectionCard>
 
-      <DiagnosticsCard
-        count={horsesCount ?? null}
-        description="select count(*) from horses"
-        error={horsesCountError}
-        rows={[]}
-        title="Alle Pferde zaehlen"
-      />
-
-      <DiagnosticsCard
-        description="select top 5 * from horses where active = true"
-        error={activeHorsesError}
-        rows={activeHorses}
-        title="Aktive Pferdeprofile"
-      />
+      <DiagnosticsCard count={horsesCount ?? null} description="select count(*) from horses" error={horsesCountError} rows={[]} title="Alle Pferde zählen" />
+      <DiagnosticsCard description="select top 5 * from horses where active = true" error={activeHorsesError} rows={activeHorses} title="Aktive Pferdeprofile" />
 
       {role === "owner" ? (
         <DiagnosticsCard
@@ -158,9 +142,10 @@ export default async function DiagnosePage() {
           title="Eigene Pferdeprofile"
         />
       ) : (
-        <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
-          <p className="text-sm text-stone-600">Die Owner-Abfrage wird nur angezeigt, wenn dein Profil die Rolle &quot;owner&quot; hat.</p>
-        </section>
+        <EmptyState
+          description={"Die Owner-Abfrage wird nur angezeigt, wenn dein Profil die Rolle \"owner\" hat."}
+          title="Keine Owner-Diagnose für dieses Profil"
+        />
       )}
     </div>
   );

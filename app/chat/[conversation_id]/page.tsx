@@ -4,6 +4,11 @@ import { redirect } from "next/navigation";
 
 import { ChatThread } from "@/components/chat-thread";
 import { StatusBadge } from "@/components/status-badge";
+import { Notice } from "@/components/notice";
+import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionCard } from "@/components/ui/section-card";
+import { buttonVariants } from "@/components/ui/button";
 import { requireProfile } from "@/lib/auth";
 import { getRoleLabel } from "@/lib/profiles";
 import type { Approval, Conversation, Horse, Message, TrialRequest } from "@/types/database";
@@ -81,45 +86,43 @@ export default async function ChatPage({
   const partnerLabel = contactInfo?.partner_name?.trim() || getRoleLabel(profile.role === "owner" ? "rider" : "owner");
 
   return (
-    <div className="space-y-5">
-      <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={backHref}>
-        {getBackLabel(backHref)}
-      </Link>
-      <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
-        <div className="space-y-3">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Chat</p>
-            <h1 className="mt-2 text-3xl font-semibold text-forest sm:text-4xl">Chat mit {partnerLabel}</h1>
-            <p className="mt-2 text-sm text-stone-600 sm:text-base">
-              {horse ? `Pferdeprofil: ${horse.title}` : "Pferdeprofil nicht gefunden"}
-            </p>
-          </div>
+    <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        actions={
+          <Link className={buttonVariants("ghost", "w-full sm:w-auto")} href={backHref}>
+            {getBackLabel(backHref)}
+          </Link>
+        }
+        subtitle={horse ? `Pferdeprofil: ${horse.title}` : "Pferdeprofil nicht gefunden"}
+        title={`Chat mit ${partnerLabel}`}
+      />
+      <SectionCard subtitle="Status und Kontaktfreigabe richten sich nach dem aktuellen Ablauf eurer Anfrage." title="Chatstatus">
+        <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
             {trialRequest ? <StatusBadge status={trialRequest.status} /> : <StatusBadge status="requested" />}
             {approval ? <StatusBadge status={approval.status} /> : null}
+            <Badge tone="neutral">{profile.role === "owner" ? "Pferdehalter" : "Reiter"}</Badge>
           </div>
-          <p className="text-sm text-stone-600">
-            {approval?.status === "approved"
-              ? "Der Probetermin ist abgeschlossen und die Reitbeteiligung wurde freigeschaltet."
-              : "Bis zur Freischaltung bleibt die Kommunikation direkt hier in der Plattform. Neue Nachrichten werden in deinen Anfragen markiert."}
-          </p>
+          <Notice
+            text={
+              approval?.status === "approved"
+                ? "Der Probetermin ist abgeschlossen und die Reitbeteiligung wurde freigeschaltet."
+                : "Bis zur Freischaltung bleibt die Kommunikation direkt hier in der Plattform. Neue Nachrichten werden in deinen Anfragen markiert."
+            }
+          />
         </div>
-      </section>
+      </SectionCard>
       {approval?.status === "approved" ? (
-        <section className="rounded-2xl border border-stone-200 bg-sand p-5 sm:p-6">
-          <div className="space-y-3">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Kontakt</p>
-              <h2 className="mt-2 text-xl font-semibold text-ink">Kontaktdaten freigeschaltet</h2>
-            </div>
+        <SectionCard subtitle="Kontaktdaten werden erst nach der Freischaltung eingeblendet." title="Kontakt freigeschaltet">
+          <div className="space-y-4">
             <p className="text-sm text-ink">Ihr könnt jetzt außerhalb der Plattform kommunizieren.</p>
-            <div className="space-y-2 rounded-2xl border border-stone-200 bg-white p-4 text-sm text-ink">
+            <div className="space-y-2 rounded-2xl border border-stone-200 bg-sand p-4 text-sm text-ink">
               <p>Name: {partnerLabel}</p>
               <p>{contactInfo?.partner_email ? `E-Mail: ${contactInfo.partner_email}` : "E-Mail: nicht hinterlegt"}</p>
               <p>{contactInfo?.partner_phone ? `Telefon: ${contactInfo.partner_phone}` : "Telefon: nicht hinterlegt"}</p>
             </div>
           </div>
-        </section>
+        </SectionCard>
       ) : null}
       <ChatThread conversationId={conversation.id} currentUserId={user.id} initialMessages={messages} partnerLabel={partnerLabel} />
     </div>

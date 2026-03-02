@@ -1,6 +1,8 @@
 import { saveRiderProfileAction } from "@/app/actions";
 import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionCard } from "@/components/ui/section-card";
 import { requireProfile } from "@/lib/auth";
 import { readSearchParam } from "@/lib/search-params";
 import type { RiderProfile } from "@/types/database";
@@ -22,17 +24,15 @@ export default async function RiderProfilePage({ searchParams }: RiderProfilePag
   const profile = (data as RiderProfile | null) ?? null;
 
   return (
-    <div className="space-y-5">
-      <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Profil</p>
-        <h1 className="text-3xl font-semibold text-forest sm:text-4xl">Reiterprofil</h1>
-        <p className="text-sm text-stone-600 sm:text-base">Pflege hier deine Angaben für Reitbeteiligung und Probetermin in einer kompakten mobilen Ansicht.</p>
-      </div>
+    <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        subtitle="Pflege hier deine Angaben für Reitbeteiligung und Probetermin in einer kompakten mobilen und klaren Desktop-Ansicht."
+        title="Reiterprofil"
+      />
       <Notice text={error} tone="error" />
       <Notice text={message} tone="success" />
-      <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
-        <h2 className="text-xl font-semibold text-ink">Deine Angaben</h2>
-        <form action={saveRiderProfileAction} className="mt-4 space-y-4">
+      <SectionCard subtitle="Je vollständiger dein Profil ist, desto besser können Pferdehalter deine Anfragen einschätzen." title="Deine Angaben">
+        <form action={saveRiderProfileAction} className="space-y-4">
           <div>
             <label htmlFor="experience">Erfahrung</label>
             <input defaultValue={profile?.experience ?? ""} id="experience" name="experience" placeholder="8 Jahre, Dressur und Ausritte" type="text" />
@@ -47,7 +47,7 @@ export default async function RiderProfilePage({ searchParams }: RiderProfilePag
           </div>
           <SubmitButton idleLabel="Reiterprofil speichern" pendingLabel="Wird gespeichert..." />
         </form>
-      </section>
+      </SectionCard>
     </div>
   );
 }
