@@ -2,38 +2,12 @@ import type { Route } from "next";
 
 import type { Profile } from "@/types/database";
 
-// A single nav item definition drives both the desktop top nav and the mobile tab bar.
-// `match` contains exact prefixes that should mark the item as active.
 export type AppNavItem = {
   href: Route;
   label: string;
   match: readonly string[];
   mobileLabel?: string;
 };
-
-const guestNav = [
-  {
-    href: "/" as Route,
-    label: "Start",
-    match: ["/"]
-  },
-  {
-    href: "/suchen" as Route,
-    label: "Suchen",
-    match: ["/suchen", "/pferde"]
-  },
-  {
-    href: "/signup" as Route,
-    label: "Konto erstellen",
-    match: ["/signup"],
-    mobileLabel: "Konto"
-  },
-  {
-    href: "/login" as Route,
-    label: "Anmelden",
-    match: ["/login", "/passwort-vergessen", "/passwort-zuruecksetzen"]
-  }
-] as const satisfies readonly AppNavItem[];
 
 const riderNav = [
   {
@@ -73,7 +47,7 @@ const ownerNav = [
   {
     href: "/owner/pferde-verwalten" as Route,
     label: "Pferde",
-    match: ["/owner/pferde-verwalten", "/pferde"]
+    match: ["/owner/pferde-verwalten"]
   },
   {
     href: "/owner/anfragen" as Route,
@@ -89,20 +63,14 @@ const ownerNav = [
 
 export function getNavItems(profile?: Pick<Profile, "role"> | null) {
   if (!profile) {
-    return guestNav;
+    return [] as const;
   }
 
   return profile.role === "owner" ? ownerNav : riderNav;
 }
 
-// Prefix matching keeps active states stable for detail pages like `/pferde/[id]`
-// without duplicating ad-hoc pathname checks in multiple components.
+// Prefix matching keeps active states stable for detail pages without scattering
+// custom pathname checks across the nav components.
 export function isNavItemActive(item: AppNavItem, pathname: string) {
-  return item.match.some((prefix) => {
-    if (prefix === "/") {
-      return pathname === "/";
-    }
-
-    return pathname === prefix || pathname.startsWith(`${prefix}/`);
-  });
+  return item.match.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }

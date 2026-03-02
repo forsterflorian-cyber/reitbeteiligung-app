@@ -10,11 +10,7 @@ type LogoutFormProps = {
 export function LogoutForm({ className }: LogoutFormProps) {
   return (
     <form action={logoutAction}>
-      <SubmitButton
-        className={buttonVariants("secondary", className)}
-        idleLabel="Abmelden"
-        pendingLabel="Wird abgemeldet..."
-      />
+      <SubmitButton className={buttonVariants("secondary", className)} idleLabel="Abmelden" pendingLabel="Wird abgemeldet..." />
     </form>
   );
 }

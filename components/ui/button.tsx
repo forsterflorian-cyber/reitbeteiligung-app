@@ -13,6 +13,8 @@ const variantClassNames: Record<ButtonVariant, string> = {
   ghost: "bg-transparent text-stone-700 hover:bg-stone-100 hover:text-stone-900"
 };
 
+// Button styles live here so links, submit buttons and nav actions all share
+// the same visual language instead of re-declaring class strings in pages.
 export function buttonVariants(variant: ButtonVariant = "primary", className?: string) {
   return cx(baseClassName, variantClassNames[variant], className);
 }

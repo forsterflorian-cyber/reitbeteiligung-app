@@ -17,8 +17,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <NavShell email={user?.email} profile={profile} />
         <main>
-          {/* Bottom navigation is fixed on mobile, so the content keeps extra bottom padding there. */}
-          <div className="mx-auto w-full max-w-md px-4 py-5 pb-28 sm:max-w-2xl sm:px-5 sm:py-6 sm:pb-28 md:pb-8 lg:max-w-5xl lg:px-8 lg:py-8 xl:max-w-6xl">
+          {/* Bottom navigation is fixed on mobile, so content keeps extra bottom padding there. */}
+          <div className="mx-auto w-full max-w-md px-4 py-5 pb-28 sm:max-w-2xl sm:px-5 sm:py-6 sm:pb-28 md:max-w-4xl md:pb-8 lg:max-w-6xl lg:px-8 lg:py-8">
             {children}
           </div>
         </main>
