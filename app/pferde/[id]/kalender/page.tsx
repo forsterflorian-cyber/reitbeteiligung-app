@@ -385,32 +385,76 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
 
           {isOwner ? (
             <>
-              <SectionCard subtitle="Lege freie Fenster und blockierte Zeiten direkt nebeneinander an." title="Kalender pflegen">
+              <SectionCard subtitle="Lege zuerst wiederkehrende Standardzeiten fest und nutze Sperren nur noch fuer Ausnahmen." title="Kalender pflegen">
                 <div className="grid gap-4 lg:grid-cols-2">
                   <Card className="p-4 sm:p-5">
                     <form action={createAvailabilityRuleAction} className="space-y-4">
                       <input name="horseId" type="hidden" value={horse.id} />
                       <div>
-                        <h3 className="text-base font-semibold text-stone-900">Verfuegbarkeitsfenster</h3>
-                        <p className="mt-1 text-sm text-stone-600">Dieses Fenster sehen freigeschaltete Reiter.</p>
+                        <h3 className="text-base font-semibold text-stone-900">Standardzeiten</h3>
+                        <p className="mt-1 text-sm text-stone-600">Das gewaehlte Wochenmuster wird fuer die naechsten 8 Wochen als Verfuegbarkeit angelegt.</p>
                       </div>
                       <div>
-                        <label htmlFor="availabilityStartAt">Beginn</label>
-                        <input id="availabilityStartAt" name="startAt" required type="datetime-local" />
+                        <label htmlFor="availabilityPreset">Wochenmuster</label>
+                        <select defaultValue="weekdays" id="availabilityPreset" name="availabilityPreset" required>
+                          <option value="daily">Jeden Tag</option>
+                          <option value="weekdays">Nur unter der Woche</option>
+                          <option value="weekends">Nur am Wochenende</option>
+                          <option value="custom">Eigene Wochentage</option>
+                        </select>
                       </div>
-                      <div>
-                        <label htmlFor="availabilityEndAt">Ende</label>
-                        <input id="availabilityEndAt" name="endAt" required type="datetime-local" />
+                      <fieldset className="space-y-3">
+                        <legend className="text-sm font-medium text-stone-900">Eigene Wochentage (nur fuer &quot;Eigene Wochentage&quot;)</legend>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          <label className="mb-0 flex min-h-[44px] items-center gap-2 rounded-xl border border-stone-200 px-3 py-2 text-sm text-stone-700">
+                            <input name="weekday" type="checkbox" value="1" />
+                            Montag
+                          </label>
+                          <label className="mb-0 flex min-h-[44px] items-center gap-2 rounded-xl border border-stone-200 px-3 py-2 text-sm text-stone-700">
+                            <input name="weekday" type="checkbox" value="2" />
+                            Dienstag
+                          </label>
+                          <label className="mb-0 flex min-h-[44px] items-center gap-2 rounded-xl border border-stone-200 px-3 py-2 text-sm text-stone-700">
+                            <input name="weekday" type="checkbox" value="3" />
+                            Mittwoch
+                          </label>
+                          <label className="mb-0 flex min-h-[44px] items-center gap-2 rounded-xl border border-stone-200 px-3 py-2 text-sm text-stone-700">
+                            <input name="weekday" type="checkbox" value="4" />
+                            Donnerstag
+                          </label>
+                          <label className="mb-0 flex min-h-[44px] items-center gap-2 rounded-xl border border-stone-200 px-3 py-2 text-sm text-stone-700">
+                            <input name="weekday" type="checkbox" value="5" />
+                            Freitag
+                          </label>
+                          <label className="mb-0 flex min-h-[44px] items-center gap-2 rounded-xl border border-stone-200 px-3 py-2 text-sm text-stone-700">
+                            <input name="weekday" type="checkbox" value="6" />
+                            Samstag
+                          </label>
+                          <label className="mb-0 flex min-h-[44px] items-center gap-2 rounded-xl border border-stone-200 px-3 py-2 text-sm text-stone-700 sm:col-span-2">
+                            <input name="weekday" type="checkbox" value="0" />
+                            Sonntag
+                          </label>
+                        </div>
+                      </fieldset>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <label htmlFor="availabilityStartTime">Von</label>
+                          <input defaultValue="17:00" id="availabilityStartTime" name="startTime" required type="time" />
+                        </div>
+                        <div>
+                          <label htmlFor="availabilityEndTime">Bis</label>
+                          <input defaultValue="19:00" id="availabilityEndTime" name="endTime" required type="time" />
+                        </div>
                       </div>
-                      <SubmitButton idleLabel="Fenster speichern" pendingLabel="Wird gespeichert..." />
+                      <SubmitButton idleLabel="Standardzeiten speichern" pendingLabel="Wird gespeichert..." />
                     </form>
                   </Card>
                   <Card className="p-4 sm:p-5">
                     <form action={createCalendarBlockAction} className="space-y-4">
                       <input name="horseId" type="hidden" value={horse.id} />
                       <div>
-                        <h3 className="text-base font-semibold text-stone-900">Zeitraum blockieren</h3>
-                        <p className="mt-1 text-sm text-stone-600">Blockierte Zeiten erscheinen sofort als belegt.</p>
+                        <h3 className="text-base font-semibold text-stone-900">Ausnahme sperren</h3>
+                        <p className="mt-1 text-sm text-stone-600">Nutze Sperren nur dann, wenn das Pferd trotz Standardzeit kurzfristig nicht verfuegbar ist.</p>
                       </div>
                       <div>
                         <label htmlFor="blockStartAt">Beginn</label>
@@ -420,7 +464,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                         <label htmlFor="blockEndAt">Ende</label>
                         <input id="blockEndAt" name="endAt" required type="datetime-local" />
                       </div>
-                      <SubmitButton idleLabel="Zeitraum blockieren" pendingLabel="Wird gespeichert..." />
+                      <SubmitButton idleLabel="Ausnahme sperren" pendingLabel="Wird gespeichert..." />
                     </form>
                   </Card>
                 </div>
@@ -549,3 +593,6 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     </div>
   );
 }
+
+
+

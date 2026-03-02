@@ -26,6 +26,13 @@ import type { Approval, AvailabilityRule, Booking, BookingRequest, CalendarBlock
 const PASSWORD_RESET_REDIRECT_URL = "https://reitbeteiligung.app/passwort-zuruecksetzen";
 const RECURRENCE_HORIZON_WEEKS = 12;
 const MAX_RECURRENCE_OCCURRENCES = 100;
+const AVAILABILITY_GENERATION_WEEKS = 8;
+const AVAILABILITY_PRESET_DAYS = {
+  custom: [] as number[],
+  daily: [0, 1, 2, 3, 4, 5, 6],
+  weekdays: [1, 2, 3, 4, 5],
+  weekends: [0, 6]
+} as const;
 const RRULE_WEEKDAYS: Record<string, number> = {
   FR: 5,
   MO: 1,
@@ -55,6 +62,11 @@ type ParsedRecurrenceRule = {
 type BookingWindow = {
   endAt: string;
   startAt: string;
+};
+type AvailabilityPreset = keyof typeof AVAILABILITY_PRESET_DAYS;
+type ParsedClockTime = {
+  hours: number;
+  minutes: number;
 };
 type SupabaseErrorLike = {
   code?: string | null;
@@ -89,6 +101,94 @@ function addDaysUtc(date: Date, days: number) {
   const next = new Date(date.getTime());
   next.setUTCDate(next.getUTCDate() + days);
   return next;
+}
+
+function isAvailabilityPreset(value: string): value is AvailabilityPreset {
+  return value === "daily" || value === "weekdays" || value === "weekends" || value === "custom";
+}
+
+function parseClockTime(value: string) {
+  if (!/^\d{2}:\d{2}$/.test(value)) {
+    return null;
+  }
+
+  const [hoursValue, minutesValue] = value.split(":");
+  const hours = Number.parseInt(hoursValue, 10);
+  const minutes = Number.parseInt(minutesValue, 10);
+
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return null;
+  }
+
+  return {
+    hours,
+    minutes
+  } satisfies ParsedClockTime;
+}
+
+function resolveAvailabilityDays(preset: AvailabilityPreset, selectedValues: string[]) {
+  if (preset !== "custom") {
+    return [...AVAILABILITY_PRESET_DAYS[preset]];
+  }
+
+  return [...new Set(selectedValues)]
+    .map((value) => Number.parseInt(value, 10))
+    .filter((value) => Number.isInteger(value) && value >= 0 && value <= 6)
+    .sort((left, right) => left - right);
+}
+
+// Weekly availability is persisted as explicit windows in the current schema.
+// The selected weekday pattern is therefore expanded into concrete entries ahead of time.
+function buildAvailabilityWindows(days: number[], startTime: ParsedClockTime, endTime: ParsedClockTime) {
+  const windows: BookingWindow[] = [];
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+
+  for (let dayOffset = 0; dayOffset < AVAILABILITY_GENERATION_WEEKS * 7; dayOffset += 1) {
+    const dayDate = new Date(
+      startOfToday.getFullYear(),
+      startOfToday.getMonth(),
+      startOfToday.getDate() + dayOffset,
+      0,
+      0,
+      0,
+      0
+    );
+
+    if (!days.includes(dayDate.getDay())) {
+      continue;
+    }
+
+    const startAt = new Date(
+      dayDate.getFullYear(),
+      dayDate.getMonth(),
+      dayDate.getDate(),
+      startTime.hours,
+      startTime.minutes,
+      0,
+      0
+    );
+    const endAt = new Date(
+      dayDate.getFullYear(),
+      dayDate.getMonth(),
+      dayDate.getDate(),
+      endTime.hours,
+      endTime.minutes,
+      0,
+      0
+    );
+
+    if (endAt <= startAt || endAt <= now) {
+      continue;
+    }
+
+    windows.push({
+      endAt: endAt.toISOString(),
+      startAt: startAt.toISOString()
+    });
+  }
+
+  return windows;
 }
 
 function parseRruleDate(value: string) {
@@ -1061,62 +1161,148 @@ export async function createAvailabilityRuleAction(formData: FormData) {
     redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verfuegbarkeiten verwalten.");
   }
 
-  const startAtValue = asString(formData.get("startAt"));
-  const endAtValue = asString(formData.get("endAt"));
-  const startAt = new Date(startAtValue);
-  const endAt = new Date(endAtValue);
+  const presetValue = asString(formData.get("availabilityPreset"));
 
-  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
-    redirectWithMessage(redirectPath, "error", "Bitte gib ein gueltiges Verfuegbarkeitsfenster an.");
+  if (!isAvailabilityPreset(presetValue)) {
+    redirectWithMessage(redirectPath, "error", "Bitte waehle ein gueltiges Wochenmuster aus.");
   }
 
-  if (endAt <= startAt) {
+  const selectedWeekdays = formData
+    .getAll("weekday")
+    .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+    .filter(Boolean);
+  const days = resolveAvailabilityDays(presetValue, selectedWeekdays);
+
+  if (days.length === 0) {
+    redirectWithMessage(redirectPath, "error", "Bitte waehle mindestens einen Wochentag aus.");
+  }
+
+  const startTime = parseClockTime(asString(formData.get("startTime")));
+  const endTime = parseClockTime(asString(formData.get("endTime")));
+
+  if (!startTime || !endTime) {
+    redirectWithMessage(redirectPath, "error", "Bitte gib eine gueltige Uhrzeit an.");
+  }
+
+  if (endTime.hours < startTime.hours || (endTime.hours === startTime.hours && endTime.minutes <= startTime.minutes)) {
     redirectWithMessage(redirectPath, "error", "Das Ende muss nach dem Beginn liegen.");
   }
 
-  const { data: slotData, error: slotError } = await supabase
-    .from("availability_slots")
-    .insert({
-      active: true,
-      end_at: endAt.toISOString(),
-      horse_id: horseId,
-      start_at: startAt.toISOString()
-    })
-    .select("id")
-    .maybeSingle();
+  const candidateWindows = buildAvailabilityWindows(days, startTime, endTime);
 
-  if (slotError) {
-    logSupabaseError("Availability slot insert failed", slotError);
-    redirectWithMessage(redirectPath, "error", "Das Verfuegbarkeitsfenster konnte nicht gespeichert werden.");
+  if (candidateWindows.length === 0) {
+    redirectWithMessage(
+      redirectPath,
+      "error",
+      "Mit dieser Auswahl entstehen in den naechsten 8 Wochen keine zukuenftigen Zeitfenster."
+    );
   }
 
-  const slotId = slotData?.id;
+  const { data: existingRulesData, error: existingRulesError } = await supabase
+    .from("availability_rules")
+    .select("start_at, end_at")
+    .eq("horse_id", horseId)
+    .eq("active", true)
+    .gte("end_at", new Date().toISOString());
 
-  if (!slotId) {
-    redirectWithMessage(redirectPath, "error", "Das Verfuegbarkeitsfenster konnte nicht gespeichert werden.");
+  if (existingRulesError) {
+    logSupabaseError("Availability rule lookup failed", existingRulesError);
+    redirectWithMessage(redirectPath, "error", "Die vorhandenen Verfuegbarkeiten konnten nicht geladen werden.");
   }
 
-  const { error } = await supabase.from("availability_rules").insert({
-    active: true,
-    end_at: endAt.toISOString(),
-    horse_id: horseId,
-    slot_id: slotId,
-    start_at: startAt.toISOString()
-  });
+  const existingRuleKeys = new Set(
+    (((existingRulesData as Array<{ end_at: string; start_at: string }> | null) ?? [])).map(
+      (rule) => `${rule.start_at}|${rule.end_at}`
+    )
+  );
+  const windowsToCreate = candidateWindows.filter((window) => !existingRuleKeys.has(`${window.startAt}|${window.endAt}`));
+  const skippedCount = candidateWindows.length - windowsToCreate.length;
 
-  if (error) {
-    logSupabaseError("Availability rule insert failed", error);
-    const { error: cleanupError } = await supabase.from("availability_slots").delete().eq("id", slotId).eq("horse_id", horseId);
+  if (windowsToCreate.length === 0) {
+    redirectWithMessage(redirectPath, "message", "Diese Standardzeiten sind bereits hinterlegt.");
+  }
 
-    if (cleanupError) {
-      logSupabaseError("Availability slot cleanup failed", cleanupError);
+  let createdCount = 0;
+  let failedCount = 0;
+
+  for (const window of windowsToCreate) {
+    const { data: slotData, error: slotError } = await supabase
+      .from("availability_slots")
+      .insert({
+        active: true,
+        end_at: window.endAt,
+        horse_id: horseId,
+        start_at: window.startAt
+      })
+      .select("id")
+      .maybeSingle();
+
+    if (slotError || !slotData?.id) {
+      if (slotError) {
+        logSupabaseError("Availability slot insert failed", slotError);
+      }
+
+      failedCount += 1;
+      continue;
     }
 
-    redirectWithMessage(redirectPath, "error", "Das Verfuegbarkeitsfenster konnte nicht gespeichert werden.");
+    const slotId = slotData.id;
+    const { error } = await supabase.from("availability_rules").insert({
+      active: true,
+      end_at: window.endAt,
+      horse_id: horseId,
+      slot_id: slotId,
+      start_at: window.startAt
+    });
+
+    if (error) {
+      logSupabaseError("Availability rule insert failed", error);
+      failedCount += 1;
+
+      const { error: cleanupError } = await supabase.from("availability_slots").delete().eq("id", slotId).eq("horse_id", horseId);
+
+      if (cleanupError) {
+        logSupabaseError("Availability slot cleanup failed", cleanupError);
+      }
+
+      continue;
+    }
+
+    createdCount += 1;
+  }
+
+  if (createdCount === 0) {
+    redirectWithMessage(redirectPath, "error", "Die Standardzeiten konnten nicht gespeichert werden.");
   }
 
   revalidatePath(redirectPath);
-  redirectWithMessage(redirectPath, "message", "Das Verfuegbarkeitsfenster wurde gespeichert.");
+  revalidatePath(`/pferde/${horseId}`);
+  revalidatePath("/owner/anfragen");
+  revalidatePath("/anfragen");
+
+  const messageParts = [
+    createdCount === 1
+      ? "1 Verfuegbarkeitsfenster wurde gespeichert."
+      : `${createdCount} Verfuegbarkeitsfenster wurden gespeichert.`
+  ];
+
+  if (skippedCount > 0) {
+    messageParts.push(
+      skippedCount === 1
+        ? "1 bereits vorhandenes Fenster wurde uebersprungen."
+        : `${skippedCount} bereits vorhandene Fenster wurden uebersprungen.`
+    );
+  }
+
+  if (failedCount > 0) {
+    messageParts.push(
+      failedCount === 1
+        ? "1 Fenster konnte nicht angelegt werden."
+        : `${failedCount} Fenster konnten nicht angelegt werden.`
+    );
+  }
+
+  redirectWithMessage(redirectPath, "message", messageParts.join(" "));
 }
 
 export async function deleteAvailabilityRuleAction(formData: FormData) {
@@ -1472,3 +1658,5 @@ export async function saveRiderProfileAction(formData: FormData) {
   revalidatePath("/dashboard");
   redirectWithMessage("/rider/profile", "message", "Das Reiterprofil wurde gespeichert.");
 }
+
+

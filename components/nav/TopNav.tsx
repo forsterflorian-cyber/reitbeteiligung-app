@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import type { Profile } from "@/types/database";
 
-import { LandingNav } from "@/components/blocks/landing-nav";
+import { LandingNav } from "@/components/landing/LandingNav";
 import { LogoutForm } from "@/components/logout-form";
 import { NavList } from "@/components/nav/nav-list";
 import { getNavItems } from "@/config/nav";
@@ -49,3 +49,4 @@ export function TopNav({ email, profile }: TopNavProps) {
     </header>
   );
 }
+
