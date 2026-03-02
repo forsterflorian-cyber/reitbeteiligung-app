@@ -80,7 +80,7 @@ export default async function ProfilPage({
       ) : (
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-sm text-stone-500">Reiterprofil</p>
-          <p className="mt-2 text-base font-semibold text-ink">{riderProfile ? "Vorhanden" : "Noch unvollstaendig"}</p>
+          <p className="mt-2 text-base font-semibold text-ink">{riderProfile ? "Vorhanden" : "Noch unvollständig"}</p>
           <Link className="mt-3 inline-flex text-sm font-semibold text-forest hover:text-clay" href="/rider/profile">
             Reiterprofil bearbeiten
           </Link>

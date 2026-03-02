@@ -29,7 +29,7 @@ function formatDateTime(value: string) {
 
 function formatDateRange(startAt: string | null, endAt: string | null) {
   if (!startAt || !endAt) {
-    return "Zeitpunkt wird geprueft";
+    return "Zeitpunkt wird geprüft";
   }
 
   return `${formatDateTime(startAt)} bis ${formatDateTime(endAt)}`;
@@ -203,7 +203,7 @@ export default async function OwnerAnfragenPage({
                           <input name="requestId" type="hidden" value={request.id} />
                           <input name="status" type="hidden" value="completed" />
                           <button className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-forest px-4 py-3 text-sm font-semibold text-white hover:bg-forest/90" type="submit">
-                            Als durchgefuehrt markieren
+                            Als durchgeführt markieren
                           </button>
                         </form>
                       ) : null}
@@ -242,7 +242,7 @@ export default async function OwnerAnfragenPage({
       <section className="space-y-3">
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-ink">Terminanfragen</h2>
-          <p className="text-sm text-stone-600">Hier bearbeitest du konkrete Buchungsanfragen innerhalb deiner Verfuegbarkeitsfenster.</p>
+          <p className="text-sm text-stone-600">Hier bearbeitest du konkrete Buchungsanfragen innerhalb deiner Verfügbarkeitsfenster.</p>
         </div>
         {bookingItems.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">

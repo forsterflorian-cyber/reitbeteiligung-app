@@ -123,8 +123,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       ...pendingBookingRequests.map((request) => ({
         ctaLabel: "Details",
         description: request.requested_start_at
-          ? `Angefragt fuer ${formatDate(request.requested_start_at)}.`
-          : "Zeitpunkt wird noch geprueft.",
+          ? `Angefragt für ${formatDate(request.requested_start_at)}.`
+          : "Zeitpunkt wird noch geprüft.",
         eyebrow: "Terminanfrage",
         href: ownerRequestsHref,
         meta: formatDate(request.created_at),
@@ -151,7 +151,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </>
           }
           subtitle={`Hallo ${displayName}. Hier siehst du, was heute Aufmerksamkeit braucht.`}
-          title="Uebersicht"
+          title="Übersicht"
         />
         <Notice text={message} tone="success" />
         <StatGrid items={ownerStats} />
@@ -258,9 +258,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const riderStats: StatItem[] = [
     {
       label: "Profilstatus",
-      value: <Badge tone={riderProfile ? "approved" : "pending"}>{riderProfile ? "Bereit" : "Unvollstaendig"}</Badge>,
+      value: <Badge tone={riderProfile ? "approved" : "pending"}>{riderProfile ? "Bereit" : "Unvollständig"}</Badge>,
       valueClassName: "text-base",
-      helper: riderProfile ? "Dein Reiterprofil ist angelegt." : "Bitte vervollstaendige dein Reiterprofil fuer passende Anfragen."
+      helper: riderProfile ? "Dein Reiterprofil ist angelegt." : "Bitte vervollständige dein Reiterprofil für passende Anfragen."
     },
     {
       label: "Offene Probetermine",
@@ -268,12 +268,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       helper: "Anfragen mit Status Ausstehend oder Angenommen."
     },
     {
-      label: "Naechster Schritt",
+      label: "Nächster Schritt",
       value: riderProfile ? "Pferde suchen" : "Profil ausfuellen",
       valueClassName: "text-xl",
       helper: riderProfile
         ? "Suche passende Pferde und frage einen Probetermin an."
-        : "Ergaenze dein Profil, damit Pferdehalter dich besser einschaetzen koennen."
+        : "Ergänze dein Profil, damit Pferdehalter dich besser einschätzen können."
     }
   ];
 
@@ -293,8 +293,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </Link>
           </>
         }
-        subtitle={`Hallo ${displayName}. Hier siehst du deinen Profilstatus und die naechsten Probetermine auf einen Blick.`}
-        title="Uebersicht"
+        subtitle={`Hallo ${displayName}. Hier siehst du deinen Profilstatus und die nächsten Probetermine auf einen Blick.`}
+        title="Übersicht"
       />
       <Notice text={message} tone="success" />
       <StatGrid className="xl:grid-cols-3" items={riderStats} />
@@ -315,7 +315,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   Passende Pferde finden
                 </Link>
               }
-              description="Sobald du deinen ersten Probetermin anfragst, erscheint er hier in der Uebersicht."
+              description="Sobald du deinen ersten Probetermin anfragst, erscheint er hier in der Übersicht."
               title="Noch keine Probetermine"
             />
           ) : (

@@ -47,8 +47,8 @@ export function Hero() {
           </div>
 
           <div className="flex flex-wrap gap-2 text-sm text-stone-600">
-            <Badge tone="neutral">FÃ¼r Pferdehalter</Badge>
-            <Badge tone="neutral">FÃ¼r Reiter</Badge>
+            <Badge tone="neutral">Für Pferdehalter</Badge>
+            <Badge tone="neutral">Für Reiter</Badge>
           </div>
         </div>
         <HeroVisual />

@@ -19,7 +19,7 @@ const statusDisplayMap: Record<DisplayableStatus, { label: string; tone: StatusT
     tone: "rejected"
   },
   completed: {
-    label: "Durchgefuehrt",
+    label: "Durchgeführt",
     tone: "info"
   },
   approved: {

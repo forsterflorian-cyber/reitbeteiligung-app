@@ -38,7 +38,7 @@ export function ConfirmSubmitButton({
       onClick={handleClick}
       type="submit"
     >
-      {pending ? pendingLabel ?? "Wird geloescht..." : idleLabel}
+      {pending ? pendingLabel ?? "Wird gelöscht..." : idleLabel}
     </button>
   );
 }

@@ -99,7 +99,7 @@ export function HeroVisual() {
           />
           <WorkflowCard
             title="Terminbuchung"
-            statusLabel="BestÃ¤tigt"
+            statusLabel="Bestätigt"
             tone="approved"
             meta="Mi, 18:00 - 19:00"
             subtext="Einzeltermin"

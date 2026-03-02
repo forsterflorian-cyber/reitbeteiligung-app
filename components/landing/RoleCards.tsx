@@ -56,21 +56,21 @@ export function RoleCards() {
     <section className="space-y-6 py-2 sm:space-y-8 sm:py-4">
       <div className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Rollen</p>
-        <h2 className="font-serif text-3xl text-stone-900 sm:text-4xl">FÃ¼r Pferdehalter und Reiter</h2>
+        <h2 className="font-serif text-3xl text-stone-900 sm:text-4xl">Für Pferdehalter und Reiter</h2>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <RoleCard
           bullets={[
             "Pferdeprofile verwalten",
-            "Anfragen prÃ¼fen und freischalten",
-            "VerfÃ¼gbarkeiten und Termine im Blick"
+            "Anfragen prüfen und freischalten",
+            "Verfügbarkeiten und Termine im Blick"
           ]}
           ctaLabel="Als Pferdehalter starten"
-          previewMeta="Neue Probeanfrage fÃ¼r Apollo"
+          previewMeta="Neue Probeanfrage für Apollo"
           previewStatus="Ausstehend"
           previewTone="pending"
           subtitle="Alle Schritte von der ersten Anfrage bis zur Freigabe bleiben geordnet an einem Ort."
-          title="FÃ¼r Pferdehalter"
+          title="Für Pferdehalter"
         />
         <RoleCard
           bullets={[
@@ -79,11 +79,11 @@ export function RoleCards() {
             "Nach Freischaltung Termine buchen"
           ]}
           ctaLabel="Als Reiter starten"
-          previewMeta="NÃ¤chster Termin: Mittwoch, 18:00"
-          previewStatus="BestÃ¤tigt"
+          previewMeta="Nächster Termin: Mittwoch, 18:00"
+          previewStatus="Bestätigt"
           previewTone="info"
-          subtitle="Du siehst sofort, was offen ist, was bestÃ¤tigt wurde und wann der nÃ¤chste Termin ansteht."
-          title="FÃ¼r Reiter"
+          subtitle="Du siehst sofort, was offen ist, was bestätigt wurde und wann der nächste Termin ansteht."
+          title="Für Reiter"
         />
       </div>
     </section>

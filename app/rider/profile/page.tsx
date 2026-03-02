@@ -26,7 +26,7 @@ export default async function RiderProfilePage({ searchParams }: RiderProfilePag
       <div className="space-y-2">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Profil</p>
         <h1 className="text-3xl font-semibold text-forest sm:text-4xl">Reiterprofil</h1>
-        <p className="text-sm text-stone-600 sm:text-base">Pflege hier deine Angaben fuer Reitbeteiligung und Probetermin in einer kompakten mobilen Ansicht.</p>
+        <p className="text-sm text-stone-600 sm:text-base">Pflege hier deine Angaben für Reitbeteiligung und Probetermin in einer kompakten mobilen Ansicht.</p>
       </div>
       <Notice text={error} tone="error" />
       <Notice text={message} tone="success" />
@@ -43,7 +43,7 @@ export default async function RiderProfilePage({ searchParams }: RiderProfilePag
           </div>
           <div>
             <label htmlFor="notes">Notizen</label>
-            <textarea defaultValue={profile?.notes ?? ""} id="notes" name="notes" placeholder="Verfuegbarkeit, Ziele und Hinweise fuer den Probetermin." rows={5} />
+            <textarea defaultValue={profile?.notes ?? ""} id="notes" name="notes" placeholder="Verfügbarkeit, Ziele und Hinweise für den Probetermin." rows={5} />
           </div>
           <SubmitButton idleLabel="Reiterprofil speichern" pendingLabel="Wird gespeichert..." />
         </form>

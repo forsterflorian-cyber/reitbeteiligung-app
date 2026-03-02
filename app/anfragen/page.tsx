@@ -28,7 +28,7 @@ function formatDateTime(value: string) {
 
 function formatDateRange(startAt: string | null, endAt: string | null) {
   if (!startAt || !endAt) {
-    return "Zeitpunkt wird geprueft";
+    return "Zeitpunkt wird geprüft";
   }
 
   return `${formatDateTime(startAt)} bis ${formatDateTime(endAt)}`;
@@ -161,7 +161,7 @@ export default async function AnfragenPage({
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Probetermin</p>
                       <p className="mt-1 font-semibold text-ink">{horse?.title ?? "Pferdeprofil nicht gefunden"}</p>
-                      <p className="mt-1 text-sm text-stone-600">{horse ? `Pferdehalter: ${ownerName}` : "Pferdeprofil nicht mehr verfuegbar"}</p>
+                      <p className="mt-1 text-sm text-stone-600">{horse ? `Pferdehalter: ${ownerName}` : "Pferdeprofil nicht mehr verfügbar"}</p>
                     </div>
                     <p className="text-sm text-stone-600">{request.message ?? "Keine Nachricht hinterlegt."}</p>
                     <div className="flex flex-wrap gap-2">
@@ -192,7 +192,7 @@ export default async function AnfragenPage({
       <section className="space-y-3">
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-ink">Meine Terminanfragen</h2>
-          <p className="text-sm text-stone-600">Nur freigeschaltete Reiter koennen innerhalb eines Verfuegbarkeitsfensters einen Termin anfragen.</p>
+          <p className="text-sm text-stone-600">Nur freigeschaltete Reiter können innerhalb eines Verfügbarkeitsfensters einen Termin anfragen.</p>
         </div>
         {bookingItems.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
@@ -212,7 +212,7 @@ export default async function AnfragenPage({
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Terminanfrage</p>
                       <p className="mt-1 font-semibold text-ink">{request.horse?.title ?? "Pferdeprofil nicht gefunden"}</p>
-                      <p className="mt-1 text-sm text-stone-600">{request.horse ? `Pferdehalter: ${ownerName}` : "Pferdeprofil nicht mehr verfuegbar"}</p>
+                      <p className="mt-1 text-sm text-stone-600">{request.horse ? `Pferdehalter: ${ownerName}` : "Pferdeprofil nicht mehr verfügbar"}</p>
                     </div>
                     <p className="text-sm font-semibold text-ink">{formatDateRange(request.requested_start_at, request.requested_end_at)}</p>
                     {request.recurrence_rrule ? <p className="text-sm text-stone-600">Wiederholung: {request.recurrence_rrule}</p> : null}

@@ -435,7 +435,7 @@ function getRecurrenceErrorMessage(error: Error) {
     case "RECURRENCE_LIMIT":
       return "Die Wiederholung ueberschreitet den maximalen Horizont von 12 Wochen.";
     default:
-      return "Die Wiederholung ist ungueltig. Nutze zum Beispiel FREQ=WEEKLY;INTERVAL=1;COUNT=6.";
+      return "Die Wiederholung ist ungültig. Nutze zum Beispiel FREQ=WEEKLY;INTERVAL=1;COUNT=6.";
   }
 }
 
@@ -515,11 +515,11 @@ function getAcceptBookingErrorMessage(error: SupabaseErrorLike) {
     case "TIME_UNAVAILABLE":
       return "Der angefragte Termin ist nicht mehr verfuegbar.";
     case "NOT_APPROVED":
-      return "Nur freigeschaltete Reiter koennen gebucht werden.";
+      return "Nur freigeschaltete Reiter können gebucht werden.";
     case "OUTSIDE_RULE":
-      return "Der Termin liegt nicht innerhalb des Verfuegbarkeitsfensters.";
+      return "Der Termin liegt nicht innerhalb des Verfügbarkeitsfensters.";
     case "RULE_INACTIVE":
-      return "Dieses Verfuegbarkeitsfenster ist nicht mehr aktiv.";
+      return "Dieses Verfügbarkeitsfenster ist nicht mehr aktiv.";
     case "INVALID_STATUS":
       return "Diese Buchungsanfrage wurde bereits bearbeitet.";
     default:
@@ -555,7 +555,7 @@ export async function signupAction(formData: FormData) {
   const password = asString(formData.get("password"));
 
   if (!email.includes("@") || password.length < 8) {
-    redirectWithMessage("/signup", "error", "Bitte gib eine gueltige E-Mail-Adresse und ein Passwort mit mindestens 8 Zeichen ein.");
+    redirectWithMessage("/signup", "error", "Bitte gib eine gültige E-Mail-Adresse und ein Passwort mit mindestens 8 Zeichen ein.");
   }
 
   const supabase = createClient();
@@ -602,7 +602,7 @@ export async function requestPasswordResetAction(formData: FormData) {
   const email = asString(formData.get("email")).toLowerCase();
 
   if (!email.includes("@")) {
-    redirectWithMessage("/passwort-vergessen", "error", "Bitte gib eine gueltige E-Mail-Adresse ein.");
+    redirectWithMessage("/passwort-vergessen", "error", "Bitte gib eine gültige E-Mail-Adresse ein.");
   }
 
   const supabase = createClient();
@@ -614,14 +614,14 @@ export async function requestPasswordResetAction(formData: FormData) {
     redirectWithMessage(
       "/passwort-vergessen",
       "error",
-      "Der Link zum Zuruecksetzen konnte nicht versendet werden. Bitte versuche es erneut."
+      "Der Link zum Zurücksetzen konnte nicht versendet werden. Bitte versuche es erneut."
     );
   }
 
   redirectWithMessage(
     "/passwort-vergessen",
     "message",
-    "Wenn ein Konto zu dieser E-Mail-Adresse existiert, wurde ein Link zum Zuruecksetzen versendet."
+    "Wenn ein Konto zu dieser E-Mail-Adresse existiert, wurde ein Link zum Zurücksetzen versendet."
   );
 }
 
@@ -680,7 +680,7 @@ export async function requestTrialAction(formData: FormData) {
     revalidatePath("/owner/anfragen");
     redirect(
       `/pferde/${horseId}?message=${encodeURIComponent(
-        "Deine Anfrage fuer den Probetermin wurde gesendet."
+        "Deine Anfrage für den Probetermin wurde gesendet."
       )}&error=${encodeURIComponent("Chat konnte nicht erstellt werden.")}`
     );
   }
@@ -688,7 +688,7 @@ export async function requestTrialAction(formData: FormData) {
   revalidatePath(`/pferde/${horseId}`);
   revalidatePath("/anfragen");
   revalidatePath("/owner/anfragen");
-  redirectWithMessage(`/pferde/${horseId}`, "message", "Deine Anfrage fuer den Probetermin wurde gesendet.");
+  redirectWithMessage(`/pferde/${horseId}`, "message", "Deine Anfrage für den Probetermin wurde gesendet.");
 }
 
 export async function updateTrialRequestStatusAction(formData: FormData) {
@@ -697,7 +697,7 @@ export async function updateTrialRequestStatusAction(formData: FormData) {
   const nextStatus = asString(formData.get("status"));
 
   if (!requestId || !isMutableTrialRequestStatus(nextStatus)) {
-    redirectWithMessage("/owner/anfragen", "error", "Die Aktion ist ungueltig.");
+    redirectWithMessage("/owner/anfragen", "error", "Die Aktion ist ungültig.");
   }
 
   const record = await getOwnedTrialRequest(requestId, user.id);
@@ -707,7 +707,7 @@ export async function updateTrialRequestStatusAction(formData: FormData) {
   }
 
   if (nextStatus === TRIAL_REQUEST_STATUS.completed && record.request.status !== TRIAL_REQUEST_STATUS.accepted) {
-    redirectWithMessage("/owner/anfragen", "error", "Nur angenommene Probetermine koennen als durchgefuehrt markiert werden.");
+    redirectWithMessage("/owner/anfragen", "error", "Nur angenommene Probetermine können als durchgeführt markiert werden.");
   }
 
   if (
@@ -735,7 +735,7 @@ export async function updateApprovalAction(formData: FormData) {
   const nextStatus = asString(formData.get("status"));
 
   if (!requestId || !isApprovalStatus(nextStatus)) {
-    redirectWithMessage("/owner/anfragen", "error", "Die Freischaltung ist ungueltig.");
+    redirectWithMessage("/owner/anfragen", "error", "Die Freischaltung ist ungültig.");
   }
 
   const record = await getOwnedTrialRequest(requestId, user.id);
@@ -745,7 +745,7 @@ export async function updateApprovalAction(formData: FormData) {
   }
 
   if (record.request.status !== TRIAL_REQUEST_STATUS.completed) {
-    redirectWithMessage("/owner/anfragen", "error", "Nur durchgefuehrte Probetermine koennen freigeschaltet werden.");
+    redirectWithMessage("/owner/anfragen", "error", "Nur durchgeführte Probetermine können freigeschaltet werden.");
   }
 
   const { error } = await record.supabase.from("approvals").upsert(
@@ -783,7 +783,7 @@ export async function completeOnboardingAction(formData: FormData) {
   const phone = asOptionalString(formData.get("phone"));
 
   if (!isRole(role)) {
-    redirectWithMessage("/onboarding", "error", "Bitte waehle Pferdehalter oder Reiter aus.");
+    redirectWithMessage("/onboarding", "error", "Bitte wähle Pferdehalter oder Reiter aus.");
   }
 
   if (displayName.length < 2) {
@@ -791,7 +791,7 @@ export async function completeOnboardingAction(formData: FormData) {
   }
 
   if (phone && phone.length < 6) {
-    redirectWithMessage("/onboarding", "error", "Bitte gib eine gueltige Telefonnummer an oder lasse das Feld leer.");
+    redirectWithMessage("/onboarding", "error", "Bitte gib eine gültige Telefonnummer an oder lasse das Feld leer.");
   }
 
   const { error } = await supabase.from("profiles").insert({
@@ -821,7 +821,7 @@ export async function saveProfileDetailsAction(formData: FormData) {
   }
 
   if (phone && phone.length < 6) {
-    redirectWithMessage("/profil", "error", "Bitte gib eine gueltige Telefonnummer an oder lasse das Feld leer.");
+    redirectWithMessage("/profil", "error", "Bitte gib eine gültige Telefonnummer an oder lasse das Feld leer.");
   }
 
   const { error } = await supabase
@@ -873,7 +873,7 @@ export async function saveHorseAction(formData: FormData) {
   }
 
   if (sexValue && !isHorseGeschlecht(sexValue)) {
-    redirectWithMessage(redirectPath, "error", `Bitte waehle ${HORSE_GESCHLECHTER.join(", ")} fuer das Geschlecht.`);
+    redirectWithMessage(redirectPath, "error", `Bitte wähle ${HORSE_GESCHLECHTER.join(", ")} für das Geschlecht.`);
   }
 
   const horseValues = {
@@ -924,18 +924,18 @@ export async function uploadHorseImagesAction(formData: FormData) {
   const horse = await getOwnedHorse(supabase, horseId, user.id);
 
   if (!horse) {
-    redirectWithMessage(redirectPath, "error", "Du kannst nur Bilder fuer eigene Pferdeprofile hochladen.");
+    redirectWithMessage(redirectPath, "error", "Du kannst nur Bilder für eigene Pferdeprofile hochladen.");
   }
 
   const rawFiles = formData.getAll("images");
   const files = rawFiles.filter((entry): entry is File => typeof File !== "undefined" && entry instanceof File && entry.size > 0);
 
   if (files.length === 0) {
-    redirectWithMessage(redirectPath, "error", "Bitte waehle mindestens ein Bild aus.");
+    redirectWithMessage(redirectPath, "error", "Bitte wähle mindestens ein Bild aus.");
   }
 
   if (files.some((file) => !file.type.startsWith("image/"))) {
-    redirectWithMessage(redirectPath, "error", "Es koennen nur Bilddateien hochgeladen werden.");
+    redirectWithMessage(redirectPath, "error", "Es können nur Bilddateien hochgeladen werden.");
   }
 
   const { data: existingImagesData } = await supabase
@@ -949,7 +949,7 @@ export async function uploadHorseImagesAction(formData: FormData) {
   );
 
   if (existingImages.length + files.length > MAX_HORSE_IMAGES) {
-    redirectWithMessage(redirectPath, "error", `Es koennen maximal ${MAX_HORSE_IMAGES} Bilder gespeichert werden.`);
+    redirectWithMessage(redirectPath, "error", `Es können maximal ${MAX_HORSE_IMAGES} Bilder gespeichert werden.`);
   }
 
   const nextPosition = existingImages.reduce((maxPosition, image) => {
@@ -1047,27 +1047,27 @@ export async function deleteHorseImageAction(formData: FormData) {
   const horse = await getOwnedHorse(supabase, image.horse_id, user.id);
 
   if (!horse) {
-    redirectWithMessage(redirectPath, "error", "Du kannst nur Bilder fuer eigene Pferdeprofile loeschen.");
+    redirectWithMessage(redirectPath, "error", "Du kannst nur Bilder für eigene Pferdeprofile löschen.");
   }
 
   const imagePath = image.path ?? image.storage_path ?? null;
 
   if (!imagePath) {
-    redirectWithMessage(redirectPath, "error", "Das Bild konnte nicht geloescht werden.");
+    redirectWithMessage(redirectPath, "error", "Das Bild konnte nicht gelöscht werden.");
   }
 
   const { error: storageError } = await supabase.storage.from(HORSE_IMAGE_BUCKET).remove([imagePath]);
 
   if (storageError) {
     logSupabaseError("Horse image storage delete failed", storageError);
-    redirectWithMessage(redirectPath, "error", "Das Bild konnte nicht geloescht werden.");
+    redirectWithMessage(redirectPath, "error", "Das Bild konnte nicht gelöscht werden.");
   }
 
   const { error } = await supabase.from("horse_images").delete().eq("id", imageId);
 
   if (error) {
     logSupabaseError("Horse image row delete failed", error);
-    redirectWithMessage(redirectPath, "error", "Das Bild konnte nicht geloescht werden.");
+    redirectWithMessage(redirectPath, "error", "Das Bild konnte nicht gelöscht werden.");
   }
 
   revalidatePath("/owner/horses");
@@ -1097,7 +1097,7 @@ export async function createCalendarBlockAction(formData: FormData) {
   const endAt = new Date(endAtValue);
 
   if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
-    redirectWithMessage(redirectPath, "error", "Bitte gib einen gueltigen Zeitraum an.");
+    redirectWithMessage(redirectPath, "error", "Bitte gib einen gültigen Zeitraum an.");
   }
 
   if (endAt <= startAt) {
@@ -1131,7 +1131,7 @@ export async function deleteCalendarBlockAction(formData: FormData) {
   const block = await getOwnedCalendarBlock(supabase, blockId, user.id);
 
   if (!block) {
-    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Kalender-Sperren loeschen.");
+    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Kalender-Sperren löschen.");
   }
 
   const redirectPath = `/pferde/${block.horse_id}/kalender`;
@@ -1139,7 +1139,7 @@ export async function deleteCalendarBlockAction(formData: FormData) {
 
   if (error) {
     logSupabaseError("Calendar block delete failed", error);
-    redirectWithMessage(redirectPath, "error", "Die Kalender-Sperre konnte nicht geloescht werden.");
+    redirectWithMessage(redirectPath, "error", "Die Kalender-Sperre konnte nicht gelöscht werden.");
   }
 
   revalidatePath(redirectPath);
@@ -1158,13 +1158,13 @@ export async function createAvailabilityRuleAction(formData: FormData) {
   const redirectPath = `/pferde/${horseId}/kalender`;
 
   if (!horse) {
-    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verfuegbarkeiten verwalten.");
+    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verfügbarkeiten verwalten.");
   }
 
   const presetValue = asString(formData.get("availabilityPreset"));
 
   if (!isAvailabilityPreset(presetValue)) {
-    redirectWithMessage(redirectPath, "error", "Bitte waehle ein gueltiges Wochenmuster aus.");
+    redirectWithMessage(redirectPath, "error", "Bitte wähle ein gültiges Wochenmuster aus.");
   }
 
   const selectedWeekdays = formData
@@ -1174,14 +1174,14 @@ export async function createAvailabilityRuleAction(formData: FormData) {
   const days = resolveAvailabilityDays(presetValue, selectedWeekdays);
 
   if (days.length === 0) {
-    redirectWithMessage(redirectPath, "error", "Bitte waehle mindestens einen Wochentag aus.");
+    redirectWithMessage(redirectPath, "error", "Bitte wähle mindestens einen Wochentag aus.");
   }
 
   const startTime = parseClockTime(asString(formData.get("startTime")));
   const endTime = parseClockTime(asString(formData.get("endTime")));
 
   if (!startTime || !endTime) {
-    redirectWithMessage(redirectPath, "error", "Bitte gib eine gueltige Uhrzeit an.");
+    redirectWithMessage(redirectPath, "error", "Bitte gib eine gültige Uhrzeit an.");
   }
 
   if (endTime.hours < startTime.hours || (endTime.hours === startTime.hours && endTime.minutes <= startTime.minutes)) {
@@ -1207,7 +1207,7 @@ export async function createAvailabilityRuleAction(formData: FormData) {
 
   if (existingRulesError) {
     logSupabaseError("Availability rule lookup failed", existingRulesError);
-    redirectWithMessage(redirectPath, "error", "Die vorhandenen Verfuegbarkeiten konnten nicht geladen werden.");
+    redirectWithMessage(redirectPath, "error", "Die vorhandenen Verfügbarkeiten konnten nicht geladen werden.");
   }
 
   const existingRuleKeys = new Set(
@@ -1282,8 +1282,8 @@ export async function createAvailabilityRuleAction(formData: FormData) {
 
   const messageParts = [
     createdCount === 1
-      ? "1 Verfuegbarkeitsfenster wurde gespeichert."
-      : `${createdCount} Verfuegbarkeitsfenster wurden gespeichert.`
+      ? "1 Verfügbarkeitsfenster wurde gespeichert."
+      : `${createdCount} Verfügbarkeitsfenster wurden gespeichert.`
   ];
 
   if (skippedCount > 0) {
@@ -1310,13 +1310,13 @@ export async function deleteAvailabilityRuleAction(formData: FormData) {
   const ruleId = asString(formData.get("ruleId"));
 
   if (!ruleId) {
-    redirectWithMessage("/owner/horses", "error", "Das Verfuegbarkeitsfenster konnte nicht gefunden werden.");
+    redirectWithMessage("/owner/horses", "error", "Das Verfügbarkeitsfenster konnte nicht gefunden werden.");
   }
 
   const rule = await getOwnedAvailabilityRule(supabase, ruleId, user.id);
 
   if (!rule) {
-    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verfuegbarkeitsfenster loeschen.");
+    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verfügbarkeitsfenster löschen.");
   }
 
   const redirectPath = `/pferde/${rule.horse_id}/kalender`;
@@ -1324,13 +1324,13 @@ export async function deleteAvailabilityRuleAction(formData: FormData) {
 
   if (error) {
     logSupabaseError("Availability rule delete failed", error);
-    redirectWithMessage(redirectPath, "error", "Das Verfuegbarkeitsfenster konnte nicht geloescht werden.");
+    redirectWithMessage(redirectPath, "error", "Das Verfügbarkeitsfenster konnte nicht gelöscht werden.");
   }
 
   revalidatePath(redirectPath);
   revalidatePath("/owner/anfragen");
   revalidatePath("/anfragen");
-  redirectWithMessage(redirectPath, "message", "Das Verfuegbarkeitsfenster wurde entfernt.");
+  redirectWithMessage(redirectPath, "message", "Das Verfügbarkeitsfenster wurde entfernt.");
 }
 
 export async function requestBookingAction(formData: FormData) {
@@ -1340,7 +1340,7 @@ export async function requestBookingAction(formData: FormData) {
   const recurrenceRrule = asOptionalString(formData.get("recurrenceRrule"));
 
   if (!horseId || !ruleId) {
-    redirectWithMessage("/suchen", "error", "Das Verfuegbarkeitsfenster konnte nicht gefunden werden.");
+    redirectWithMessage("/suchen", "error", "Das Verfügbarkeitsfenster konnte nicht gefunden werden.");
   }
 
   const redirectPath = `/pferde/${horseId}/kalender`;
@@ -1350,7 +1350,7 @@ export async function requestBookingAction(formData: FormData) {
   const endAt = new Date(endAtValue);
 
   if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
-    redirectWithMessage(redirectPath, "error", "Bitte gib einen gueltigen Termin an.");
+    redirectWithMessage(redirectPath, "error", "Bitte gib einen gültigen Termin an.");
   }
 
   if (endAt <= startAt) {
@@ -1375,7 +1375,7 @@ export async function requestBookingAction(formData: FormData) {
   const approval = (approvalData as ApprovalRecord | null) ?? null;
 
   if (approval?.status !== APPROVAL_STATUS.approved) {
-    redirectWithMessage(redirectPath, "error", "Nur freigeschaltete Reiter koennen einen Termin anfragen.");
+    redirectWithMessage(redirectPath, "error", "Nur freigeschaltete Reiter können einen Termin anfragen.");
   }
 
   const { data: ruleData } = await supabase
@@ -1388,14 +1388,14 @@ export async function requestBookingAction(formData: FormData) {
   const rule = (ruleData as AvailabilityRuleRecord | null) ?? null;
 
   if (!rule || !rule.active) {
-    redirectWithMessage(redirectPath, "error", "Dieses Verfuegbarkeitsfenster ist nicht mehr verfuegbar.");
+    redirectWithMessage(redirectPath, "error", "Dieses Verfügbarkeitsfenster ist nicht mehr verfuegbar.");
   }
 
   const requestedStartIso = startAt.toISOString();
   const requestedEndIso = endAt.toISOString();
 
   if (requestedStartIso < rule.start_at || requestedEndIso > rule.end_at) {
-    redirectWithMessage(redirectPath, "error", "Der Termin muss komplett im Verfuegbarkeitsfenster liegen.");
+    redirectWithMessage(redirectPath, "error", "Der Termin muss komplett im Verfügbarkeitsfenster liegen.");
   }
 
   const { error } = await supabase.from("booking_requests").insert({
@@ -1448,7 +1448,7 @@ export async function acceptBookingRequestAction(formData: FormData) {
   const rule = (ruleData as AvailabilityRuleRecord | null) ?? null;
 
   if (!rule || !rule.active || rule.slot_id !== request.slot_id) {
-    redirectWithMessage("/owner/anfragen", "error", "Dieses Verfuegbarkeitsfenster ist nicht mehr aktiv.");
+    redirectWithMessage("/owner/anfragen", "error", "Dieses Verfügbarkeitsfenster ist nicht mehr aktiv.");
   }
 
   const { data: approvalData } = await supabase
@@ -1461,11 +1461,11 @@ export async function acceptBookingRequestAction(formData: FormData) {
   const approval = (approvalData as ApprovalRecord | null) ?? null;
 
   if (approval?.status !== APPROVAL_STATUS.approved) {
-    redirectWithMessage("/owner/anfragen", "error", "Nur freigeschaltete Reiter koennen gebucht werden.");
+    redirectWithMessage("/owner/anfragen", "error", "Nur freigeschaltete Reiter können gebucht werden.");
   }
 
   if (!request.requested_start_at || !request.requested_end_at || request.requested_start_at < rule.start_at || request.requested_end_at > rule.end_at) {
-    redirectWithMessage("/owner/anfragen", "error", "Der erste Termin liegt nicht im Verfuegbarkeitsfenster.");
+    redirectWithMessage("/owner/anfragen", "error", "Der erste Termin liegt nicht im Verfügbarkeitsfenster.");
   }
 
   let bookingWindows: BookingWindow[];
@@ -1477,7 +1477,7 @@ export async function acceptBookingRequestAction(formData: FormData) {
       redirectWithMessage("/owner/anfragen", "error", getRecurrenceErrorMessage(error));
     }
 
-    redirectWithMessage("/owner/anfragen", "error", "Die Buchungsanfrage enthaelt einen ungueltigen Zeitraum.");
+    redirectWithMessage("/owner/anfragen", "error", "Die Buchungsanfrage enthält einen ungültigen Zeitraum.");
   }
 
   const [{ data: existingBookingsData }, { data: blocksData }] = await Promise.all([
@@ -1582,7 +1582,7 @@ export async function deleteHorseAction(formData: FormData) {
   const horse = await getOwnedHorse(supabase, horseId, user.id);
 
   if (!horse) {
-    redirectWithMessage(redirectPath, "error", "Du kannst nur eigene Pferdeprofile loeschen.");
+    redirectWithMessage(redirectPath, "error", "Du kannst nur eigene Pferdeprofile löschen.");
   }
 
   const { data: imagesData } = await supabase
@@ -1612,10 +1612,10 @@ export async function deleteHorseAction(formData: FormData) {
     logSupabaseError("Horse delete failed", error);
 
     if (error.code === "23503") {
-      redirectWithMessage(redirectPath, "error", "Das Pferd hat noch aktive Termine oder Anfragen und kann derzeit nicht geloescht werden.");
+      redirectWithMessage(redirectPath, "error", "Das Pferd hat noch aktive Termine oder Anfragen und kann derzeit nicht gelöscht werden.");
     }
 
-    redirectWithMessage(redirectPath, "error", "Pferdeprofil konnte nicht geloescht werden.");
+    redirectWithMessage(redirectPath, "error", "Pferdeprofil konnte nicht gelöscht werden.");
   }
 
   revalidatePath("/owner/horses");
@@ -1625,7 +1625,7 @@ export async function deleteHorseAction(formData: FormData) {
   revalidatePath("/owner/anfragen");
   revalidatePath("/anfragen");
   revalidatePath(`/pferde/${horseId}`);
-  redirectWithMessage(redirectPath, "message", "Das Pferdeprofil wurde geloescht.");
+  redirectWithMessage(redirectPath, "message", "Das Pferdeprofil wurde gelöscht.");
 }
 
 export async function saveRiderProfileAction(formData: FormData) {

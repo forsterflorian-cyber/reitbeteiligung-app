@@ -26,7 +26,7 @@ export default async function SuchenPage() {
       <div className="space-y-2">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Suchen</p>
         <h1 className="text-3xl font-semibold text-forest sm:text-4xl">Reitbeteiligung finden</h1>
-        <p className="text-sm text-stone-600 sm:text-base">Hier findest du freigeschaltete Pferdeprofile und kommst direkt zur Anfrage fuer deinen Probetermin.</p>
+        <p className="text-sm text-stone-600 sm:text-base">Hier findest du freigeschaltete Pferdeprofile und kommst direkt zur Anfrage für deinen Probetermin.</p>
       </div>
       {!user ? <Notice text="Melde dich an, um einen Probetermin anzufragen und spaeter freigeschaltet zu werden." /> : null}
       <Notice text={horsesLoadErrorMessage} tone="error" />

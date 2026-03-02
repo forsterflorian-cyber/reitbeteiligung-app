@@ -15,7 +15,7 @@ export default function PasswortVergessenPage({ searchParams }: PasswordForgotte
     <div className="mx-auto w-full max-w-md space-y-5 rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
       <div className="space-y-2">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Passwort vergessen</p>
-        <h1 className="text-3xl font-semibold text-forest">Link zum Zuruecksetzen anfordern</h1>
+        <h1 className="text-3xl font-semibold text-forest">Link zum Zurücksetzen anfordern</h1>
         <p className="text-sm text-stone-600">Gib deine E-Mail-Adresse ein. Wir senden dir einen Link, mit dem du dein Passwort neu setzen kannst.</p>
       </div>
       <Notice text={error} tone="error" />

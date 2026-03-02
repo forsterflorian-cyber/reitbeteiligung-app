@@ -25,7 +25,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <div className="mx-auto w-full max-w-md space-y-5 rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
       <div className="space-y-2">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Anmelden</p>
-        <h1 className="text-3xl font-semibold text-forest">Willkommen zurueck</h1>
+        <h1 className="text-3xl font-semibold text-forest">Willkommen zurück</h1>
         <p className="text-sm text-stone-600">Melde dich mit deiner E-Mail-Adresse an und springe direkt in deine Übersicht.</p>
       </div>
       <Notice text={error} tone="error" />
@@ -42,7 +42,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href="/passwort-vergessen">
           Passwort vergessen?
         </Link>
-        <SubmitButton idleLabel="Anmelden" pendingLabel="Anmeldung laeuft..." />
+        <SubmitButton idleLabel="Anmelden" pendingLabel="Anmeldung läuft..." />
       </form>
       <p className="text-sm text-stone-600">
         Noch kein Konto?{" "}

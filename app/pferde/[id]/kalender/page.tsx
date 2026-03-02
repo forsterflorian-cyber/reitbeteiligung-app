@@ -197,12 +197,12 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   return (
     <div className="space-y-6 sm:space-y-8">
       <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={detailHref}>
-        ZurÃ¼ck zum Pferdeprofil
+        Zurück zum Pferdeprofil
       </Link>
 
       <PageHeader
-        subtitle="Kalender, VerfÃ¼gbarkeiten und Terminanfragen auf einen Blick."
-        title={`Kalender fÃ¼r ${horse.title}`}
+        subtitle="Kalender, Verfügbarkeiten und Terminanfragen auf einen Blick."
+        title={`Kalender für ${horse.title}`}
       />
 
       <Notice text={error} tone="error" />
@@ -214,9 +214,9 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           <div className="space-y-2">
             <p className="ui-eyebrow">Pferdeprofil</p>
             <h2 className="font-serif text-2xl text-stone-900 sm:text-3xl">{horse.title}</h2>
-            <p className="ui-inline-meta">PLZ {horse.plz} {horse.active ? "Â· Aktiv" : "Â· Inaktiv"}</p>
+            <p className="ui-inline-meta">PLZ {horse.plz} {horse.active ? "· Aktiv" : "· Inaktiv"}</p>
             <p className="text-sm leading-6 text-stone-600">
-              {horse.description?.trim() || "Hier steuerst du VerfÃ¼gbarkeiten, Sperren und eingehende Terminanfragen fÃ¼r dieses Pferd."}
+              {horse.description?.trim() || "Hier steuerst du Verfügbarkeiten, Sperren und eingehende Terminanfragen für dieses Pferd."}
             </p>
           </div>
           <div className="flex flex-col gap-3 lg:items-end">
@@ -225,13 +225,13 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
               <Badge tone={bookingFeaturesEnabled ? "approved" : "pending"}>{bookingFeaturesEnabled ? "Premium aktiv" : ownerPlan.label}</Badge>
             </div>
             <Link className={buttonVariants("secondary", "w-full lg:w-auto")} href={detailHref}>
-              Pferdeprofil Ã¶ffnen
+              Pferdeprofil öffnen
             </Link>
           </div>
         </div>
       </div>
 
-      <SectionCard subtitle="Schneller Ãœberblick Ã¼ber freie Zeiten, belegte Bereiche und offene Anfragen." title="NÃ¤chste 14 Tage">
+      <SectionCard subtitle="Schneller Überblick über freie Zeiten, belegte Bereiche und offene Anfragen." title="Nächste 14 Tage">
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
             <Badge tone="approved">Freie Fenster</Badge>
@@ -301,12 +301,12 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
 
           <SectionCard
             subtitle="Innerhalb dieser Zeitfenster koennen freigeschaltete Reiter einen einzelnen Termin anfragen."
-            title="Verfuegbare Zeitfenster"
+            title="Verfügbare Zeitfenster"
           >
             <div className="space-y-3">
               {rules.length === 0 ? (
                 <EmptyState
-                  description="Aktuell gibt es noch keine offenen Verfuegbarkeitsfenster."
+                  description="Aktuell gibt es noch keine offenen Verfügbarkeitsfenster."
                   title="Noch keine Zeitfenster"
                 />
               ) : (
@@ -315,9 +315,9 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="space-y-1">
                         <p className="text-sm font-semibold text-stone-900">{ruleLabel(rule)}</p>
-                        <p className="text-sm text-stone-600">Freies Zeitfenster fuer Terminanfragen</p>
+                        <p className="text-sm text-stone-600">Freies Zeitfenster für Terminanfragen</p>
                       </div>
-                      <Badge tone="approved">Verfuegbar</Badge>
+                      <Badge tone="approved">Verfügbar</Badge>
                     </div>
                   </Card>
                 ))
@@ -330,7 +330,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           {isRider ? (
             <SectionCard
               bodyClassName="space-y-5"
-              subtitle="Waehle ein verfuegbares Zeitfenster und fordere einen konkreten Termin an."
+              subtitle="Wähle ein verfügbares Zeitfenster und fordere einen konkreten Termin an."
               title="Termin anfragen"
             >
               {!bookingFeaturesEnabled ? (
@@ -343,9 +343,9 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                   <form action={requestBookingAction} className="space-y-4">
                     <input name="horseId" type="hidden" value={horse.id} />
                     <div>
-                      <label htmlFor="ruleId">Verfuegbarkeitsfenster</label>
+                      <label htmlFor="ruleId">Verfügbarkeitsfenster</label>
                       <select defaultValue="" id="ruleId" name="ruleId" required>
-                        <option value="">Bitte waehlen</option>
+                        <option value="">Bitte wählen</option>
                         {rules.map((rule) => (
                           <option key={rule.id} value={rule.id}>
                             {ruleLabel(rule)}
@@ -364,13 +364,13 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                     <div>
                       <label htmlFor="recurrenceRrule">Wiederholung (optional)</label>
                       <input id="recurrenceRrule" name="recurrenceRrule" placeholder="FREQ=WEEKLY;INTERVAL=1;COUNT=6" type="text" />
-                      <p className="mt-2 text-sm text-stone-600">Beispiel: jede Woche fuer sechs Termine.</p>
+                      <p className="mt-2 text-sm text-stone-600">Beispiel: jede Woche für sechs Termine.</p>
                     </div>
                     <SubmitButton idleLabel="Termin anfragen" pendingLabel="Wird gesendet..." />
                   </form>
                 ) : (
                   <EmptyState
-                    description="Aktuell gibt es keine offenen Verfuegbarkeitsfenster fuer dieses Pferd."
+                    description="Aktuell gibt es keine offenen Verfügbarkeitsfenster für dieses Pferd."
                     title="Kein Zeitfenster verfuegbar"
                   />
                 )
@@ -382,7 +382,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
               )}
 
               <div className="space-y-3 border-t border-stone-200 pt-5">
-                <h3 className="text-base font-semibold text-stone-900">Meine Terminanfragen fuer dieses Pferd</h3>
+                <h3 className="text-base font-semibold text-stone-900">Meine Terminanfragen für dieses Pferd</h3>
                 {riderBookingRequests.length === 0 ? (
                   <EmptyState
                     description="Sobald du eine Terminanfrage stellst, erscheint sie hier mit aktuellem Status."
@@ -404,7 +404,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                         eyebrow={
                           request.requested_start_at && request.requested_end_at
                             ? formatDateRange(request.requested_start_at, request.requested_end_at)
-                            : "Zeitpunkt wird geprueft"
+                            : "Zeitpunkt wird geprüft"
                         }
                         key={request.id}
                         meta={formatDateTime(request.created_at)}
@@ -422,14 +422,14 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           {isOwner ? (
             bookingFeaturesEnabled ? (
               <>
-                <SectionCard subtitle="Lege wiederkehrende Standardzeiten fest und nutze Sperren nur noch fÃ¼r Ausnahmen." title="Standardzeiten & Ausnahmen">
+                <SectionCard subtitle="Lege wiederkehrende Standardzeiten fest und nutze Sperren nur noch für Ausnahmen." title="Standardzeiten & Ausnahmen">
                   <div className="grid gap-4 lg:grid-cols-2">
                     <Card className="p-5">
                       <form action={createAvailabilityRuleAction} className="ui-form-stack">
                         <input name="horseId" type="hidden" value={horse.id} />
                         <div className="ui-subpanel">
                           <p className="ui-eyebrow">Standardzeiten</p>
-                          <p className="mt-2 ui-inline-meta">Das gewÃ¤hlte Wochenmuster wird fÃ¼r die nÃ¤chsten 8 Wochen als VerfÃ¼gbarkeit angelegt.</p>
+                          <p className="mt-2 ui-inline-meta">Das gewählte Wochenmuster wird für die nächsten 8 Wochen als Verfügbarkeit angelegt.</p>
                         </div>
                         <div>
                           <label htmlFor="availabilityPreset">Wochenmuster</label>
@@ -441,7 +441,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                           </select>
                         </div>
                         <fieldset className="space-y-3">
-                          <legend className="text-sm font-medium text-stone-900">Eigene Wochentage (nur fÃ¼r â€žEigene Wochentageâ€œ)</legend>
+                          <legend className="text-sm font-medium text-stone-900">Eigene Wochentage (nur für „Eigene Wochentage“)</legend>
                           <div className="ui-choice-grid">
                             <label className="ui-choice-chip">
                               <input name="weekday" type="checkbox" value="1" />
@@ -491,7 +491,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                         <input name="horseId" type="hidden" value={horse.id} />
                         <div className="ui-subpanel">
                           <p className="ui-eyebrow">Ausnahme sperren</p>
-                          <p className="mt-2 ui-inline-meta">Nutze Sperren nur dann, wenn das Pferd trotz Standardzeit kurzfristig nicht verfÃ¼gbar ist.</p>
+                          <p className="mt-2 ui-inline-meta">Nutze Sperren nur dann, wenn das Pferd trotz Standardzeit kurzfristig nicht verfügbar ist.</p>
                         </div>
                         <div>
                           <label htmlFor="blockStartAt">Beginn</label>
@@ -511,7 +511,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                   <div className="space-y-4">
                     {requestedOwnerBookingItems.length === 0 ? (
                       <EmptyState
-                        description="FÃ¼r dieses Pferd liegen derzeit keine offenen Terminanfragen vor."
+                        description="Für dieses Pferd liegen derzeit keine offenen Terminanfragen vor."
                         title="Keine offenen Terminanfragen"
                       />
                     ) : (
@@ -526,7 +526,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                                   <p className="text-sm font-semibold text-stone-900">
                                     {request.requested_start_at && request.requested_end_at
                                       ? formatDateRange(request.requested_start_at, request.requested_end_at)
-                                      : "Zeitpunkt wird geprÃ¼ft"}
+                                      : "Zeitpunkt wird geprüft"}
                                   </p>
                                   <p className="text-sm text-stone-600">Reiter {request.rider_id.slice(0, 8)}</p>
                                   <p className="text-sm text-stone-600">{rule ? `Fenster: ${ruleLabel(rule)}` : "Kein Zeitfenster mehr vorhanden."}</p>
@@ -561,14 +561,14 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
 
                 <div className="grid gap-5 lg:grid-cols-2">
                   <SectionCard
-                    subtitle="Beim Entfernen werden offene Terminanfragen in diesem Fenster automatisch gelÃ¶scht."
-                    title="Eigene VerfÃ¼gbarkeitsfenster"
+                    subtitle="Beim Entfernen werden offene Terminanfragen in diesem Fenster automatisch gelöscht."
+                    title="Eigene Verfügbarkeitsfenster"
                   >
                     <div className="space-y-3">
                       {rules.length === 0 ? (
                         <EmptyState
-                          description="Lege zuerst ein VerfÃ¼gbarkeitsfenster an, damit Reiter Termine anfragen kÃ¶nnen."
-                          title="Noch keine VerfÃ¼gbarkeiten"
+                          description="Lege zuerst ein Verfügbarkeitsfenster an, damit Reiter Termine anfragen können."
+                          title="Noch keine Verfügbarkeiten"
                         />
                       ) : (
                         rules.map((rule) => (
@@ -578,8 +578,8 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                               <input name="ruleId" type="hidden" value={rule.id} />
                               <ConfirmSubmitButton
                                 className={buttonVariants("secondary", "w-full")}
-                                confirmMessage="MÃ¶chtest du dieses VerfÃ¼gbarkeitsfenster wirklich entfernen?"
-                                idleLabel="Fenster lÃ¶schen"
+                                confirmMessage="Möchtest du dieses Verfügbarkeitsfenster wirklich entfernen?"
+                                idleLabel="Fenster löschen"
                                 pendingLabel="Wird entfernt..."
                               />
                             </form>
@@ -593,7 +593,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                     <div className="space-y-3">
                       {ownerBlocks.length === 0 ? (
                         <EmptyState
-                          description="Nutze Sperren fÃ¼r Ausnahmen, wenn das Pferd kurzfristig nicht verfÃ¼gbar ist."
+                          description="Nutze Sperren für Ausnahmen, wenn das Pferd kurzfristig nicht verfügbar ist."
                           title="Noch keine Sperren"
                         />
                       ) : (
@@ -604,7 +604,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                               <input name="blockId" type="hidden" value={block.id} />
                               <ConfirmSubmitButton
                                 className={buttonVariants("secondary", "w-full")}
-                                confirmMessage="MÃ¶chtest du diese Kalender-Sperre wirklich entfernen?"
+                                confirmMessage="Möchtest du diese Kalender-Sperre wirklich entfernen?"
                                 idleLabel="Sperre entfernen"
                                 pendingLabel="Wird entfernt..."
                               />
@@ -619,7 +619,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
             ) : (
               <SectionCard
                 subtitle="Standardzeiten, Terminanfragen und Kalendersteuerung sind Teil des Premium-Tarifs."
-                title="Premium fÃ¼r Terminbuchung"
+                title="Premium für Terminbuchung"
               >
                 <div className="space-y-4">
                   <div className="ui-subpanel">
@@ -639,7 +639,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           ) : null}
 
           {!profile ? (
-            <SectionCard subtitle="Melde dich an, um Verfuegbarkeiten, Anfragen und deinen eigenen Status zu sehen." title="Kalender nutzen">
+            <SectionCard subtitle="Melde dich an, um Verfügbarkeiten, Anfragen und deinen eigenen Status zu sehen." title="Kalender nutzen">
               <Link className={buttonVariants("primary", "w-full sm:w-auto")} href="/login">
                 Anmelden, um den Kalender zu nutzen
               </Link>

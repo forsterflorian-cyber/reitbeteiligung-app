@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
@@ -11,7 +11,7 @@ type FormState = "checking" | "ready" | "saving";
 export function PasswordResetForm() {
   const [status, setStatus] = useState<FormState>("checking");
   const [canReset, setCanReset] = useState(false);
-  const [message, setMessage] = useState<string | null>("Wir pruefen deinen Link...");
+  const [message, setMessage] = useState<string | null>("Wir prüfen deinen Link...");
   const [error, setError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -76,7 +76,7 @@ export function PasswordResetForm() {
         }
 
         setCanReset(false);
-        setError("Der Link ist ungueltig oder abgelaufen. Bitte fordere einen neuen Link an.");
+        setError("Der Link ist ungültig oder abgelaufen. Bitte fordere einen neuen Link an.");
         setMessage(null);
         setStatus("ready");
       }
@@ -102,7 +102,7 @@ export function PasswordResetForm() {
     }
 
     if (password !== confirmPassword) {
-      setError("Die Passwoerter stimmen nicht ueberein.");
+      setError("Die Passwörter stimmen nicht überein.");
       return;
     }
 
@@ -120,7 +120,7 @@ export function PasswordResetForm() {
       setCanReset(false);
       setStatus("ready");
       setMessage(null);
-      setError("Die Sitzung zum Zuruecksetzen ist nicht mehr gueltig. Bitte fordere einen neuen Link an.");
+      setError("Die Sitzung zum Zurücksetzen ist nicht mehr gültig. Bitte fordere einen neuen Link an.");
       return;
     }
 
@@ -145,9 +145,9 @@ export function PasswordResetForm() {
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Passwort zuruecksetzen</p>
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Passwort zurücksetzen</p>
         <h1 className="text-3xl font-semibold text-forest">Neues Passwort festlegen</h1>
-        <p className="text-sm text-stone-600">Oeffne den Link aus deiner E-Mail auf diesem Geraet und waehle dann ein neues Passwort.</p>
+        <p className="text-sm text-stone-600">Öffne den Link aus deiner E-Mail auf diesem Gerät und wähle dann ein neues Passwort.</p>
       </div>
       <Notice text={error} tone="error" />
       <Notice text={message} tone={messageTone} />
@@ -165,7 +165,7 @@ export function PasswordResetForm() {
           />
         </div>
         <div>
-          <label htmlFor="confirmPassword">Passwort bestaetigen</label>
+          <label htmlFor="confirmPassword">Passwort bestätigen</label>
           <input
             autoComplete="new-password"
             id="confirmPassword"

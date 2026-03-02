@@ -25,7 +25,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
       <div className="space-y-2">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Registrieren</p>
         <h1 className="text-3xl font-semibold text-forest">Dein Konto anlegen</h1>
-        <p className="text-sm text-stone-600">Danach waehlst du im Onboarding, ob du als Pferdehalter oder Reiter startest.</p>
+        <p className="text-sm text-stone-600">Danach wählst du im Onboarding, ob du als Pferdehalter oder Reiter startest.</p>
       </div>
       <Notice text={error} tone="error" />
       <form action={signupAction} className="space-y-4">
@@ -37,7 +37,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
           <label htmlFor="password">Passwort</label>
           <input autoComplete="new-password" id="password" name="password" required type="password" />
         </div>
-        <SubmitButton idleLabel="Konto erstellen" pendingLabel="Registrierung laeuft..." />
+        <SubmitButton idleLabel="Konto erstellen" pendingLabel="Registrierung läuft..." />
       </form>
       <p className="text-sm text-stone-600">
         Bereits registriert?{" "}

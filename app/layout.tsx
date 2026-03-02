@@ -6,7 +6,7 @@ import { getViewerContext } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "reitbeteiligung.app",
-  description: "Reitbeteiligungen mit klaren Rollen, mobilen Ablaeufen und einfacher Uebersicht."
+  description: "Reitbeteiligungen mit klaren Rollen, mobilen Abläufen und einfacher Übersicht."
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

@@ -27,11 +27,11 @@ import type { Horse, HorseImage, TrialRequest, TrialRequestStatus } from "@/type
 function riderStatusText(status: TrialRequestStatus) {
   switch (status) {
     case "requested":
-      return "Deine Anfrage ist eingegangen. Der Pferdehalter entscheidet als Naechstes.";
+      return "Deine Anfrage ist eingegangen. Der Pferdehalter entscheidet als Nächstes.";
     case "accepted":
       return "Der Probetermin wurde angenommen. Vereinbart jetzt die Durchfuehrung.";
     case "completed":
-      return "Der Probetermin wurde als durchgefuehrt markiert. Warte jetzt auf die Freischaltung.";
+      return "Der Probetermin wurde als durchgeführt markiert. Warte jetzt auf die Freischaltung.";
     case "declined":
       return "Die letzte Anfrage wurde abgelehnt. Du kannst bei Bedarf erneut anfragen.";
     default:
@@ -120,7 +120,7 @@ export default async function PferdDetailPage({
   return (
     <div className="space-y-6 sm:space-y-8">
       <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href="/suchen">
-        Zurueck zur Suche
+        Zurück zur Suche
       </Link>
 
       <PageHeader
@@ -141,7 +141,7 @@ export default async function PferdDetailPage({
             </Link>
           </>
         }
-        subtitle={`Standort ${horse.plz}. Probetermine, Freischaltung und spaetere Terminbuchung laufen ueber einen klaren Ablauf.`}
+        subtitle={`Standort ${horse.plz}. Probetermine, Freischaltung und spätere Terminbuchung laufen über einen klaren Ablauf.`}
         title={horse.title}
       />
 
@@ -228,7 +228,7 @@ export default async function PferdDetailPage({
               <div className="space-y-3">
                 <StatusBadge status="approved" />
                 <p className="text-sm leading-6 text-stone-600">
-                  Du bist fuer dieses Pferd bereits freigeschaltet und kannst spaeter freie Termine anfragen.
+                  Du bist für dieses Pferd bereits freigeschaltet und kannst später freie Termine anfragen.
                 </p>
               </div>
             </div>
@@ -251,7 +251,7 @@ export default async function PferdDetailPage({
                 <textarea
                   id="message"
                   name="message"
-                  placeholder="Stelle dich kurz vor und nenne deinen Wunsch fuer den Probetermin."
+                  placeholder="Stelle dich kurz vor und nenne deinen Wunsch für den Probetermin."
                   rows={5}
                 />
               </div>
@@ -261,8 +261,8 @@ export default async function PferdDetailPage({
 
           {!approved && !latestRequest && !canRequest ? (
             <EmptyState
-              description="Aktuell kannst du fuer dieses Pferd keinen neuen Probetermin anfragen."
-              title="Anfrage derzeit nicht moeglich"
+              description="Aktuell kannst du für dieses Pferd keinen neuen Probetermin anfragen."
+              title="Anfrage derzeit nicht möglich"
             />
           ) : null}
         </SectionCard>

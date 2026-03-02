@@ -23,7 +23,7 @@ type HorseImageWithUrl = HorseImage & {
 };
 
 const deletePrompt =
-  "Moechtest du dieses Pferdeprofil wirklich loeschen? Bilder werden entfernt. Weitere Anfragen, Freischaltungen, Verfuegbarkeiten, Kalender-Sperren und Chats werden je nach Datenlage mitgeloescht oder blockieren das Loeschen.";
+  "Möchtest du dieses Pferdeprofil wirklich löschen? Bilder werden entfernt. Weitere Anfragen, Freischaltungen, Verfügbarkeiten, Kalender-Sperren und Chats werden je nach Datenlage mitgelöscht oder blockieren das Löschen.";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("de-DE", {
@@ -130,7 +130,7 @@ export default async function OwnerManageHorsesPage({
             <p className="text-sm font-semibold uppercase tracking-[0.16em] text-clay">Pferdehalter</p>
             <h1 className="text-3xl font-semibold text-ink sm:text-4xl">Pferde verwalten</h1>
             <p className="max-w-3xl text-sm text-stone-600 sm:text-base">
-              Deine Verwaltungsansicht fuer Desktop und Mobil: Bilder, Status, offene Anfragen und die wichtigsten Aktionen liegen direkt an jedem Pferdeprofil.
+              Deine Verwaltungsansicht für Desktop und Mobil: Bilder, Status, offene Anfragen und die wichtigsten Aktionen liegen direkt an jedem Pferdeprofil.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -156,7 +156,7 @@ export default async function OwnerManageHorsesPage({
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-sm font-semibold text-stone-500">Aktiv</p>
           <p className="mt-3 text-4xl font-semibold text-forest">{activeHorseCount}</p>
-          <p className="mt-2 text-sm text-stone-600">{inactiveHorseCount} inaktiv oder noch nicht veroeffentlicht.</p>
+          <p className="mt-2 text-sm text-stone-600">{inactiveHorseCount} inaktiv oder noch nicht veröffentlicht.</p>
         </div>
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-sm font-semibold text-stone-500">Mit Bildern</p>
@@ -251,7 +251,7 @@ export default async function OwnerManageHorsesPage({
                         className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:border-rose-400 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-70"
                         confirmMessage={deletePrompt}
                         idleLabel="Pferd loeschen"
-                        pendingLabel="Wird geloescht..."
+                        pendingLabel="Wird gelöscht..."
                       />
                     </form>
                   </div>
@@ -295,7 +295,7 @@ export default async function OwnerManageHorsesPage({
                             <div>
                               <label htmlFor={`sex-${horse.id}`}>Geschlecht</label>
                               <select defaultValue={horse.sex ?? ""} id={`sex-${horse.id}`} name="sex">
-                                <option value="">Bitte waehlen</option>
+                                <option value="">Bitte wählen</option>
                                 {HORSE_GESCHLECHTER.map((geschlecht) => (
                                   <option key={geschlecht} value={geschlecht}>
                                     {geschlecht.charAt(0).toUpperCase() + geschlecht.slice(1)}
@@ -316,7 +316,7 @@ export default async function OwnerManageHorsesPage({
                             <input className="h-4 w-4 rounded border-stone-300" defaultChecked={horse.active} name="active" type="checkbox" />
                             Pferdeprofil veroeffentlichen
                           </label>
-                          <SubmitButton idleLabel="Aenderungen speichern" pendingLabel="Wird aktualisiert..." />
+                          <SubmitButton idleLabel="Änderungen speichern" pendingLabel="Wird aktualisiert..." />
                         </form>
                       </section>
                       <section className="space-y-4">
@@ -334,7 +334,7 @@ export default async function OwnerManageHorsesPage({
                                   <input name="redirectTo" type="hidden" value={editPath} />
                                   <ConfirmSubmitButton
                                     className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 hover:border-forest hover:text-forest disabled:cursor-not-allowed disabled:opacity-70"
-                                    confirmMessage="Moechtest du dieses Bild wirklich entfernen?"
+                                    confirmMessage="Möchtest du dieses Bild wirklich entfernen?"
                                     idleLabel="Bild entfernen"
                                     pendingLabel="Wird entfernt..."
                                   />

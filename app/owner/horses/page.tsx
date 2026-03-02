@@ -26,7 +26,7 @@ export default async function OwnerHorsesPage({
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-clay">Pferdehalter</p>
         <h1 className="text-3xl font-semibold text-forest sm:text-4xl">Neues Pferd anlegen</h1>
         <p className="text-sm text-stone-600 sm:text-base">
-          Lege hier ein neues Pferdeprofil an. Bestehende Pferde verwaltest du getrennt in der Uebersicht fuer deine Pferde.
+          Lege hier ein neues Pferdeprofil an. Bestehende Pferde verwaltest du getrennt in der Übersicht für deine Pferde.
         </p>
       </div>
       <Notice text={error} tone="error" />
@@ -34,7 +34,7 @@ export default async function OwnerHorsesPage({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
         <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
           <h2 className="text-xl font-semibold text-ink">Pferdeprofil</h2>
-          <p className="mt-2 text-sm text-stone-600">Bilder und weitere Pflegeoptionen stehen direkt nach dem ersten Speichern zur Verfuegung.</p>
+          <p className="mt-2 text-sm text-stone-600">Bilder und weitere Pflegeoptionen stehen direkt nach dem ersten Speichern zur Verfügung.</p>
           <form action={saveHorseAction} className="mt-5 space-y-4">
             <div>
               <label htmlFor="title">Titel</label>
@@ -64,7 +64,7 @@ export default async function OwnerHorsesPage({
               <div>
                 <label htmlFor="sex">Geschlecht</label>
                 <select defaultValue="" id="sex" name="sex">
-                  <option value="">Bitte waehlen</option>
+                  <option value="">Bitte wählen</option>
                   {HORSE_GESCHLECHTER.map((geschlecht) => (
                     <option key={geschlecht} value={geschlecht}>
                       {geschlecht.charAt(0).toUpperCase() + geschlecht.slice(1)}
@@ -83,14 +83,14 @@ export default async function OwnerHorsesPage({
             </div>
             <label className="flex min-h-[44px] items-center gap-3 rounded-xl border border-stone-300 px-4 py-3 text-sm text-ink">
               <input className="h-4 w-4 rounded border-stone-300" defaultChecked name="active" type="checkbox" />
-              Pferdeprofil direkt veroeffentlichen
+              Pferdeprofil direkt veröffentlichen
             </label>
             <SubmitButton idleLabel="Pferdeprofil speichern" pendingLabel="Wird gespeichert..." />
           </form>
         </section>
         <aside className="space-y-4 rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-clay">Naechster Schritt</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-clay">Nächster Schritt</p>
             <h2 className="mt-2 text-xl font-semibold text-ink">Pferde verwalten</h2>
           </div>
           <p className="text-sm text-stone-600">
@@ -98,7 +98,7 @@ export default async function OwnerHorsesPage({
               ? `Du hast aktuell ${count} Pferdeprofil${count === 1 ? "" : "e"} angelegt.`
               : "Du hast aktuell noch kein Pferdeprofil angelegt."}
           </p>
-          <p className="text-sm text-stone-600">Dort findest du eine strukturierte Liste mit Basisinfos, Bearbeiten, Loeschen, Kalender und Bildverwaltung.</p>
+          <p className="text-sm text-stone-600">Dort findest du eine strukturierte Liste mit Basisinfos, Bearbeiten, Löschen, Kalender und Bildverwaltung.</p>
           <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 px-4 py-3 text-sm font-semibold text-ink hover:border-forest hover:text-forest" href={manageHref}>
             Zu Pferde verwalten
           </Link>

@@ -15,7 +15,7 @@ type ContactInfoRecord = {
 };
 
 function getBackLabel(backHref: Route) {
-  return backHref === "/owner/anfragen" ? "Zurueck zu den Anfragen" : "Zurueck zu meinen Anfragen";
+  return backHref === "/owner/anfragen" ? "Zurück zu den Anfragen" : "Zurück zu meinen Anfragen";
 }
 
 export default async function ChatPage({
@@ -112,7 +112,7 @@ export default async function ChatPage({
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Kontakt</p>
               <h2 className="mt-2 text-xl font-semibold text-ink">Kontaktdaten freigeschaltet</h2>
             </div>
-            <p className="text-sm text-ink">Ihr koennt jetzt ausserhalb der Plattform kommunizieren.</p>
+            <p className="text-sm text-ink">Ihr könnt jetzt außerhalb der Plattform kommunizieren.</p>
             <div className="space-y-2 rounded-2xl border border-stone-200 bg-white p-4 text-sm text-ink">
               <p>Name: {partnerLabel}</p>
               <p>{contactInfo?.partner_email ? `E-Mail: ${contactInfo.partner_email}` : "E-Mail: nicht hinterlegt"}</p>
