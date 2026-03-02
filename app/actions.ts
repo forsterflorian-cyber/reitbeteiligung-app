@@ -830,15 +830,12 @@ export async function uploadHorseImagesAction(formData: FormData) {
   };
 
   for (const upload of uploads) {
-    const imageRow = {
-      horse_id: horseId,
-      id: upload.id,
-      path: upload.path,
-      position: upload.position,
-      storage_path: upload.path
-    };
-
-    const { error: insertError } = await supabase.from("horse_images").insert(imageRow);
+    const { error: insertError } = await supabase.rpc("prepare_owner_horse_image", {
+      p_horse_id: horseId,
+      p_image_id: upload.id,
+      p_path: upload.path,
+      p_position: upload.position
+    });
 
     if (insertError) {
       logSupabaseError("Horse image row prepare failed", insertError);
