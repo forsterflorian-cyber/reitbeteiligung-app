@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -85,6 +86,7 @@ export default async function PferdDetailPage({
 
   const canRequest = profile?.role === "rider" && (!latestRequest || latestRequest.status === "declined") && !approved;
   const facts = horseFacts(horse);
+  const calendarHref = `/pferde/${horse.id}/kalender` as Route;
 
   return (
     <div className="space-y-5">
@@ -120,9 +122,17 @@ export default async function PferdDetailPage({
             </div>
           ) : null}
           <p className="text-sm text-stone-600 sm:text-base">{horse.description ?? "Fuer dieses Pferdeprofil liegt noch keine Beschreibung vor."}</p>
-          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${horse.active ? "bg-emerald-100 text-emerald-800" : "bg-stone-200 text-stone-700"}`}>
-            {horse.active ? "Aktiv" : "Nicht aktiv"}
-          </span>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${horse.active ? "bg-emerald-100 text-emerald-800" : "bg-stone-200 text-stone-700"}`}>
+              {horse.active ? "Aktiv" : "Nicht aktiv"}
+            </span>
+            <Link
+              className="inline-flex min-h-[44px] items-center justify-center rounded-2xl border border-stone-300 px-4 py-2 text-sm font-semibold text-ink hover:border-forest hover:text-forest"
+              href={calendarHref}
+            >
+              Kalender ansehen
+            </Link>
+          </div>
         </div>
       </section>
       <Notice text={error} tone="error" />

@@ -88,3 +88,11 @@ export type BookingRequest = {
   status: BookingRequestStatus;
   created_at: string;
 };
+
+export type CalendarBlock = {
+  id: string;
+  horse_id: string;
+  start_at: string;
+  end_at: string;
+  created_at: string;
+};

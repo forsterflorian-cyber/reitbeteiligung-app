@@ -21,13 +21,14 @@ import {
   isMutableTrialRequestStatus
 } from "@/lib/statuses";
 import { createClient } from "@/lib/supabase/server";
-import type { Horse, HorseImage, TrialRequest } from "@/types/database";
+import type { CalendarBlock, Horse, HorseImage, TrialRequest } from "@/types/database";
 
 const PASSWORD_RESET_REDIRECT_URL = "https://reitbeteiligung.app/passwort-zuruecksetzen";
 
 type OwnerRequestRecord = Pick<TrialRequest, "id" | "horse_id" | "rider_id" | "status">;
 type HorseOwnerRecord = Pick<Horse, "id" | "owner_id">;
 type HorseImageRecord = Pick<HorseImage, "id" | "horse_id" | "storage_path" | "created_at">;
+type CalendarBlockRecord = Pick<CalendarBlock, "id" | "horse_id" | "start_at" | "end_at" | "created_at">;
 type SupabaseErrorLike = {
   code?: string | null;
   details?: string | null;
@@ -51,6 +52,28 @@ async function getOwnedHorse(supabase: ReturnType<typeof createClient>, horseId:
   const { data } = await supabase.from("horses").select("id, owner_id").eq("id", horseId).eq("owner_id", ownerId).maybeSingle();
 
   return (data as HorseOwnerRecord | null) ?? null;
+}
+
+async function getOwnedCalendarBlock(supabase: ReturnType<typeof createClient>, blockId: string, ownerId: string) {
+  const { data } = await supabase
+    .from("calendar_blocks")
+    .select("id, horse_id, start_at, end_at, created_at")
+    .eq("id", blockId)
+    .maybeSingle();
+
+  const block = (data as CalendarBlockRecord | null) ?? null;
+
+  if (!block) {
+    return null;
+  }
+
+  const horse = await getOwnedHorse(supabase, block.horse_id, ownerId);
+
+  if (!horse) {
+    return null;
+  }
+
+  return block;
 }
 
 async function getOwnedTrialRequest(requestId: string, ownerId: string) {
@@ -514,6 +537,76 @@ export async function deleteHorseImageAction(formData: FormData) {
   revalidatePath("/suchen");
   revalidatePath(`/pferde/${image.horse_id}`);
   redirectWithMessage("/owner/horses", "message", "Das Bild wurde entfernt.");
+}
+export async function createCalendarBlockAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const horseId = asString(formData.get("horseId"));
+
+  if (!horseId) {
+    redirectWithMessage("/owner/horses", "error", "Das Pferdeprofil konnte nicht gefunden werden.");
+  }
+
+  const horse = await getOwnedHorse(supabase, horseId, user.id);
+  const redirectPath = `/pferde/${horseId}/kalender`;
+
+  if (!horse) {
+    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Kalender-Sperren verwalten.");
+  }
+
+  const startAtValue = asString(formData.get("startAt"));
+  const endAtValue = asString(formData.get("endAt"));
+  const startAt = new Date(startAtValue);
+  const endAt = new Date(endAtValue);
+
+  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
+    redirectWithMessage(redirectPath, "error", "Bitte gib einen gueltigen Zeitraum an.");
+  }
+
+  if (endAt <= startAt) {
+    redirectWithMessage(redirectPath, "error", "Das Ende muss nach dem Beginn liegen.");
+  }
+
+  const { error } = await supabase.from("calendar_blocks").insert({
+    horse_id: horseId,
+    start_at: startAt.toISOString(),
+    end_at: endAt.toISOString()
+  });
+
+  if (error) {
+    logSupabaseError("Calendar block insert failed", error);
+    redirectWithMessage(redirectPath, "error", "Der Zeitraum konnte nicht als belegt gespeichert werden.");
+  }
+
+  revalidatePath(redirectPath);
+  revalidatePath(`/pferde/${horseId}`);
+  redirectWithMessage(redirectPath, "message", "Der Zeitraum wurde als belegt gespeichert.");
+}
+
+export async function deleteCalendarBlockAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const blockId = asString(formData.get("blockId"));
+
+  if (!blockId) {
+    redirectWithMessage("/owner/horses", "error", "Die Kalender-Sperre konnte nicht gefunden werden.");
+  }
+
+  const block = await getOwnedCalendarBlock(supabase, blockId, user.id);
+
+  if (!block) {
+    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Kalender-Sperren loeschen.");
+  }
+
+  const redirectPath = `/pferde/${block.horse_id}/kalender`;
+  const { error } = await supabase.from("calendar_blocks").delete().eq("id", blockId);
+
+  if (error) {
+    logSupabaseError("Calendar block delete failed", error);
+    redirectWithMessage(redirectPath, "error", "Die Kalender-Sperre konnte nicht geloescht werden.");
+  }
+
+  revalidatePath(redirectPath);
+  revalidatePath(`/pferde/${block.horse_id}`);
+  redirectWithMessage(redirectPath, "message", "Die Kalender-Sperre wurde entfernt.");
 }
 
 export async function deleteHorseAction(formData: FormData) {

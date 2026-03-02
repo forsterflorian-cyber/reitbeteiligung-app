@@ -1,3 +1,6 @@
+import type { Route } from "next";
+import Link from "next/link";
+
 import { deleteHorseAction, deleteHorseImageAction, saveHorseAction, uploadHorseImagesAction } from "@/app/actions";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
@@ -16,7 +19,7 @@ type HorseImageWithUrl = HorseImage & {
 };
 
 const deletePrompt =
-  "Moechtest du dieses Pferdeprofil wirklich loeschen? Alle Probetermine, Freischaltungen, Verfuegbarkeiten und Chats werden mitgeloescht.";
+  "Moechtest du dieses Pferdeprofil wirklich loeschen? Alle Probetermine, Freischaltungen, Verfuegbarkeiten, Kalender-Sperren, Bilder und Chats werden mitgeloescht.";
 
 export default async function OwnerHorsesPage({ searchParams }: OwnerHorsesPageProps) {
   const { supabase, user } = await requireProfile("owner");
@@ -174,6 +177,12 @@ export default async function OwnerHorsesPage({ searchParams }: OwnerHorsesPageP
                   </label>
                   <SubmitButton idleLabel="Reitbeteiligung aktualisieren" pendingLabel="Wird aktualisiert..." />
                 </form>
+                <Link
+                  className="mt-4 inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay"
+                  href={`/pferde/${horse.id}/kalender` as Route}
+                >
+                  Kalender verwalten
+                </Link>
                 <div className="mt-4 border-t border-stone-200 pt-4">
                   <div className="space-y-2">
                     <p className="text-sm font-semibold text-ink">Bilder</p>
@@ -216,7 +225,7 @@ export default async function OwnerHorsesPage({ searchParams }: OwnerHorsesPageP
                   </form>
                 </div>
                 <div className="mt-4 border-t border-stone-200 pt-4">
-                  <p className="text-sm text-stone-600">Dieses Pferdeprofil wird inklusive aller zugehoerigen Anfragen, Freischaltungen, Verfuegbarkeiten, Bilder und Chats geloescht.</p>
+                  <p className="text-sm text-stone-600">Dieses Pferdeprofil wird inklusive aller zugehoerigen Anfragen, Freischaltungen, Verfuegbarkeiten, Kalender-Sperren, Bilder und Chats geloescht.</p>
                   <form action={deleteHorseAction} className="mt-3">
                     <input name="horseId" type="hidden" value={horse.id} />
                     <ConfirmSubmitButton
