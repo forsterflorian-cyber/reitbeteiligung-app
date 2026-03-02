@@ -62,32 +62,27 @@ export default async function PferdDetailPage({
     notFound();
   }
 
-  const canReadImages = profile?.role === "owner" && user?.id === horse.owner_id;
-  let images: Array<HorseImage & { url: string }> = [];
+  const { data: imageData } = await supabase
+    .from("horse_images")
+    .select(HORSE_IMAGE_SELECT_FIELDS)
+    .eq("horse_id", horse.id)
+    .order("created_at", { ascending: true })
+    .limit(5);
 
-  if (canReadImages) {
-    const { data: imageData } = await supabase
-      .from("horse_images")
-      .select(HORSE_IMAGE_SELECT_FIELDS)
-      .eq("horse_id", horse.id)
-      .order("created_at", { ascending: true })
-      .limit(5);
+  const rawImages = sortHorseImages(
+    (Array.isArray(imageData) ? (imageData as HorseImage[]) : []).filter(
+      (image): image is HorseImage & { path?: string | null; storage_path?: string | null } => Boolean((image.path ?? image.storage_path) && image.id)
+    )
+  );
 
-    const rawImages = sortHorseImages(
-      (Array.isArray(imageData) ? (imageData as HorseImage[]) : []).filter(
-        (image): image is HorseImage & { path?: string | null; storage_path?: string | null } => Boolean((image.path ?? image.storage_path) && image.id)
-      )
-    );
+  const resolvedImages = await Promise.all(
+    rawImages.map(async (image) => {
+      const url = await getHorseImageUrl(supabase, image.path ?? image.storage_path ?? null);
+      return url ? { ...image, url } : null;
+    })
+  );
 
-    const resolvedImages = await Promise.all(
-      rawImages.map(async (image) => {
-        const url = await getHorseImageUrl(supabase, image.path ?? image.storage_path ?? null);
-        return url ? { ...image, url } : null;
-      })
-    );
-
-    images = resolvedImages.filter((image): image is HorseImage & { url: string } => Boolean(image));
-  }
+  const images = resolvedImages.filter((image): image is HorseImage & { url: string } => Boolean(image));
 
   let latestRequest: TrialRequest | null = null;
   let approved = false;
@@ -121,14 +116,16 @@ export default async function PferdDetailPage({
             <div className="space-y-3">
               <img alt={horse.title} className="h-56 w-full rounded-3xl object-cover" src={images[0].url} />
               {images.length > 1 ? (
-                <div className="grid grid-cols-4 gap-2">
-                  {images.slice(1).map((image) => (
-                    <img alt={horse.title} className="h-16 w-full rounded-2xl object-cover" key={image.id} src={image.url} />
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {images.slice(1).map((image, index) => (
+                    <img alt={`Pferdebild ${index + 2} von ${horse.title}`} className="h-20 w-full rounded-2xl object-cover sm:h-24" key={image.id} src={image.url} />
                   ))}
                 </div>
               ) : null}
             </div>
-          ) : null}
+          ) : (
+            <div className="rounded-3xl border border-dashed border-stone-300 bg-sand p-5 text-sm text-stone-600">Noch keine Bilder hinterlegt.</div>
+          )}
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Pferdeprofil</p>
             <h1 className="mt-2 text-3xl font-semibold text-forest sm:text-4xl">{horse.title}</h1>

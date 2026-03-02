@@ -6,7 +6,7 @@ import { Notice } from "@/components/notice";
 import { StatusBadge } from "@/components/status-badge";
 import { requireProfile } from "@/lib/auth";
 import { readSearchParam } from "@/lib/search-params";
-import type { Approval, BookingRequest, Conversation, Horse, TrialRequest } from "@/types/database";
+import type { Approval, BookingRequest, Conversation, Horse, Message, TrialRequest } from "@/types/database";
 
 type OwnerRequestItem = TrialRequest & {
   horse?: Horse | null;
@@ -14,6 +14,10 @@ type OwnerRequestItem = TrialRequest & {
 
 type OwnerBookingRequestItem = BookingRequest & {
   horse?: Horse | null;
+};
+
+type ContactInfoRecord = {
+  partner_name: string | null;
 };
 
 function formatDateTime(value: string) {
@@ -29,6 +33,15 @@ function formatDateRange(startAt: string | null, endAt: string | null) {
   }
 
   return `${formatDateTime(startAt)} bis ${formatDateTime(endAt)}`;
+}
+
+function hasUnreadMessage(conversation: Conversation | null, latestMessage: Message | null, currentUserId: string) {
+  if (!conversation || !latestMessage || latestMessage.sender_id === currentUserId) {
+    return false;
+  }
+
+  const lastReadAt = conversation.owner_last_read_at ?? conversation.created_at;
+  return Date.parse(latestMessage.created_at) > Date.parse(lastReadAt);
 }
 
 export default async function OwnerAnfragenPage({
@@ -50,7 +63,7 @@ export default async function OwnerAnfragenPage({
 
   let requests: TrialRequest[] = [];
   let approvals: Approval[] = [];
-  let conversations: Conversation[] = [];
+  let conversationsArray: Conversation[] = [];
   let bookingRequests: BookingRequest[] = [];
 
   if (horseIds.length > 0) {
@@ -62,7 +75,11 @@ export default async function OwnerAnfragenPage({
         .order("created_at", { ascending: false })
         .limit(20),
       supabase.from("approvals").select("horse_id, rider_id, status, created_at").in("horse_id", horseIds),
-      supabase.from("conversations").select("id, horse_id, rider_id, owner_id, created_at").eq("owner_id", user.id).in("horse_id", horseIds),
+      supabase
+        .from("conversations")
+        .select("id, horse_id, rider_id, owner_id, owner_last_read_at, rider_last_read_at, created_at")
+        .eq("owner_id", user.id)
+        .in("horse_id", horseIds),
       supabase
         .from("booking_requests")
         .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, recurrence_rrule, created_at")
@@ -73,13 +90,42 @@ export default async function OwnerAnfragenPage({
 
     requests = (requestsData as TrialRequest[] | null) ?? [];
     approvals = (approvalsData as Approval[] | null) ?? [];
-    conversations = (conversationsData as Conversation[] | null) ?? [];
+    conversationsArray = (conversationsData as Conversation[] | null) ?? [];
     bookingRequests = (bookingRequestsData as BookingRequest[] | null) ?? [];
   }
 
+  const conversationIds = conversationsArray.map((conversation) => conversation.id);
+  const { data: latestMessagesData } = conversationIds.length > 0
+    ? await supabase
+        .from("messages")
+        .select("id, conversation_id, sender_id, content, created_at")
+        .in("conversation_id", conversationIds)
+        .order("created_at", { ascending: false })
+    : { data: [] as Message[] };
+
+  const contactInfoEntries = await Promise.all(
+    conversationsArray.map(async (conversation) => {
+      const { data } = await supabase.rpc("get_conversation_contact_info", {
+        p_conversation_id: conversation.id
+      });
+      const rows = Array.isArray(data) ? data : data ? [data] : [];
+      const record = (rows[0] as ContactInfoRecord | undefined) ?? null;
+      return [conversation.id, record] as const;
+    })
+  );
+
   const horseMap = new Map(horses.map((horse) => [horse.id, horse]));
   const approvalMap = new Map(approvals.map((approval) => [`${approval.horse_id}:${approval.rider_id}`, approval]));
-  const conversationMap = new Map(conversations.map((conversation) => [`${conversation.horse_id}:${conversation.rider_id}`, conversation]));
+  const conversationMap = new Map(conversationsArray.map((conversation) => [`${conversation.horse_id}:${conversation.rider_id}`, conversation]));
+  const conversationInfo = new Map(contactInfoEntries);
+  const latestMessages = new Map<string, Message>();
+
+  (((latestMessagesData as Message[] | null) ?? [])).forEach((latestMessage) => {
+    if (!latestMessages.has(latestMessage.conversation_id)) {
+      latestMessages.set(latestMessage.conversation_id, latestMessage);
+    }
+  });
+
   const items: OwnerRequestItem[] = requests.map((request) => ({
     ...request,
     horse: horseMap.get(request.horse_id) ?? null
@@ -112,6 +158,9 @@ export default async function OwnerAnfragenPage({
             {items.map((request) => {
               const approval = approvalMap.get(`${request.horse_id}:${request.rider_id}`) ?? null;
               const conversation = conversationMap.get(`${request.horse_id}:${request.rider_id}`) ?? null;
+              const contact = conversation ? conversationInfo.get(conversation.id) ?? null : null;
+              const riderName = contact?.partner_name?.trim() || "Reiter";
+              const hasUnread = hasUnreadMessage(conversation, conversation ? latestMessages.get(conversation.id) ?? null : null, user.id);
 
               return (
                 <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft" key={request.id}>
@@ -119,12 +168,13 @@ export default async function OwnerAnfragenPage({
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Pferdeprofil</p>
                       <p className="mt-1 font-semibold text-ink">{request.horse?.title ?? "Pferdeprofil nicht gefunden"}</p>
-                      <p className="mt-1 text-sm text-stone-600">Reiter {request.rider_id.slice(0, 8)}</p>
+                      <p className="mt-1 text-sm text-stone-600">Reiter: {riderName}</p>
                     </div>
                     <p className="text-sm text-stone-600">{request.message ?? "Keine Nachricht hinterlegt."}</p>
                     <div className="flex flex-wrap gap-2">
                       <StatusBadge status={request.status} />
                       {approval ? <StatusBadge status={approval.status} /> : null}
+                      {hasUnread ? <span className="inline-flex rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800">Neue Nachricht</span> : null}
                     </div>
                     {approval?.status === "approved" && conversation ? (
                       <p className="text-sm text-emerald-700">Kontaktdaten sind jetzt im Chat sichtbar.</p>
@@ -200,46 +250,61 @@ export default async function OwnerAnfragenPage({
           </div>
         ) : (
           <div className="space-y-3">
-            {bookingItems.map((request) => (
-              <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft" key={request.id}>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Terminanfrage</p>
-                    <p className="mt-1 font-semibold text-ink">{request.horse?.title ?? "Pferdeprofil nicht gefunden"}</p>
-                    <p className="mt-1 text-sm text-stone-600">Reiter {request.rider_id.slice(0, 8)}</p>
-                  </div>
-                  <p className="text-sm font-semibold text-ink">{formatDateRange(request.requested_start_at, request.requested_end_at)}</p>
-                  {request.recurrence_rrule ? <p className="text-sm text-stone-600">Wiederholung: {request.recurrence_rrule}</p> : null}
-                  <div className="flex flex-wrap gap-2">
-                    <StatusBadge status={request.status} />
-                  </div>
-                  {request.status === "requested" ? (
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <form action={acceptBookingRequestAction}>
-                        <input name="requestId" type="hidden" value={request.id} />
-                        <button className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white hover:bg-sky-700" type="submit">
-                          Annehmen
-                        </button>
-                      </form>
-                      <form action={declineBookingRequestAction}>
-                        <input name="requestId" type="hidden" value={request.id} />
-                        <button className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white hover:bg-rose-700" type="submit">
-                          Ablehnen
-                        </button>
-                      </form>
+            {bookingItems.map((request) => {
+              const conversation = conversationMap.get(`${request.horse_id}:${request.rider_id}`) ?? null;
+              const contact = conversation ? conversationInfo.get(conversation.id) ?? null : null;
+              const riderName = contact?.partner_name?.trim() || "Reiter";
+              const hasUnread = hasUnreadMessage(conversation, conversation ? latestMessages.get(conversation.id) ?? null : null, user.id);
+
+              return (
+                <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft" key={request.id}>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Terminanfrage</p>
+                      <p className="mt-1 font-semibold text-ink">{request.horse?.title ?? "Pferdeprofil nicht gefunden"}</p>
+                      <p className="mt-1 text-sm text-stone-600">Reiter: {riderName}</p>
                     </div>
-                  ) : null}
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/pferde/${request.horse_id}/kalender` as Route}>
-                      Zum Kalender
-                    </Link>
-                    <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/pferde/${request.horse_id}` as Route}>
-                      Pferdeprofil ansehen
-                    </Link>
+                    <p className="text-sm font-semibold text-ink">{formatDateRange(request.requested_start_at, request.requested_end_at)}</p>
+                    {request.recurrence_rrule ? <p className="text-sm text-stone-600">Wiederholung: {request.recurrence_rrule}</p> : null}
+                    <div className="flex flex-wrap gap-2">
+                      <StatusBadge status={request.status} />
+                      {hasUnread ? <span className="inline-flex rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800">Neue Nachricht</span> : null}
+                    </div>
+                    {request.status === "requested" ? (
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <form action={acceptBookingRequestAction}>
+                          <input name="requestId" type="hidden" value={request.id} />
+                          <button className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white hover:bg-sky-700" type="submit">
+                            Annehmen
+                          </button>
+                        </form>
+                        <form action={declineBookingRequestAction}>
+                          <input name="requestId" type="hidden" value={request.id} />
+                          <button className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white hover:bg-rose-700" type="submit">
+                            Ablehnen
+                          </button>
+                        </form>
+                      </div>
+                    ) : null}
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/pferde/${request.horse_id}/kalender` as Route}>
+                        Zum Kalender
+                      </Link>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+                        <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/pferde/${request.horse_id}` as Route}>
+                          Pferdeprofil ansehen
+                        </Link>
+                        {conversation ? (
+                          <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/chat/${conversation.id}` as Route}>
+                            Zum Chat
+                          </Link>
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

@@ -8,6 +8,8 @@ export type Profile = {
   id: string;
   role: UserRole;
   is_premium: boolean;
+  display_name?: string | null;
+  phone?: string | null;
   created_at: string;
 };
 
@@ -63,6 +65,8 @@ export type Conversation = {
   horse_id: string;
   rider_id: string;
   owner_id: string;
+  owner_last_read_at?: string | null;
+  rider_last_read_at?: string | null;
   created_at: string;
 };
 

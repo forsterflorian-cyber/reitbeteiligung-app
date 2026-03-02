@@ -669,22 +669,70 @@ export async function logoutAction() {
 export async function completeOnboardingAction(formData: FormData) {
   const { supabase, user } = await requireOnboardingUser();
   const role = asString(formData.get("role"));
+  const displayName = asString(formData.get("displayName"));
+  const phone = asOptionalString(formData.get("phone"));
 
   if (!isRole(role)) {
     redirectWithMessage("/onboarding", "error", "Bitte waehle Pferdehalter oder Reiter aus.");
   }
 
+  if (displayName.length < 2) {
+    redirectWithMessage("/onboarding", "error", "Bitte gib deinen Namen an.");
+  }
+
+  if (phone && phone.length < 6) {
+    redirectWithMessage("/onboarding", "error", "Bitte gib eine gueltige Telefonnummer an oder lasse das Feld leer.");
+  }
+
   const { error } = await supabase.from("profiles").insert({
+    display_name: displayName,
     id: user.id,
+    phone,
     role
   });
 
   if (error) {
+    logSupabaseError("Profile insert failed", error);
     redirectWithMessage("/onboarding", "error", "Das Profil konnte nicht angelegt werden.");
   }
 
+  revalidatePath("/", "layout");
   revalidatePath("/dashboard");
   redirectWithMessage("/dashboard", "message", "Dein Profil wurde angelegt.");
+}
+
+export async function saveProfileDetailsAction(formData: FormData) {
+  const { supabase, user } = await requireProfile();
+  const displayName = asString(formData.get("displayName"));
+  const phone = asOptionalString(formData.get("phone"));
+
+  if (displayName.length < 2) {
+    redirectWithMessage("/profil", "error", "Bitte gib deinen Namen an.");
+  }
+
+  if (phone && phone.length < 6) {
+    redirectWithMessage("/profil", "error", "Bitte gib eine gueltige Telefonnummer an oder lasse das Feld leer.");
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      display_name: displayName,
+      phone
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    logSupabaseError("Profile update failed", error);
+    redirectWithMessage("/profil", "error", "Das Profil konnte nicht gespeichert werden.");
+  }
+
+  revalidatePath("/", "layout");
+  revalidatePath("/dashboard");
+  revalidatePath("/profil");
+  revalidatePath("/anfragen");
+  revalidatePath("/owner/anfragen");
+  redirectWithMessage("/profil", "message", "Dein Profil wurde gespeichert.");
 }
 
 export async function saveHorseAction(formData: FormData) {

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import type { Route } from "next";
 import Link from "next/link";
@@ -15,27 +15,34 @@ type NavItem = {
   label: string;
 };
 
+const guestItems = [
+  { href: "/" as Route, label: "Start" },
+  { href: "/suchen" as Route, label: "Suchen" },
+  { href: "/login" as Route, label: "Inserat" },
+  { href: "/login" as Route, label: "Anfragen" },
+  { href: "/login" as Route, label: "Profil" }
+] as const satisfies readonly NavItem[];
+
+const riderItems = [
+  { href: "/dashboard" as Route, label: "Start" },
+  { href: "/suchen" as Route, label: "Suchen" },
+  { href: "/anfragen" as Route, label: "Anfragen" },
+  { href: "/profil" as Route, label: "Profil" },
+  { href: "/" as Route, label: "Home" }
+] as const satisfies readonly NavItem[];
+
+const ownerItems = [
+  { href: "/" as Route, label: "Start" },
+  { href: "/dashboard" as Route, label: "Übersicht" },
+  { href: "/owner/horses" as Route, label: "Pferde" },
+  { href: "/owner/anfragen" as Route, label: "Anfragen" },
+  { href: "/profil" as Route, label: "Profil" }
+] as const satisfies readonly NavItem[];
+
 export function MobileNav({ profile }: MobileNavProps) {
   const pathname = usePathname();
 
-  const items: NavItem[] = profile
-    ? [
-        { href: "/dashboard", label: "Start" },
-        { href: "/suchen", label: "Suchen" },
-        {
-          href: profile.role === "owner" ? "/owner/horses" : "/suchen",
-          label: profile.role === "owner" ? "Inserat" : "Pferdeprofil"
-        },
-        { href: profile.role === "owner" ? "/owner/anfragen" : "/anfragen", label: "Anfragen" },
-        { href: "/profil", label: "Profil" }
-      ]
-    : [
-        { href: "/", label: "Start" },
-        { href: "/suchen", label: "Suchen" },
-        { href: "/login", label: "Inserat" },
-        { href: "/login", label: "Anfragen" },
-        { href: "/login", label: "Profil" }
-      ];
+  const items = profile ? (profile.role === "owner" ? ownerItems : riderItems) : guestItems;
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-stone-200 bg-white/95 shadow-[0_-10px_30px_rgba(31,41,55,0.08)] md:hidden">

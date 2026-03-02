@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
@@ -18,6 +18,7 @@ type ChatThreadProps = {
   conversationId: string;
   currentUserId: string;
   initialMessages: Message[];
+  partnerLabel: string;
 };
 
 async function fetchMessages(supabase: SupabaseClient, conversationId: string) {
@@ -33,7 +34,15 @@ async function fetchMessages(supabase: SupabaseClient, conversationId: string) {
   };
 }
 
-export function ChatThread({ conversationId, currentUserId, initialMessages }: ChatThreadProps) {
+async function markConversationRead(supabase: SupabaseClient, conversationId: string) {
+  const { error } = await supabase.rpc("mark_conversation_read", {
+    p_conversation_id: conversationId
+  });
+
+  return error;
+}
+
+export function ChatThread({ conversationId, currentUserId, initialMessages, partnerLabel }: ChatThreadProps) {
   const supabase = createClient();
   const [messages, setMessages] = useState(initialMessages);
   const [draft, setDraft] = useState("");
@@ -58,6 +67,7 @@ export function ChatThread({ conversationId, currentUserId, initialMessages }: C
 
       setError(null);
       setMessages(result.messages);
+      await markConversationRead(supabase, conversationId);
     };
 
     void loadMessages();
@@ -107,6 +117,7 @@ export function ChatThread({ conversationId, currentUserId, initialMessages }: C
     } else {
       setError(null);
       setMessages(result.messages);
+      await markConversationRead(supabase, conversationId);
     }
 
     setDraft("");
@@ -129,7 +140,7 @@ export function ChatThread({ conversationId, currentUserId, initialMessages }: C
                     isOwnMessage ? "bg-forest text-white" : "bg-sand text-ink"
                   }`}
                 >
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-75">{isOwnMessage ? "Du" : "Gespraech"}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-75">{isOwnMessage ? "Du" : partnerLabel}</p>
                   <p className="mt-2 whitespace-pre-wrap break-words">{message.content}</p>
                   <p className={`mt-2 text-[11px] ${isOwnMessage ? "text-white/75" : "text-stone-500"}`}>
                     {messageTimeFormatter.format(new Date(message.created_at))}

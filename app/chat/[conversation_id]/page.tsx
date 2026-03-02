@@ -1,14 +1,16 @@
-﻿import type { Route } from "next";
+import type { Route } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { ChatThread } from "@/components/chat-thread";
 import { StatusBadge } from "@/components/status-badge";
 import { requireProfile } from "@/lib/auth";
+import { getRoleLabel } from "@/lib/profiles";
 import type { Approval, Conversation, Horse, Message, TrialRequest } from "@/types/database";
 
 type ContactInfoRecord = {
   partner_email: string | null;
+  partner_name: string | null;
   partner_phone: string | null;
 };
 
@@ -25,7 +27,7 @@ export default async function ChatPage({
   const backHref: Route = profile.role === "owner" ? "/owner/anfragen" : "/anfragen";
   const { data: conversationData } = await supabase
     .from("conversations")
-    .select("id, horse_id, rider_id, owner_id, created_at")
+    .select("id, horse_id, rider_id, owner_id, owner_last_read_at, rider_last_read_at, created_at")
     .eq("id", params.conversation_id)
     .or(`rider_id.eq.${user.id},owner_id.eq.${user.id}`)
     .maybeSingle();
@@ -36,7 +38,11 @@ export default async function ChatPage({
     redirect(`${backHref}?error=${encodeURIComponent("Der Chat konnte nicht gefunden werden.")}`);
   }
 
-  const [{ data: horseData }, { data: messagesData }, { data: approvalData }, { data: trialRequestData }] = await Promise.all([
+  await supabase.rpc("mark_conversation_read", {
+    p_conversation_id: conversation.id
+  });
+
+  const [{ data: horseData }, { data: messagesData }, { data: approvalData }, { data: trialRequestData }, { data: contactData }] = await Promise.all([
     supabase
       .from("horses")
       .select("id, owner_id, title, plz, description, active, created_at")
@@ -60,24 +66,19 @@ export default async function ChatPage({
       .eq("rider_id", conversation.rider_id)
       .order("created_at", { ascending: false })
       .limit(1)
-      .maybeSingle()
+      .maybeSingle(),
+    supabase.rpc("get_conversation_contact_info", {
+      p_conversation_id: conversation.id
+    })
   ]);
 
   const horse = (horseData as Horse | null) ?? null;
   const messages = (messagesData as Message[] | null) ?? [];
   const approval = (approvalData as Approval | null) ?? null;
   const trialRequest = (trialRequestData as TrialRequest | null) ?? null;
-
-  let contactInfo: ContactInfoRecord | null = null;
-
-  if (approval?.status === "approved") {
-    const { data: contactData } = await supabase.rpc("get_conversation_contact_info", {
-      p_conversation_id: conversation.id
-    });
-    const rows = Array.isArray(contactData) ? contactData : contactData ? [contactData] : [];
-
-    contactInfo = (rows[0] as ContactInfoRecord | undefined) ?? null;
-  }
+  const contactRows = Array.isArray(contactData) ? contactData : contactData ? [contactData] : [];
+  const contactInfo = (contactRows[0] as ContactInfoRecord | undefined) ?? null;
+  const partnerLabel = contactInfo?.partner_name?.trim() || getRoleLabel(profile.role === "owner" ? "rider" : "owner");
 
   return (
     <div className="space-y-5">
@@ -88,7 +89,7 @@ export default async function ChatPage({
         <div className="space-y-3">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Chat</p>
-            <h1 className="mt-2 text-3xl font-semibold text-forest sm:text-4xl">Probetermin abstimmen</h1>
+            <h1 className="mt-2 text-3xl font-semibold text-forest sm:text-4xl">Chat mit {partnerLabel}</h1>
             <p className="mt-2 text-sm text-stone-600 sm:text-base">
               {horse ? `Pferdeprofil: ${horse.title}` : "Pferdeprofil nicht gefunden"}
             </p>
@@ -100,7 +101,7 @@ export default async function ChatPage({
           <p className="text-sm text-stone-600">
             {approval?.status === "approved"
               ? "Der Probetermin ist abgeschlossen und die Reitbeteiligung wurde freigeschaltet."
-              : "Bis zur Freischaltung bleibt die Kommunikation direkt hier in der Plattform."}
+              : "Bis zur Freischaltung bleibt die Kommunikation direkt hier in der Plattform. Neue Nachrichten werden in deinen Anfragen markiert."}
           </p>
         </div>
       </section>
@@ -113,13 +114,14 @@ export default async function ChatPage({
             </div>
             <p className="text-sm text-emerald-900">Ihr koennt jetzt ausserhalb der Plattform kommunizieren.</p>
             <div className="space-y-2 rounded-2xl bg-white/80 p-4 text-sm text-emerald-950">
+              <p>Name: {partnerLabel}</p>
               <p>{contactInfo?.partner_email ? `E-Mail: ${contactInfo.partner_email}` : "E-Mail: nicht hinterlegt"}</p>
               <p>{contactInfo?.partner_phone ? `Telefon: ${contactInfo.partner_phone}` : "Telefon: nicht hinterlegt"}</p>
             </div>
           </div>
         </section>
       ) : null}
-      <ChatThread conversationId={conversation.id} currentUserId={user.id} initialMessages={messages} />
+      <ChatThread conversationId={conversation.id} currentUserId={user.id} initialMessages={messages} partnerLabel={partnerLabel} />
     </div>
   );
 }
