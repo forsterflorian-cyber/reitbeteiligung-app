@@ -5,6 +5,9 @@ import { deleteHorseAction, deleteHorseImageAction, saveHorseAction, uploadHorse
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
+import { Backdrop } from "@/components/ui/backdrop";
+import { buttonVariants } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireProfile } from "@/lib/auth";
 import {
   HORSE_GESCHLECHTER,
@@ -123,30 +126,30 @@ export default async function OwnerManageHorsesPage({
   const totalOpenRequests = openTrialRequests.length + openBookingRequests.length;
 
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden rounded-2xl surface-panel bg-white">
-        <div className="space-y-5 px-5 py-6 sm:px-6">
-          <div className="space-y-2">
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-clay">Pferdehalter</p>
-            <h1 className="text-3xl font-semibold text-ink sm:text-4xl">Pferde verwalten</h1>
-            <p className="max-w-3xl text-sm text-stone-600 sm:text-base">
-              Deine Verwaltungsansicht für Desktop und Mobil: Bilder, Status, offene Anfragen und die wichtigsten Aktionen liegen direkt an jedem Pferdeprofil.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Link className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-forest px-4 py-3 text-sm font-semibold text-white hover:bg-forest/90" href={createPath}>
-              Neues Pferd anlegen
-            </Link>
-            <Link className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-semibold text-stone-900 hover:border-forest hover:text-forest" href="/owner/anfragen">
-              Reitbeteiligungen ansehen
-            </Link>
-          </div>
-        </div>
-      </section>
-      <Notice text={error} tone="error" />
-      <Notice text={horsesLoadErrorMessage} tone="error" />
-      <Notice text={horseImagesErrorMessage} tone="error" />
-      <Notice text={message} tone="success" />
+    <div className="relative isolate space-y-6">
+      <Backdrop className="top-16 h-[420px]" variant="section" />
+      <div className="relative z-10 space-y-6">
+        <PageHeader
+          actions={
+            <>
+              <Link className={buttonVariants("primary")} href={createPath}>
+                Neues Pferd anlegen
+              </Link>
+              <Link className={buttonVariants("secondary")} href="/owner/anfragen">
+                Reitbeteiligungen ansehen
+              </Link>
+            </>
+          }
+          backdropVariant="hero"
+          eyebrow="Pferdehalter"
+          subtitle="Deine Verwaltungsansicht für Desktop und Mobil: Bilder, Status, offene Anfragen und die wichtigsten Aktionen liegen direkt an jedem Pferdeprofil."
+          surface
+          title="Pferde verwalten"
+        />
+        <Notice text={error} tone="error" />
+        <Notice text={horsesLoadErrorMessage} tone="error" />
+        <Notice text={horseImagesErrorMessage} tone="error" />
+        <Notice text={message} tone="success" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-sm font-semibold text-stone-500">Pferdeprofile</p>
@@ -367,6 +370,7 @@ export default async function OwnerManageHorsesPage({
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }
