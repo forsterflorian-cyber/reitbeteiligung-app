@@ -808,51 +808,59 @@ export async function uploadHorseImagesAction(formData: FormData) {
     };
   });
 
+  const preparedImageIds: string[] = [];
   const uploadedPaths: string[] = [];
 
+  const rollbackBatch = async () => {
+    if (uploadedPaths.length > 0) {
+      const { error: storageCleanupError } = await supabase.storage.from(HORSE_IMAGE_BUCKET).remove(uploadedPaths);
+
+      if (storageCleanupError) {
+        logSupabaseError("Horse image batch storage cleanup failed", storageCleanupError);
+      }
+    }
+
+    if (preparedImageIds.length > 0) {
+      const { error: rowCleanupError } = await supabase.from("horse_images").delete().in("id", preparedImageIds);
+
+      if (rowCleanupError) {
+        logSupabaseError("Horse image batch row cleanup failed", rowCleanupError);
+      }
+    }
+  };
+
   for (const upload of uploads) {
-    const { error } = await supabase.storage.from(HORSE_IMAGE_BUCKET).upload(upload.path, upload.file, {
+    const imageRow = {
+      horse_id: horseId,
+      id: upload.id,
+      path: upload.path,
+      position: upload.position,
+      storage_path: upload.path
+    };
+
+    const { error: insertError } = await supabase.from("horse_images").insert(imageRow);
+
+    if (insertError) {
+      logSupabaseError("Horse image row prepare failed", insertError);
+      await rollbackBatch();
+      redirectWithMessage("/owner/horses", "error", "Die Bilder konnten nicht gespeichert werden.");
+    }
+
+    preparedImageIds.push(upload.id);
+
+    const { error: uploadError } = await supabase.storage.from(HORSE_IMAGE_BUCKET).upload(upload.path, upload.file, {
       cacheControl: "3600",
       contentType: upload.file.type || undefined,
       upsert: false
     });
 
-    if (error) {
-      logSupabaseError("Horse image upload failed", error);
-
-      if (uploadedPaths.length > 0) {
-        const { error: cleanupError } = await supabase.storage.from(HORSE_IMAGE_BUCKET).remove(uploadedPaths);
-
-        if (cleanupError) {
-          logSupabaseError("Horse image upload cleanup failed", cleanupError);
-        }
-      }
-
+    if (uploadError) {
+      logSupabaseError("Horse image upload failed", uploadError);
+      await rollbackBatch();
       redirectWithMessage("/owner/horses", "error", "Die Bilder konnten nicht hochgeladen werden.");
     }
 
     uploadedPaths.push(upload.path);
-  }
-
-  const imageRows = uploads.map((upload) => ({
-    horse_id: horseId,
-    id: upload.id,
-    path: upload.path,
-    position: upload.position,
-    storage_path: upload.path
-  }));
-
-  const { error: insertError } = await supabase.from("horse_images").insert(imageRows);
-
-  if (insertError) {
-    logSupabaseError("Horse image row insert failed", insertError);
-    const { error: cleanupError } = await supabase.storage.from(HORSE_IMAGE_BUCKET).remove(uploadedPaths);
-
-    if (cleanupError) {
-      logSupabaseError("Horse image row cleanup failed", cleanupError);
-    }
-
-    redirectWithMessage("/owner/horses", "error", "Die Bilder konnten nicht gespeichert werden.");
   }
 
   revalidatePath("/owner/horses");
