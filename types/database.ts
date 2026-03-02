@@ -80,18 +80,43 @@ export type AvailabilitySlot = {
   active: boolean;
 };
 
+export type AvailabilityRule = {
+  id: string;
+  horse_id: string;
+  slot_id: string;
+  start_at: string;
+  end_at: string;
+  active: boolean;
+  created_at: string;
+};
+
 export type BookingRequest = {
   id: string;
   slot_id: string;
+  availability_rule_id: string | null;
   horse_id: string;
   rider_id: string;
   status: BookingRequestStatus;
+  requested_start_at: string | null;
+  requested_end_at: string | null;
   created_at: string;
 };
 
 export type CalendarBlock = {
   id: string;
   horse_id: string;
+  start_at: string;
+  end_at: string;
+  created_at: string;
+};
+
+export type Booking = {
+  id: string;
+  booking_request_id: string;
+  availability_rule_id: string;
+  slot_id: string;
+  horse_id: string;
+  rider_id: string;
   start_at: string;
   end_at: string;
   created_at: string;

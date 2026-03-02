@@ -21,7 +21,7 @@ import {
   isMutableTrialRequestStatus
 } from "@/lib/statuses";
 import { createClient } from "@/lib/supabase/server";
-import type { CalendarBlock, Horse, HorseImage, TrialRequest } from "@/types/database";
+import type { Approval, AvailabilityRule, BookingRequest, CalendarBlock, Horse, HorseImage, TrialRequest } from "@/types/database";
 
 const PASSWORD_RESET_REDIRECT_URL = "https://reitbeteiligung.app/passwort-zuruecksetzen";
 
@@ -29,6 +29,9 @@ type OwnerRequestRecord = Pick<TrialRequest, "id" | "horse_id" | "rider_id" | "s
 type HorseOwnerRecord = Pick<Horse, "id" | "owner_id">;
 type HorseImageRecord = Pick<HorseImage, "id" | "horse_id" | "storage_path" | "created_at">;
 type CalendarBlockRecord = Pick<CalendarBlock, "id" | "horse_id" | "start_at" | "end_at" | "created_at">;
+type AvailabilityRuleRecord = Pick<AvailabilityRule, "id" | "horse_id" | "slot_id" | "start_at" | "end_at" | "active" | "created_at">;
+type BookingRequestRecord = Pick<BookingRequest, "id" | "slot_id" | "availability_rule_id" | "horse_id" | "rider_id" | "status" | "requested_start_at" | "requested_end_at" | "created_at">;
+type ApprovalRecord = Pick<Approval, "horse_id" | "rider_id" | "status">;
 type SupabaseErrorLike = {
   code?: string | null;
   details?: string | null;
@@ -74,6 +77,66 @@ async function getOwnedCalendarBlock(supabase: ReturnType<typeof createClient>, 
   }
 
   return block;
+}
+async function getOwnedAvailabilityRule(supabase: ReturnType<typeof createClient>, ruleId: string, ownerId: string) {
+  const { data } = await supabase
+    .from("availability_rules")
+    .select("id, horse_id, slot_id, start_at, end_at, active, created_at")
+    .eq("id", ruleId)
+    .maybeSingle();
+
+  const rule = (data as AvailabilityRuleRecord | null) ?? null;
+
+  if (!rule) {
+    return null;
+  }
+
+  const horse = await getOwnedHorse(supabase, rule.horse_id, ownerId);
+
+  if (!horse) {
+    return null;
+  }
+
+  return rule;
+}
+
+async function getManagedBookingRequest(supabase: ReturnType<typeof createClient>, requestId: string, ownerId: string) {
+  const { data } = await supabase
+    .from("booking_requests")
+    .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, created_at")
+    .eq("id", requestId)
+    .maybeSingle();
+
+  const request = (data as BookingRequestRecord | null) ?? null;
+
+  if (!request) {
+    return null;
+  }
+
+  const horse = await getOwnedHorse(supabase, request.horse_id, ownerId);
+
+  if (!horse) {
+    return null;
+  }
+
+  return request;
+}
+
+function getAcceptBookingErrorMessage(error: SupabaseErrorLike) {
+  switch (error.message) {
+    case "TIME_UNAVAILABLE":
+      return "Der angefragte Termin ist nicht mehr verfuegbar.";
+    case "NOT_APPROVED":
+      return "Nur freigeschaltete Reiter koennen gebucht werden.";
+    case "OUTSIDE_RULE":
+      return "Der Termin liegt nicht innerhalb des Verfuegbarkeitsfensters.";
+    case "RULE_INACTIVE":
+      return "Dieses Verfuegbarkeitsfenster ist nicht mehr aktiv.";
+    case "INVALID_STATUS":
+      return "Diese Buchungsanfrage wurde bereits bearbeitet.";
+    default:
+      return "Die Buchungsanfrage konnte nicht angenommen werden.";
+  }
 }
 
 async function getOwnedTrialRequest(requestId: string, ownerId: string) {
@@ -607,6 +670,244 @@ export async function deleteCalendarBlockAction(formData: FormData) {
   revalidatePath(redirectPath);
   revalidatePath(`/pferde/${block.horse_id}`);
   redirectWithMessage(redirectPath, "message", "Die Kalender-Sperre wurde entfernt.");
+}
+export async function createAvailabilityRuleAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const horseId = asString(formData.get("horseId"));
+
+  if (!horseId) {
+    redirectWithMessage("/owner/horses", "error", "Das Pferdeprofil konnte nicht gefunden werden.");
+  }
+
+  const horse = await getOwnedHorse(supabase, horseId, user.id);
+  const redirectPath = `/pferde/${horseId}/kalender`;
+
+  if (!horse) {
+    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verfuegbarkeiten verwalten.");
+  }
+
+  const startAtValue = asString(formData.get("startAt"));
+  const endAtValue = asString(formData.get("endAt"));
+  const startAt = new Date(startAtValue);
+  const endAt = new Date(endAtValue);
+
+  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
+    redirectWithMessage(redirectPath, "error", "Bitte gib ein gueltiges Verfuegbarkeitsfenster an.");
+  }
+
+  if (endAt <= startAt) {
+    redirectWithMessage(redirectPath, "error", "Das Ende muss nach dem Beginn liegen.");
+  }
+
+  const { data: slotData, error: slotError } = await supabase
+    .from("availability_slots")
+    .insert({
+      active: true,
+      end_at: endAt.toISOString(),
+      horse_id: horseId,
+      start_at: startAt.toISOString()
+    })
+    .select("id")
+    .maybeSingle();
+
+  if (slotError) {
+    logSupabaseError("Availability slot insert failed", slotError);
+    redirectWithMessage(redirectPath, "error", "Das Verfuegbarkeitsfenster konnte nicht gespeichert werden.");
+  }
+
+  const slotId = slotData?.id;
+
+  if (!slotId) {
+    redirectWithMessage(redirectPath, "error", "Das Verfuegbarkeitsfenster konnte nicht gespeichert werden.");
+  }
+
+  const { error } = await supabase.from("availability_rules").insert({
+    active: true,
+    end_at: endAt.toISOString(),
+    horse_id: horseId,
+    slot_id: slotId,
+    start_at: startAt.toISOString()
+  });
+
+  if (error) {
+    logSupabaseError("Availability rule insert failed", error);
+    const { error: cleanupError } = await supabase.from("availability_slots").delete().eq("id", slotId).eq("horse_id", horseId);
+
+    if (cleanupError) {
+      logSupabaseError("Availability slot cleanup failed", cleanupError);
+    }
+
+    redirectWithMessage(redirectPath, "error", "Das Verfuegbarkeitsfenster konnte nicht gespeichert werden.");
+  }
+
+  revalidatePath(redirectPath);
+  redirectWithMessage(redirectPath, "message", "Das Verfuegbarkeitsfenster wurde gespeichert.");
+}
+
+export async function deleteAvailabilityRuleAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const ruleId = asString(formData.get("ruleId"));
+
+  if (!ruleId) {
+    redirectWithMessage("/owner/horses", "error", "Das Verfuegbarkeitsfenster konnte nicht gefunden werden.");
+  }
+
+  const rule = await getOwnedAvailabilityRule(supabase, ruleId, user.id);
+
+  if (!rule) {
+    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verfuegbarkeitsfenster loeschen.");
+  }
+
+  const redirectPath = `/pferde/${rule.horse_id}/kalender`;
+  const { error } = await supabase.from("availability_slots").delete().eq("id", rule.slot_id).eq("horse_id", rule.horse_id);
+
+  if (error) {
+    logSupabaseError("Availability rule delete failed", error);
+    redirectWithMessage(redirectPath, "error", "Das Verfuegbarkeitsfenster konnte nicht geloescht werden.");
+  }
+
+  revalidatePath(redirectPath);
+  revalidatePath("/owner/anfragen");
+  revalidatePath("/anfragen");
+  redirectWithMessage(redirectPath, "message", "Das Verfuegbarkeitsfenster wurde entfernt.");
+}
+
+export async function requestBookingAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("rider");
+  const horseId = asString(formData.get("horseId"));
+  const ruleId = asString(formData.get("ruleId"));
+
+  if (!horseId || !ruleId) {
+    redirectWithMessage("/suchen", "error", "Das Verfuegbarkeitsfenster konnte nicht gefunden werden.");
+  }
+
+  const redirectPath = `/pferde/${horseId}/kalender`;
+  const startAtValue = asString(formData.get("startAt"));
+  const endAtValue = asString(formData.get("endAt"));
+  const startAt = new Date(startAtValue);
+  const endAt = new Date(endAtValue);
+
+  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
+    redirectWithMessage(redirectPath, "error", "Bitte gib einen gueltigen Termin an.");
+  }
+
+  if (endAt <= startAt) {
+    redirectWithMessage(redirectPath, "error", "Das Ende muss nach dem Beginn liegen.");
+  }
+
+  const { data: approvalData } = await supabase
+    .from("approvals")
+    .select("horse_id, rider_id, status")
+    .eq("horse_id", horseId)
+    .eq("rider_id", user.id)
+    .maybeSingle();
+
+  const approval = (approvalData as ApprovalRecord | null) ?? null;
+
+  if (approval?.status !== APPROVAL_STATUS.approved) {
+    redirectWithMessage(redirectPath, "error", "Nur freigeschaltete Reiter koennen einen Termin anfragen.");
+  }
+
+  const { data: ruleData } = await supabase
+    .from("availability_rules")
+    .select("id, horse_id, slot_id, start_at, end_at, active, created_at")
+    .eq("id", ruleId)
+    .eq("horse_id", horseId)
+    .maybeSingle();
+
+  const rule = (ruleData as AvailabilityRuleRecord | null) ?? null;
+
+  if (!rule || !rule.active) {
+    redirectWithMessage(redirectPath, "error", "Dieses Verfuegbarkeitsfenster ist nicht mehr verfuegbar.");
+  }
+
+  const requestedStartIso = startAt.toISOString();
+  const requestedEndIso = endAt.toISOString();
+
+  if (requestedStartIso < rule.start_at || requestedEndIso > rule.end_at) {
+    redirectWithMessage(redirectPath, "error", "Der Termin muss komplett im Verfuegbarkeitsfenster liegen.");
+  }
+
+  const { error } = await supabase.from("booking_requests").insert({
+    availability_rule_id: rule.id,
+    horse_id: horseId,
+    requested_end_at: requestedEndIso,
+    requested_start_at: requestedStartIso,
+    rider_id: user.id,
+    slot_id: rule.slot_id,
+    status: "requested"
+  });
+
+  if (error) {
+    logSupabaseError("Booking request insert failed", error);
+    redirectWithMessage(redirectPath, "error", "Die Terminanfrage konnte nicht gespeichert werden.");
+  }
+
+  revalidatePath(redirectPath);
+  revalidatePath("/anfragen");
+  revalidatePath("/owner/anfragen");
+  redirectWithMessage(redirectPath, "message", "Die Terminanfrage wurde gesendet.");
+}
+
+export async function acceptBookingRequestAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const requestId = asString(formData.get("requestId"));
+
+  if (!requestId) {
+    redirectWithMessage("/owner/anfragen", "error", "Die Buchungsanfrage konnte nicht gefunden werden.");
+  }
+
+  const request = await getManagedBookingRequest(supabase, requestId, user.id);
+
+  if (!request) {
+    redirectWithMessage("/owner/anfragen", "error", "Die Buchungsanfrage konnte nicht gefunden werden.");
+  }
+
+  const { error } = await supabase.rpc("accept_booking_request", {
+    p_request_id: requestId
+  });
+
+  if (error) {
+    logSupabaseError("Booking request accept failed", error);
+    redirectWithMessage("/owner/anfragen", "error", getAcceptBookingErrorMessage(error));
+  }
+
+  revalidatePath("/owner/anfragen");
+  revalidatePath("/anfragen");
+  revalidatePath(`/pferde/${request.horse_id}`);
+  revalidatePath(`/pferde/${request.horse_id}/kalender`);
+  redirectWithMessage("/owner/anfragen", "message", "Die Buchungsanfrage wurde angenommen.");
+}
+
+export async function declineBookingRequestAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const requestId = asString(formData.get("requestId"));
+
+  if (!requestId) {
+    redirectWithMessage("/owner/anfragen", "error", "Die Buchungsanfrage konnte nicht gefunden werden.");
+  }
+
+  const request = await getManagedBookingRequest(supabase, requestId, user.id);
+
+  if (!request) {
+    redirectWithMessage("/owner/anfragen", "error", "Die Buchungsanfrage konnte nicht gefunden werden.");
+  }
+
+  if (request.status !== "requested") {
+    redirectWithMessage("/owner/anfragen", "error", "Diese Buchungsanfrage wurde bereits bearbeitet.");
+  }
+
+  const { error } = await supabase.from("booking_requests").update({ status: "declined" }).eq("id", requestId);
+
+  if (error) {
+    logSupabaseError("Booking request decline failed", error);
+    redirectWithMessage("/owner/anfragen", "error", "Die Buchungsanfrage konnte nicht abgelehnt werden.");
+  }
+
+  revalidatePath("/owner/anfragen");
+  revalidatePath("/anfragen");
+  revalidatePath(`/pferde/${request.horse_id}/kalender`);
+  redirectWithMessage("/owner/anfragen", "message", "Die Buchungsanfrage wurde abgelehnt.");
 }
 
 export async function deleteHorseAction(formData: FormData) {
