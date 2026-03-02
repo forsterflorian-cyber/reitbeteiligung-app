@@ -8,9 +8,9 @@ import { SubmitButton } from "@/components/submit-button";
 import { isApproved } from "@/lib/approvals";
 import { getViewerContext } from "@/lib/auth";
 import { readSearchParam } from "@/lib/search-params";
-import type { Horse, TrialRequest } from "@/types/database";
+import type { Horse, TrialRequest, TrialRequestStatus } from "@/types/database";
 
-function riderStatusText(status: string) {
+function riderStatusText(status: TrialRequestStatus) {
   switch (status) {
     case "requested":
       return "Deine Anfrage ist eingegangen. Der Pferdehalter entscheidet als Naechstes.";
@@ -135,4 +135,3 @@ export default async function PferdDetailPage({
     </div>
   );
 }
-

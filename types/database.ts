@@ -1,5 +1,9 @@
 export type UserRole = "owner" | "rider";
 
+export type TrialRequestStatus = "requested" | "accepted" | "declined" | "completed";
+export type ApprovalStatus = "approved" | "revoked";
+export type BookingRequestStatus = "requested" | "accepted" | "declined" | "canceled";
+
 export type Profile = {
   id: string;
   role: UserRole;
@@ -28,7 +32,7 @@ export type TrialRequest = {
   id: string;
   horse_id: string;
   rider_id: string;
-  status: string;
+  status: TrialRequestStatus;
   message: string | null;
   created_at: string;
 };
@@ -36,7 +40,7 @@ export type TrialRequest = {
 export type Approval = {
   horse_id: string;
   rider_id: string;
-  status: string;
+  status: ApprovalStatus;
   created_at: string;
 };
 
@@ -69,6 +73,6 @@ export type BookingRequest = {
   slot_id: string;
   horse_id: string;
   rider_id: string;
-  status: string;
+  status: BookingRequestStatus;
   created_at: string;
 };

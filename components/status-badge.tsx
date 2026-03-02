@@ -1,8 +1,10 @@
-﻿type StatusBadgeProps = {
-  status: string;
+import type { ApprovalStatus, BookingRequestStatus, TrialRequestStatus } from "@/types/database";
+
+type StatusBadgeProps = {
+  status: TrialRequestStatus | ApprovalStatus | BookingRequestStatus;
 };
 
-const statusMap: Record<string, { label: string; className: string }> = {
+const statusMap: Record<StatusBadgeProps["status"], { label: string; className: string }> = {
   requested: {
     label: "Angefragt",
     className: "bg-amber-100 text-amber-800"
@@ -26,15 +28,15 @@ const statusMap: Record<string, { label: string; className: string }> = {
   revoked: {
     label: "Freischaltung entzogen",
     className: "bg-stone-200 text-stone-700"
+  },
+  canceled: {
+    label: "Storniert",
+    className: "bg-stone-200 text-stone-700"
   }
 };
 
 export function StatusBadge({ status }: StatusBadgeProps) {
-  const normalized = status.toLowerCase();
-  const variant = statusMap[normalized] ?? {
-    label: status,
-    className: "bg-stone-200 text-stone-700"
-  };
+  const variant = statusMap[status];
 
   return (
     <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${variant.className}`}>

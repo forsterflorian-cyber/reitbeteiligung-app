@@ -1,22 +1,24 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 
 import { Notice } from "@/components/notice";
 import { requireProfile } from "@/lib/auth";
 import { readSearchParam } from "@/lib/search-params";
-import type { Horse, TrialRequest } from "@/types/database";
+import type { Horse, TrialRequest, TrialRequestStatus } from "@/types/database";
 
 type DashboardPageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
 };
 
-function translateStatus(status: string) {
-  switch (status.toLowerCase()) {
-    case "approved":
-      return "Bestaetigt";
-    case "rejected":
+function translateStatus(status: TrialRequestStatus) {
+  switch (status) {
+    case "requested":
+      return "Angefragt";
+    case "accepted":
+      return "Angenommen";
+    case "declined":
       return "Abgelehnt";
-    case "pending":
-      return "Offen";
+    case "completed":
+      return "Durchgefuehrt";
     default:
       return status;
   }

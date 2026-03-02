@@ -5,6 +5,12 @@ import { redirect } from "next/navigation";
 
 import { requireOnboardingUser, requireProfile } from "@/lib/auth";
 import { asInteger, asOptionalString, asString, isRole } from "@/lib/forms";
+import {
+  APPROVAL_STATUS,
+  TRIAL_REQUEST_STATUS,
+  isApprovalStatus,
+  isMutableTrialRequestStatus
+} from "@/lib/statuses";
 import { createClient } from "@/lib/supabase/server";
 import type { Conversation, Horse, TrialRequest } from "@/types/database";
 
@@ -13,9 +19,23 @@ const PASSWORD_RESET_REDIRECT_URL = "https://reitbeteiligung.app/passwort-zuruec
 type OwnerRequestRecord = Pick<TrialRequest, "id" | "horse_id" | "rider_id" | "status">;
 type ConversationLookupRecord = Pick<Conversation, "id">;
 type HorseOwnerRecord = Pick<Horse, "id" | "owner_id">;
+type SupabaseErrorLike = {
+  code?: string | null;
+  details?: string | null;
+  hint?: string | null;
+  message: string;
+};
 
 function redirectWithMessage(path: string, key: "error" | "message", message: string): never {
   redirect(`${path}?${key}=${encodeURIComponent(message)}`);
+}
+
+function logSupabaseError(context: string, error: SupabaseErrorLike) {
+  console.error(`[${context}] ${error.message}`, {
+    code: error.code ?? null,
+    details: error.details ?? null,
+    hint: error.hint ?? null
+  });
 }
 
 async function getOwnedTrialRequest(requestId: string, ownerId: string) {
@@ -152,6 +172,7 @@ export async function requestTrialAction(formData: FormData) {
     .maybeSingle();
 
   if (conversationLookupError) {
+    logSupabaseError("Conversation lookup failed before trial request", conversationLookupError);
     redirectWithMessage(`/pferde/${horseId}`, "error", "Der Chat konnte nicht vorbereitet werden. Bitte versuche es erneut.");
   }
 
@@ -165,6 +186,7 @@ export async function requestTrialAction(formData: FormData) {
     });
 
     if (conversationInsertError) {
+      logSupabaseError("Conversation insert failed before trial request", conversationInsertError);
       redirectWithMessage(`/pferde/${horseId}`, "error", "Der Chat konnte nicht vorbereitet werden. Bitte versuche es erneut.");
     }
   }
@@ -173,11 +195,12 @@ export async function requestTrialAction(formData: FormData) {
     horse_id: horseId,
     message,
     rider_id: user.id,
-    status: "requested"
+    status: TRIAL_REQUEST_STATUS.requested
   });
 
   if (error) {
-    redirectWithMessage(`/pferde/${horseId}`, "error", "Die Anfrage fuer den Probetermin konnte nicht gespeichert werden.");
+    logSupabaseError("Trial request insert failed", error);
+    redirectWithMessage(`/pferde/${horseId}`, "error", "Probeanfrage konnte nicht gespeichert werden.");
   }
 
   revalidatePath(`/pferde/${horseId}`);
@@ -191,7 +214,7 @@ export async function updateTrialRequestStatusAction(formData: FormData) {
   const requestId = asString(formData.get("requestId"));
   const nextStatus = asString(formData.get("status"));
 
-  if (!requestId || !["accepted", "declined", "completed"].includes(nextStatus)) {
+  if (!requestId || !isMutableTrialRequestStatus(nextStatus)) {
     redirectWithMessage("/owner/anfragen", "error", "Die Aktion ist ungueltig.");
   }
 
@@ -201,17 +224,21 @@ export async function updateTrialRequestStatusAction(formData: FormData) {
     redirectWithMessage("/owner/anfragen", "error", "Die Anfrage konnte nicht gefunden werden.");
   }
 
-  if (nextStatus === "completed" && record.request.status !== "accepted") {
+  if (nextStatus === TRIAL_REQUEST_STATUS.completed && record.request.status !== TRIAL_REQUEST_STATUS.accepted) {
     redirectWithMessage("/owner/anfragen", "error", "Nur angenommene Probetermine koennen als durchgefuehrt markiert werden.");
   }
 
-  if ((nextStatus === "accepted" || nextStatus === "declined") && record.request.status !== "requested") {
+  if (
+    (nextStatus === TRIAL_REQUEST_STATUS.accepted || nextStatus === TRIAL_REQUEST_STATUS.declined) &&
+    record.request.status !== TRIAL_REQUEST_STATUS.requested
+  ) {
     redirectWithMessage("/owner/anfragen", "error", "Diese Anfrage kann nicht mehr geaendert werden.");
   }
 
   const { error } = await record.supabase.from("trial_requests").update({ status: nextStatus }).eq("id", requestId);
 
   if (error) {
+    logSupabaseError("Trial request status update failed", error);
     redirectWithMessage("/owner/anfragen", "error", "Der Status konnte nicht aktualisiert werden.");
   }
 
@@ -225,7 +252,7 @@ export async function updateApprovalAction(formData: FormData) {
   const requestId = asString(formData.get("requestId"));
   const nextStatus = asString(formData.get("status"));
 
-  if (!requestId || !["approved", "revoked"].includes(nextStatus)) {
+  if (!requestId || !isApprovalStatus(nextStatus)) {
     redirectWithMessage("/owner/anfragen", "error", "Die Freischaltung ist ungueltig.");
   }
 
@@ -235,7 +262,7 @@ export async function updateApprovalAction(formData: FormData) {
     redirectWithMessage("/owner/anfragen", "error", "Die Anfrage konnte nicht gefunden werden.");
   }
 
-  if (record.request.status !== "completed") {
+  if (record.request.status !== TRIAL_REQUEST_STATUS.completed) {
     redirectWithMessage("/owner/anfragen", "error", "Nur durchgefuehrte Probetermine koennen freigeschaltet werden.");
   }
 
@@ -251,12 +278,13 @@ export async function updateApprovalAction(formData: FormData) {
   );
 
   if (error) {
+    logSupabaseError("Approval upsert failed", error);
     redirectWithMessage("/owner/anfragen", "error", "Die Freischaltung konnte nicht gespeichert werden.");
   }
 
   revalidatePath("/owner/anfragen");
   revalidatePath(`/pferde/${record.request.horse_id}`);
-  const successMessage = nextStatus === "approved" ? "Die Reitbeteiligung wurde freigeschaltet." : "Die Freischaltung wurde entzogen.";
+  const successMessage = nextStatus === APPROVAL_STATUS.approved ? "Die Reitbeteiligung wurde freigeschaltet." : "Die Freischaltung wurde entzogen.";
   redirectWithMessage("/owner/anfragen", "message", successMessage);
 }
 
