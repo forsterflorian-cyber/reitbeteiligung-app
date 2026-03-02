@@ -7,6 +7,8 @@ import { requireOnboardingUser, requireProfile } from "@/lib/auth";
 import { asInteger, asOptionalString, asString, isRole } from "@/lib/forms";
 import { createClient } from "@/lib/supabase/server";
 
+const PASSWORD_RESET_REDIRECT_URL = "https://reitbeteiligung.app/passwort-zuruecksetzen";
+
 function redirectWithMessage(path: string, key: "error" | "message", message: string): never {
   redirect(`${path}?${key}=${encodeURIComponent(message)}`);
 }
@@ -61,6 +63,33 @@ export async function loginAction(formData: FormData) {
     .maybeSingle();
 
   redirect(profile ? "/dashboard" : "/onboarding");
+}
+
+export async function requestPasswordResetAction(formData: FormData) {
+  const email = asString(formData.get("email")).toLowerCase();
+
+  if (!email.includes("@")) {
+    redirectWithMessage("/passwort-vergessen", "error", "Bitte gib eine gueltige E-Mail-Adresse ein.");
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: PASSWORD_RESET_REDIRECT_URL
+  });
+
+  if (error) {
+    redirectWithMessage(
+      "/passwort-vergessen",
+      "error",
+      "Der Link zum Zuruecksetzen konnte nicht versendet werden. Bitte versuche es erneut."
+    );
+  }
+
+  redirectWithMessage(
+    "/passwort-vergessen",
+    "message",
+    "Wenn ein Konto zu dieser E-Mail-Adresse existiert, wurde ein Link zum Zuruecksetzen versendet."
+  );
 }
 
 export async function logoutAction() {

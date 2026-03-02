@@ -39,6 +39,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <label htmlFor="password">Passwort</label>
           <input autoComplete="current-password" id="password" name="password" required type="password" />
         </div>
+        <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href="/passwort-vergessen">
+          Passwort vergessen?
+        </Link>
         <SubmitButton idleLabel="Anmelden" pendingLabel="Anmeldung laeuft..." />
       </form>
       <p className="text-sm text-stone-600">
@@ -50,4 +53,3 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     </div>
   );
 }
-
