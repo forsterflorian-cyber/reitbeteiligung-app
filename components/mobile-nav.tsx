@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -9,14 +10,22 @@ type MobileNavProps = {
   profile?: Profile | null;
 };
 
+type NavItem = {
+  href: Route;
+  label: string;
+};
+
 export function MobileNav({ profile }: MobileNavProps) {
   const pathname = usePathname();
 
-  const items = profile
+  const items: NavItem[] = profile
     ? [
         { href: "/dashboard", label: "Start" },
         { href: "/suchen", label: "Suchen" },
-        { href: profile.role === "owner" ? "/owner/horses" : "/suchen", label: profile.role === "owner" ? "Inserat" : "Pferdeprofil" },
+        {
+          href: profile.role === "owner" ? "/owner/horses" : "/suchen",
+          label: profile.role === "owner" ? "Inserat" : "Pferdeprofil"
+        },
         { href: "/anfragen", label: "Anfragen" },
         { href: "/profil", label: "Profil" }
       ]

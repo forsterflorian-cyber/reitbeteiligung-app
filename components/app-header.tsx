@@ -1,4 +1,5 @@
-﻿import Link from "next/link";
+﻿import type { Route } from "next";
+import Link from "next/link";
 
 import type { Profile } from "@/types/database";
 
@@ -9,12 +10,20 @@ type AppHeaderProps = {
   profile?: Profile | null;
 };
 
+type NavItem = {
+  href: Route;
+  label: string;
+};
+
 export function AppHeader({ email, profile }: AppHeaderProps) {
-  const primaryItems = profile
+  const primaryItems: NavItem[] = profile
     ? [
         { href: "/dashboard", label: "Übersicht" },
         { href: "/suchen", label: "Suchen" },
-        { href: profile.role === "owner" ? "/owner/horses" : "/suchen", label: profile.role === "owner" ? "Inserat" : "Pferdeprofil" },
+        {
+          href: profile.role === "owner" ? "/owner/horses" : "/suchen",
+          label: profile.role === "owner" ? "Inserat" : "Pferdeprofil"
+        },
         { href: "/anfragen", label: "Anfragen" },
         { href: "/profil", label: "Profil" }
       ]
