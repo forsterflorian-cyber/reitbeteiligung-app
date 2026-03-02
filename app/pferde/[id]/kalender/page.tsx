@@ -433,80 +433,310 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         </div>
       </SectionCard>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)]">
-        <div className="space-y-5">
-          <SectionCard
-            subtitle="Gebuchte Termine und blockierte Zeiten werden hier gesammelt als belegt dargestellt."
-            title="Belegte Zeiträume"
-          >
-            <div className="space-y-3">
-              {occupancy.length === 0 ? (
-                <EmptyState description="Aktuell sind keine belegten Zeiträume eingetragen." title="Noch nichts belegt" />
-              ) : (
-                occupancy.map((entry, index) => (
-                  <Card className="p-4" key={`${entry.source}-${entry.start_at}-${entry.end_at}-${index}`}>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-stone-900">{formatDateRange(entry.start_at, entry.end_at)}</p>
-                        <p className="text-sm text-stone-600">{occupancyLabel(entry.source)}</p>
-                      </div>
-                      <Badge tone="rejected">Belegt</Badge>
-                    </div>
-                  </Card>
-                ))
-              )}
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            subtitle="Innerhalb dieser Zeitfenster können freigeschaltete Reiter einen einzelnen Termin anfragen."
-            title="Verfügbare Zeitfenster"
-          >
-            <div className="space-y-3">
-              {rules.length === 0 ? (
-                <EmptyState
-                  description="Aktuell gibt es noch keine offenen Verfügbarkeitsfenster."
-                  title="Noch keine Zeitfenster"
-                />
-              ) : (
-                rules.map((rule) => (
-                  <Card className="p-4" key={rule.id}>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-stone-900">{ruleLabel(rule)}</p>
-                        <p className="text-sm text-stone-600">Freies Zeitfenster für Terminanfragen</p>
-                      </div>
-                      <Badge tone="approved">Verfügbar</Badge>
-                    </div>
-                  </Card>
-                ))
-              )}
-            </div>
-          </SectionCard>
-        </div>
-
-        <div className="space-y-5">
-          {isRider ? (
+      <div className="space-y-5">
+        {isOwner ? (
+          <>
             <SectionCard
               bodyClassName="space-y-5"
-              subtitle="Wähle ein verfügbares Zeitfenster und fordere einen konkreten Termin an."
-              title="Termin anfragen"
+              subtitle="Pflege hier dein Wochenmuster und einzelne Ausnahmen. Das Raster oben zeigt dir sofort, wie sich die Einträge auswirken."
+              title="Kalender bearbeiten"
             >
-              {riderApproved ? (
-                rules.length > 0 ? (
-                  <form action={requestBookingAction} className="space-y-4">
+              <Card className="p-5 sm:p-6">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Aktive Zeitfenster</p>
+                    <p className="mt-2 text-2xl font-semibold text-stone-900">{rules.length}</p>
+                    <p className="mt-1 text-sm text-stone-600">Im Planer direkt als verfügbar sichtbar.</p>
+                  </div>
+                  <div className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Belegte Zeiten</p>
+                    <p className="mt-2 text-2xl font-semibold text-stone-900">{occupancy.length}</p>
+                    <p className="mt-1 text-sm text-stone-600">Gebucht oder von dir gezielt blockiert.</p>
+                  </div>
+                  <div className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Ausnahmen</p>
+                    <p className="mt-2 text-2xl font-semibold text-stone-900">{ownerBlocks.length}</p>
+                    <p className="mt-1 text-sm text-stone-600">Nur für kurzfristige Sperren außerhalb des Musters.</p>
+                  </div>
+                  <div className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Offene Anfragen</p>
+                    <p className="mt-2 text-2xl font-semibold text-stone-900">{requestedOwnerBookingItems.length}</p>
+                    <p className="mt-1 text-sm text-stone-600">Direkt unterhalb des Editors zur Freigabe.</p>
+                  </div>
+                </div>
+              </Card>
+
+              <div className="grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
+                <Card className="p-5 sm:p-6">
+                  <form action={createAvailabilityRuleAction} className="ui-form-stack">
                     <input name="horseId" type="hidden" value={horse.id} />
-                    <div>
-                      <label htmlFor="ruleId">Verfügbarkeitsfenster</label>
-                      <select defaultValue="" id="ruleId" name="ruleId" required>
-                        <option value="">Bitte wählen</option>
-                        {rules.map((rule) => (
-                          <option key={rule.id} value={rule.id}>
-                            {ruleLabel(rule)}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="ui-subpanel">
+                      <p className="ui-eyebrow">Wiederkehrende Verfügbarkeit</p>
+                      <p className="mt-2 ui-inline-meta">1. Wochenmuster wählen 2. Tage markieren 3. Uhrzeit speichern. Daraus werden für die nächsten 8 Wochen konkrete Zeitfenster erzeugt.</p>
                     </div>
+                    <fieldset className="space-y-3">
+                      <legend className="text-sm font-medium text-stone-900">Schnellauswahl</legend>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <label className="block">
+                          <input className="peer sr-only" defaultChecked name="availabilityPreset" type="radio" value="weekdays" />
+                          <span className="flex min-h-[56px] flex-col justify-center rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                            <span>Werktage</span>
+                            <span className="mt-1 text-xs text-stone-500 peer-checked:text-forest">Montag bis Freitag</span>
+                          </span>
+                        </label>
+                        <label className="block">
+                          <input className="peer sr-only" name="availabilityPreset" type="radio" value="daily" />
+                          <span className="flex min-h-[56px] flex-col justify-center rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                            <span>Jeden Tag</span>
+                            <span className="mt-1 text-xs text-stone-500 peer-checked:text-forest">Für die komplette Woche</span>
+                          </span>
+                        </label>
+                        <label className="block">
+                          <input className="peer sr-only" name="availabilityPreset" type="radio" value="weekends" />
+                          <span className="flex min-h-[56px] flex-col justify-center rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                            <span>Wochenende</span>
+                            <span className="mt-1 text-xs text-stone-500 peer-checked:text-forest">Samstag und Sonntag</span>
+                          </span>
+                        </label>
+                        <label className="block">
+                          <input className="peer sr-only" name="availabilityPreset" type="radio" value="custom" />
+                          <span className="flex min-h-[56px] flex-col justify-center rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                            <span>Eigene Tage</span>
+                            <span className="mt-1 text-xs text-stone-500 peer-checked:text-forest">Nur die Auswahl im Raster</span>
+                          </span>
+                        </label>
+                      </div>
+                    </fieldset>
+                    <fieldset className="space-y-3">
+                      <legend className="text-sm font-medium text-stone-900">Wochenraster</legend>
+                      <p className="text-sm text-stone-600">Markiere die Tage, an denen das Pferd grundsätzlich verfügbar sein soll.</p>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+                        <label className="block">
+                          <input className="peer sr-only" name="weekday" type="checkbox" value="1" />
+                          <span className="flex min-h-[92px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                            <span>Mo</span>
+                            <span className="text-xs text-stone-500 peer-checked:text-forest">Montag</span>
+                          </span>
+                        </label>
+                        <label className="block">
+                          <input className="peer sr-only" name="weekday" type="checkbox" value="2" />
+                          <span className="flex min-h-[92px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                            <span>Di</span>
+                            <span className="text-xs text-stone-500 peer-checked:text-forest">Dienstag</span>
+                          </span>
+                        </label>
+                        <label className="block">
+                          <input className="peer sr-only" name="weekday" type="checkbox" value="3" />
+                          <span className="flex min-h-[92px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                            <span>Mi</span>
+                            <span className="text-xs text-stone-500 peer-checked:text-forest">Mittwoch</span>
+                          </span>
+                        </label>
+                        <label className="block">
+                          <input className="peer sr-only" name="weekday" type="checkbox" value="4" />
+                          <span className="flex min-h-[92px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                            <span>Do</span>
+                            <span className="text-xs text-stone-500 peer-checked:text-forest">Donnerstag</span>
+                          </span>
+                        </label>
+                        <label className="block">
+                          <input className="peer sr-only" name="weekday" type="checkbox" value="5" />
+                          <span className="flex min-h-[92px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                            <span>Fr</span>
+                            <span className="text-xs text-stone-500 peer-checked:text-forest">Freitag</span>
+                          </span>
+                        </label>
+                        <label className="block">
+                          <input className="peer sr-only" name="weekday" type="checkbox" value="6" />
+                          <span className="flex min-h-[92px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                            <span>Sa</span>
+                            <span className="text-xs text-stone-500 peer-checked:text-forest">Samstag</span>
+                          </span>
+                        </label>
+                        <label className="block">
+                          <input className="peer sr-only" name="weekday" type="checkbox" value="0" />
+                          <span className="flex min-h-[92px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                            <span>So</span>
+                            <span className="text-xs text-stone-500 peer-checked:text-forest">Sonntag</span>
+                          </span>
+                        </label>
+                      </div>
+                    </fieldset>
+                    <div className="ui-field-grid sm:grid-cols-2">
+                      <div>
+                        <label htmlFor="availabilityStartTime">Von</label>
+                        <input defaultValue="17:00" id="availabilityStartTime" name="startTime" required type="time" />
+                      </div>
+                      <div>
+                        <label htmlFor="availabilityEndTime">Bis</label>
+                        <input defaultValue="19:00" id="availabilityEndTime" name="endTime" required type="time" />
+                      </div>
+                    </div>
+                    <SubmitButton idleLabel="Wochenmuster speichern" pendingLabel="Wird gespeichert..." />
+                  </form>
+                </Card>
+
+                <Card className="p-5 sm:p-6">
+                  <div className="space-y-5">
+                    <form action={createCalendarBlockAction} className="ui-form-stack">
+                      <input name="horseId" type="hidden" value={horse.id} />
+                      <div className="ui-subpanel">
+                        <p className="ui-eyebrow">Ausnahme blockieren</p>
+                        <p className="mt-2 ui-inline-meta">Nutze Sperren nur dann, wenn das Pferd trotz Wochenmuster kurzfristig nicht verfügbar ist.</p>
+                      </div>
+                      <div>
+                        <label htmlFor="blockStartAt">Beginn</label>
+                        <input id="blockStartAt" name="startAt" required type="datetime-local" />
+                      </div>
+                      <div>
+                        <label htmlFor="blockEndAt">Ende</label>
+                        <input id="blockEndAt" name="endAt" required type="datetime-local" />
+                      </div>
+                      <SubmitButton idleLabel="Ausnahme speichern" pendingLabel="Wird gespeichert..." />
+                    </form>
+
+                    <div className="space-y-4 border-t border-stone-200 pt-5">
+                      <div className="space-y-1">
+                        <h3 className="text-base font-semibold text-stone-900">Direktbearbeitung</h3>
+                        <p className="text-sm text-stone-600">Hier entfernst du die nächsten Einträge direkt. Für die Gesamtübersicht bleibt das Raster oben die wichtigste Ansicht.</p>
+                      </div>
+
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <h4 className="text-sm font-semibold text-stone-900">Nächste Zeitfenster</h4>
+                            <Badge tone="approved">{rules.length}</Badge>
+                          </div>
+                          {rules.length === 0 ? (
+                            <p className="text-sm text-stone-500">Noch keine wiederkehrenden Zeitfenster vorhanden.</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {rules.slice(0, 4).map((rule) => (
+                                <div className="rounded-2xl border border-stone-200 bg-white px-3 py-3" key={rule.id}>
+                                  <p className="text-sm font-semibold text-stone-900">{ruleLabel(rule)}</p>
+                                  <form action={deleteAvailabilityRuleAction} className="mt-3">
+                                    <input name="ruleId" type="hidden" value={rule.id} />
+                                    <ConfirmSubmitButton
+                                      className={buttonVariants("secondary", "w-full text-sm")}
+                                      confirmMessage="Möchtest du dieses Verfügbarkeitsfenster wirklich entfernen?"
+                                      idleLabel="Entfernen"
+                                      pendingLabel="Wird entfernt..."
+                                    />
+                                  </form>
+                                </div>
+                              ))}
+                              {rules.length > 4 ? <p className="text-xs text-stone-500">+ {rules.length - 4} weitere Einträge sind bereits im Planer sichtbar.</p> : null}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <h4 className="text-sm font-semibold text-stone-900">Nächste Sperren</h4>
+                            <Badge tone="rejected">{ownerBlocks.length}</Badge>
+                          </div>
+                          {ownerBlocks.length === 0 ? (
+                            <p className="text-sm text-stone-500">Aktuell sind keine Ausnahmen hinterlegt.</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {ownerBlocks.slice(0, 4).map((block) => (
+                                <div className="rounded-2xl border border-stone-200 bg-white px-3 py-3" key={block.id}>
+                                  <p className="text-sm font-semibold text-stone-900">{formatDateRange(block.start_at, block.end_at)}</p>
+                                  <form action={deleteCalendarBlockAction} className="mt-3">
+                                    <input name="blockId" type="hidden" value={block.id} />
+                                    <ConfirmSubmitButton
+                                      className={buttonVariants("secondary", "w-full text-sm")}
+                                      confirmMessage="Möchtest du diese Kalender-Sperre wirklich entfernen?"
+                                      idleLabel="Entfernen"
+                                      pendingLabel="Wird entfernt..."
+                                    />
+                                  </form>
+                                </div>
+                              ))}
+                              {ownerBlocks.length > 4 ? <p className="text-xs text-stone-500">+ {ownerBlocks.length - 4} weitere Sperren sind bereits im Planer sichtbar.</p> : null}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </SectionCard>
+
+            <SectionCard subtitle="Nimm angefragte Termine an oder lehne sie ab." title="Offene Terminanfragen">
+              <div className="space-y-4">
+                {requestedOwnerBookingItems.length === 0 ? (
+                  <EmptyState description="Für dieses Pferd liegen derzeit keine offenen Terminanfragen vor." title="Keine offenen Terminanfragen" />
+                ) : (
+                  requestedOwnerBookingItems.map((request) => {
+                    const rule = request.availability_rule_id ? ruleMap.get(request.availability_rule_id) ?? null : null;
+
+                    return (
+                      <Card className="p-4 sm:p-5" key={request.id}>
+                        <div className="space-y-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-stone-900">
+                                {request.requested_start_at && request.requested_end_at
+                                  ? formatDateRange(request.requested_start_at, request.requested_end_at)
+                                  : "Zeitpunkt wird geprüft"}
+                              </p>
+                              <p className="text-sm text-stone-600">Reiter-ID {request.rider_id.slice(0, 8)}</p>
+                              <p className="text-sm text-stone-600">{rule ? `Fenster: ${ruleLabel(rule)}` : "Kein Zeitfenster mehr vorhanden."}</p>
+                            </div>
+                            <StatusBadge status={request.status} />
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <form action={acceptBookingRequestAction}>
+                              <input name="requestId" type="hidden" value={request.id} />
+                              <Button className="w-full" type="submit" variant="primary">
+                                Annehmen
+                              </Button>
+                            </form>
+                            <form action={declineBookingRequestAction}>
+                              <input name="requestId" type="hidden" value={request.id} />
+                              <Button
+                                className="w-full border-rose-300 text-rose-700 hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700"
+                                type="submit"
+                                variant="secondary"
+                              >
+                                Ablehnen
+                              </Button>
+                            </form>
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })
+                )}
+              </div>
+            </SectionCard>
+          </>
+        ) : null}
+
+        {isRider ? (
+          <SectionCard
+            bodyClassName="space-y-5"
+            subtitle="Wähle ein verfügbares Zeitfenster aus dem Planer oben und fordere daraus einen konkreten Termin an."
+            title="Termin anfragen"
+          >
+            {riderApproved ? (
+              rules.length > 0 ? (
+                <form action={requestBookingAction} className="space-y-4">
+                  <input name="horseId" type="hidden" value={horse.id} />
+                  <div>
+                    <label htmlFor="ruleId">Verfügbarkeitsfenster</label>
+                    <select defaultValue="" id="ruleId" name="ruleId" required>
+                      <option value="">Bitte wählen</option>
+                      {rules.map((rule) => (
+                        <option key={rule.id} value={rule.id}>
+                          {ruleLabel(rule)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="ui-field-grid sm:grid-cols-2">
                     <div>
                       <label htmlFor="requestStartAt">Beginn</label>
                       <input id="requestStartAt" name="startAt" required type="datetime-local" />
@@ -515,315 +745,63 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                       <label htmlFor="requestEndAt">Ende</label>
                       <input id="requestEndAt" name="endAt" required type="datetime-local" />
                     </div>
-                    <div>
-                      <label htmlFor="recurrenceRrule">Wiederholung (optional)</label>
-                      <input id="recurrenceRrule" name="recurrenceRrule" placeholder="FREQ=WEEKLY;INTERVAL=1;COUNT=6" type="text" />
-                      <p className="mt-2 text-sm text-stone-600">Beispiel: jede Woche für sechs Termine.</p>
-                    </div>
-                    <SubmitButton idleLabel="Termin anfragen" pendingLabel="Wird gesendet..." />
-                  </form>
-                ) : (
-                  <EmptyState
-                    description="Aktuell gibt es keine offenen Verfügbarkeitsfenster für dieses Pferd."
-                    title="Kein Zeitfenster verfügbar"
-                  />
-                )
+                  </div>
+                  <div>
+                    <label htmlFor="recurrenceRrule">Wiederholung (optional)</label>
+                    <input id="recurrenceRrule" name="recurrenceRrule" placeholder="FREQ=WEEKLY;INTERVAL=1;COUNT=6" type="text" />
+                    <p className="mt-2 text-sm text-stone-600">Beispiel: jede Woche für sechs Termine.</p>
+                  </div>
+                  <SubmitButton idleLabel="Termin anfragen" pendingLabel="Wird gesendet..." />
+                </form>
               ) : (
-                <EmptyState
-                  description="Erst nach deiner Freischaltung kannst du einen Termin anfragen."
-                  title="Noch nicht freigeschaltet"
-                />
+                <EmptyState description="Aktuell gibt es keine offenen Verfügbarkeitsfenster für dieses Pferd." title="Kein Zeitfenster verfügbar" />
+              )
+            ) : (
+              <EmptyState description="Erst nach deiner Freischaltung kannst du einen Termin anfragen." title="Noch nicht freigeschaltet" />
+            )}
+
+            <div className="space-y-3 border-t border-stone-200 pt-5">
+              <h3 className="text-base font-semibold text-stone-900">Meine Terminanfragen für dieses Pferd</h3>
+              {riderBookingRequests.length === 0 ? (
+                <EmptyState description="Sobald du eine Terminanfrage stellst, erscheint sie hier mit aktuellem Status." title="Noch keine Terminanfrage" />
+              ) : (
+                riderBookingRequests.map((request) => {
+                  const rule = request.availability_rule_id ? ruleMap.get(request.availability_rule_id) ?? null : null;
+
+                  return (
+                    <RequestCard
+                      description={
+                        request.recurrence_rrule
+                          ? `Wiederholung: ${request.recurrence_rrule}`
+                          : rule
+                            ? `Fenster: ${ruleLabel(rule)}`
+                            : "Kein Zeitfenster mehr vorhanden."
+                      }
+                      eyebrow={
+                        request.requested_start_at && request.requested_end_at
+                          ? formatDateRange(request.requested_start_at, request.requested_end_at)
+                          : "Zeitpunkt wird geprüft"
+                      }
+                      key={request.id}
+                      meta={formatDateTime(request.created_at)}
+                      status={request.status}
+                      timeline
+                      title="Terminanfrage"
+                    />
+                  );
+                })
               )}
+            </div>
+          </SectionCard>
+        ) : null}
 
-              <div className="space-y-3 border-t border-stone-200 pt-5">
-                <h3 className="text-base font-semibold text-stone-900">Meine Terminanfragen für dieses Pferd</h3>
-                {riderBookingRequests.length === 0 ? (
-                  <EmptyState
-                    description="Sobald du eine Terminanfrage stellst, erscheint sie hier mit aktuellem Status."
-                    title="Noch keine Terminanfrage"
-                  />
-                ) : (
-                  riderBookingRequests.map((request) => {
-                    const rule = request.availability_rule_id ? ruleMap.get(request.availability_rule_id) ?? null : null;
-
-                    return (
-                      <RequestCard
-                        description={
-                          request.recurrence_rrule
-                            ? `Wiederholung: ${request.recurrence_rrule}`
-                            : rule
-                              ? `Fenster: ${ruleLabel(rule)}`
-                              : "Kein Zeitfenster mehr vorhanden."
-                        }
-                        eyebrow={
-                          request.requested_start_at && request.requested_end_at
-                            ? formatDateRange(request.requested_start_at, request.requested_end_at)
-                            : "Zeitpunkt wird geprüft"
-                        }
-                        key={request.id}
-                        meta={formatDateTime(request.created_at)}
-                        status={request.status}
-                        timeline
-                        title="Terminanfrage"
-                      />
-                    );
-                  })
-                )}
-              </div>
-            </SectionCard>
-          ) : null}
-
-          {isOwner ? (
-              <>
-                <SectionCard subtitle="Lege wiederkehrende Standardzeiten fest und nutze Sperren nur noch für Ausnahmen." title="Standardzeiten & Ausnahmen">
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <Card className="p-5">
-                      <form action={createAvailabilityRuleAction} className="ui-form-stack">
-                        <input name="horseId" type="hidden" value={horse.id} />
-                        <div className="ui-subpanel">
-                          <p className="ui-eyebrow">Standardzeiten</p>
-                          <p className="mt-2 ui-inline-meta">Das gewählte Wochenmuster wird für die nächsten 8 Wochen als Verfügbarkeit angelegt.</p>
-                        </div>
-                        <fieldset className="space-y-3">
-                          <legend className="text-sm font-medium text-stone-900">Wochenmuster</legend>
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            <label className="block">
-                              <input className="peer sr-only" defaultChecked name="availabilityPreset" type="radio" value="weekdays" />
-                              <span className="flex min-h-[52px] flex-col justify-center rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
-                                <span>Werktage</span>
-                                <span className="mt-1 text-xs text-stone-500 peer-checked:text-forest">Montag bis Freitag</span>
-                              </span>
-                            </label>
-                            <label className="block">
-                              <input className="peer sr-only" name="availabilityPreset" type="radio" value="daily" />
-                              <span className="flex min-h-[52px] flex-col justify-center rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
-                                <span>Jeden Tag</span>
-                                <span className="mt-1 text-xs text-stone-500 peer-checked:text-forest">Für die komplette Woche</span>
-                              </span>
-                            </label>
-                            <label className="block">
-                              <input className="peer sr-only" name="availabilityPreset" type="radio" value="weekends" />
-                              <span className="flex min-h-[52px] flex-col justify-center rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
-                                <span>Wochenende</span>
-                                <span className="mt-1 text-xs text-stone-500 peer-checked:text-forest">Samstag und Sonntag</span>
-                              </span>
-                            </label>
-                            <label className="block">
-                              <input className="peer sr-only" name="availabilityPreset" type="radio" value="custom" />
-                              <span className="flex min-h-[52px] flex-col justify-center rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
-                                <span>Eigene Tage</span>
-                                <span className="mt-1 text-xs text-stone-500 peer-checked:text-forest">Nur die Auswahl unten</span>
-                              </span>
-                            </label>
-                          </div>
-                        </fieldset>
-                        <fieldset className="space-y-3">
-                          <legend className="text-sm font-medium text-stone-900">Wochenraster für eigene Tage</legend>
-                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-                            <label className="block">
-                              <input className="peer sr-only" name="weekday" type="checkbox" value="1" />
-                              <span className="flex min-h-[84px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
-                                <span>Mo</span>
-                                <span className="text-xs text-stone-500 peer-checked:text-forest">Montag</span>
-                              </span>
-                            </label>
-                            <label className="block">
-                              <input className="peer sr-only" name="weekday" type="checkbox" value="2" />
-                              <span className="flex min-h-[84px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
-                                <span>Di</span>
-                                <span className="text-xs text-stone-500 peer-checked:text-forest">Dienstag</span>
-                              </span>
-                            </label>
-                            <label className="block">
-                              <input className="peer sr-only" name="weekday" type="checkbox" value="3" />
-                              <span className="flex min-h-[84px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
-                                <span>Mi</span>
-                                <span className="text-xs text-stone-500 peer-checked:text-forest">Mittwoch</span>
-                              </span>
-                            </label>
-                            <label className="block">
-                              <input className="peer sr-only" name="weekday" type="checkbox" value="4" />
-                              <span className="flex min-h-[84px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
-                                <span>Do</span>
-                                <span className="text-xs text-stone-500 peer-checked:text-forest">Donnerstag</span>
-                              </span>
-                            </label>
-                            <label className="block">
-                              <input className="peer sr-only" name="weekday" type="checkbox" value="5" />
-                              <span className="flex min-h-[84px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
-                                <span>Fr</span>
-                                <span className="text-xs text-stone-500 peer-checked:text-forest">Freitag</span>
-                              </span>
-                            </label>
-                            <label className="block">
-                              <input className="peer sr-only" name="weekday" type="checkbox" value="6" />
-                              <span className="flex min-h-[84px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
-                                <span>Sa</span>
-                                <span className="text-xs text-stone-500 peer-checked:text-forest">Samstag</span>
-                              </span>
-                            </label>
-                            <label className="block">
-                              <input className="peer sr-only" name="weekday" type="checkbox" value="0" />
-                              <span className="flex min-h-[84px] flex-col justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
-                                <span>So</span>
-                                <span className="text-xs text-stone-500 peer-checked:text-forest">Sonntag</span>
-                              </span>
-                            </label>
-                          </div>
-                        </fieldset>
-                        <div className="ui-field-grid sm:grid-cols-2">
-                          <div>
-                            <label htmlFor="availabilityStartTime">Von</label>
-                            <input defaultValue="17:00" id="availabilityStartTime" name="startTime" required type="time" />
-                          </div>
-                          <div>
-                            <label htmlFor="availabilityEndTime">Bis</label>
-                            <input defaultValue="19:00" id="availabilityEndTime" name="endTime" required type="time" />
-                          </div>
-                        </div>
-                        <SubmitButton idleLabel="Standardzeiten speichern" pendingLabel="Wird gespeichert..." />
-                      </form>
-                    </Card>
-                    <Card className="p-5">
-                      <form action={createCalendarBlockAction} className="ui-form-stack">
-                        <input name="horseId" type="hidden" value={horse.id} />
-                        <div className="ui-subpanel">
-                          <p className="ui-eyebrow">Ausnahme sperren</p>
-                          <p className="mt-2 ui-inline-meta">Nutze Sperren nur dann, wenn das Pferd trotz Standardzeit kurzfristig nicht verfügbar ist.</p>
-                        </div>
-                        <div>
-                          <label htmlFor="blockStartAt">Beginn</label>
-                          <input id="blockStartAt" name="startAt" required type="datetime-local" />
-                        </div>
-                        <div>
-                          <label htmlFor="blockEndAt">Ende</label>
-                          <input id="blockEndAt" name="endAt" required type="datetime-local" />
-                        </div>
-                        <SubmitButton idleLabel="Ausnahme sperren" pendingLabel="Wird gespeichert..." />
-                      </form>
-                    </Card>
-                  </div>
-                </SectionCard>
-
-                <SectionCard subtitle="Nimm angefragte Termine an oder lehne sie ab." title="Offene Terminanfragen">
-                  <div className="space-y-4">
-                    {requestedOwnerBookingItems.length === 0 ? (
-                      <EmptyState
-                        description="Für dieses Pferd liegen derzeit keine offenen Terminanfragen vor."
-                        title="Keine offenen Terminanfragen"
-                      />
-                    ) : (
-                      requestedOwnerBookingItems.map((request) => {
-                        const rule = request.availability_rule_id ? ruleMap.get(request.availability_rule_id) ?? null : null;
-
-                        return (
-                          <Card className="p-4 sm:p-5" key={request.id}>
-                            <div className="space-y-4">
-                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                <div className="space-y-1">
-                                  <p className="text-sm font-semibold text-stone-900">
-                                    {request.requested_start_at && request.requested_end_at
-                                      ? formatDateRange(request.requested_start_at, request.requested_end_at)
-                                      : "Zeitpunkt wird geprüft"}
-                                  </p>
-                                  <p className="text-sm text-stone-600">Reiter-ID {request.rider_id.slice(0, 8)}</p>
-                                  <p className="text-sm text-stone-600">{rule ? `Fenster: ${ruleLabel(rule)}` : "Kein Zeitfenster mehr vorhanden."}</p>
-                                </div>
-                                <StatusBadge status={request.status} />
-                              </div>
-                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                <form action={acceptBookingRequestAction}>
-                                  <input name="requestId" type="hidden" value={request.id} />
-                                  <Button className="w-full" type="submit" variant="primary">
-                                    Annehmen
-                                  </Button>
-                                </form>
-                                <form action={declineBookingRequestAction}>
-                                  <input name="requestId" type="hidden" value={request.id} />
-                                  <Button
-                                    className="w-full border-rose-300 text-rose-700 hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700"
-                                    type="submit"
-                                    variant="secondary"
-                                  >
-                                    Ablehnen
-                                  </Button>
-                                </form>
-                              </div>
-                            </div>
-                          </Card>
-                        );
-                      })
-                    )}
-                  </div>
-                </SectionCard>
-
-                <div className="grid gap-5 lg:grid-cols-2">
-                  <SectionCard
-                    subtitle="Beim Entfernen werden offene Terminanfragen in diesem Fenster automatisch gelöscht."
-                    title="Eigene Verfügbarkeitsfenster"
-                  >
-                    <div className="space-y-3">
-                      {rules.length === 0 ? (
-                        <EmptyState
-                          description="Lege zuerst ein Verfügbarkeitsfenster an, damit Reiter Termine anfragen können."
-                          title="Noch keine Verfügbarkeiten"
-                        />
-                      ) : (
-                        rules.map((rule) => (
-                          <Card className="p-4" key={rule.id}>
-                            <p className="text-sm font-semibold text-stone-900">{ruleLabel(rule)}</p>
-                            <form action={deleteAvailabilityRuleAction} className="mt-3">
-                              <input name="ruleId" type="hidden" value={rule.id} />
-                              <ConfirmSubmitButton
-                                className={buttonVariants("secondary", "w-full")}
-                                confirmMessage="Möchtest du dieses Verfügbarkeitsfenster wirklich entfernen?"
-                                idleLabel="Fenster löschen"
-                                pendingLabel="Wird entfernt..."
-                              />
-                            </form>
-                          </Card>
-                        ))
-                      )}
-                    </div>
-                  </SectionCard>
-
-                  <SectionCard subtitle="Nur diese selbst gesetzten Sperren kannst du wieder entfernen." title="Eigene Sperren">
-                    <div className="space-y-3">
-                      {ownerBlocks.length === 0 ? (
-                        <EmptyState
-                          description="Nutze Sperren für Ausnahmen, wenn das Pferd kurzfristig nicht verfügbar ist."
-                          title="Noch keine Sperren"
-                        />
-                      ) : (
-                        ownerBlocks.map((block) => (
-                          <Card className="p-4" key={block.id}>
-                            <p className="text-sm font-semibold text-stone-900">{formatDateRange(block.start_at, block.end_at)}</p>
-                            <form action={deleteCalendarBlockAction} className="mt-3">
-                              <input name="blockId" type="hidden" value={block.id} />
-                              <ConfirmSubmitButton
-                                className={buttonVariants("secondary", "w-full")}
-                                confirmMessage="Möchtest du diese Kalender-Sperre wirklich entfernen?"
-                                idleLabel="Sperre entfernen"
-                                pendingLabel="Wird entfernt..."
-                              />
-                            </form>
-                          </Card>
-                        ))
-                      )}
-                    </div>
-                  </SectionCard>
-                </div>
-              </>
-          ) : null}
-
-          {!profile ? (
-            <SectionCard subtitle="Melde dich an, um Verfügbarkeiten, Anfragen und deinen eigenen Status zu sehen." title="Kalender nutzen">
-              <Link className={buttonVariants("primary", "w-full sm:w-auto")} href="/login">
-                Anmelden, um den Kalender zu nutzen
-              </Link>
-            </SectionCard>
-          ) : null}
-        </div>
+        {!profile ? (
+          <SectionCard subtitle="Melde dich an, um Verfügbarkeiten, Anfragen und deinen eigenen Status zu sehen." title="Kalender nutzen">
+            <Link className={buttonVariants("primary", "w-full sm:w-auto")} href="/login">
+              Anmelden, um den Kalender zu nutzen
+            </Link>
+          </SectionCard>
+        ) : null}
       </div>
     </div>
   );
