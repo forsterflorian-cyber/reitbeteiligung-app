@@ -7,7 +7,9 @@ import { buttonVariants } from "@/components/ui/button";
 function TrustChip({ label }: { label: string }) {
   return (
     <div className="inline-flex min-h-[44px] items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm">
-      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-100 text-xs font-semibold text-stone-600">•</span>
+      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-100">
+        <span aria-hidden="true" className="h-2 w-2 rounded-full bg-emerald-700" />
+      </span>
       <span className="text-sm font-medium text-stone-700">{label}</span>
     </div>
   );
@@ -54,4 +56,3 @@ export function Hero() {
     </section>
   );
 }
-

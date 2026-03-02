@@ -1,9 +1,33 @@
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+
+type HeroVisualTone = "pending" | "approved" | "internal";
+
+type WorkflowCardProps = {
+  title: string;
+  statusLabel: string;
+  tone: HeroVisualTone;
+  meta: string;
+  subtext?: string;
+  ctaLabel?: string;
+};
+
+const badgeClassNames: Record<HeroVisualTone, string> = {
+  pending: "border border-amber-200 bg-amber-100 text-amber-800",
+  approved: "border border-emerald-200 bg-emerald-100 text-emerald-800",
+  internal: "border border-stone-200 bg-stone-100 text-stone-700"
+};
+
+function StatusPill({ label, tone }: { label: string; tone: HeroVisualTone }) {
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeClassNames[tone]}`}>
+      {label}
+    </span>
+  );
+}
 
 function HorseSilhouette() {
   return (
-    <svg aria-hidden="true" className="h-28 w-28 text-stone-300/80 sm:h-32 sm:w-32" viewBox="0 0 120 120" fill="none">
+    <svg aria-hidden="true" className="h-40 w-40 text-stone-700" viewBox="0 0 120 120" fill="none">
       <path
         d="M77 20c7 4 12 10 14 18l8 6c3 2 5 5 5 9v11c0 4-2 7-6 8l-10 3-6 14c-2 5-7 8-12 8H55c-5 0-10-3-12-8l-3-8-11-2c-5-1-9-6-9-11V57c0-4 2-7 5-9l16-9 10-17c3-5 9-8 15-8h11z"
         stroke="currentColor"
@@ -18,69 +42,78 @@ function HorseSilhouette() {
   );
 }
 
-// The hero visual uses a device-style card instead of a generic image.
-// That keeps the landing brand-led and immediately tied to product workflow.
+function WorkflowCard({ title, statusLabel, tone, meta, subtext, ctaLabel }: WorkflowCardProps) {
+  return (
+    <div className="rounded-2xl border border-stone-200 bg-white/95 p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-stone-900">{title}</p>
+          <p className="text-sm text-stone-700">{meta}</p>
+        </div>
+        <StatusPill label={statusLabel} tone={tone} />
+      </div>
+      {subtext ? <p className="mt-2 text-xs leading-5 text-stone-600">{subtext}</p> : null}
+      {ctaLabel ? (
+        <div className="mt-3 inline-flex min-h-[32px] items-center rounded-xl border border-stone-200 bg-stone-50 px-3 text-xs font-semibold text-stone-700">
+          {ctaLabel}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// The landing visual intentionally mirrors the real product workflow instead of
+// using abstract placeholder cards. That keeps the value proposition obvious.
 export function HeroVisual() {
   return (
-    <div className="relative mx-auto w-full max-w-[28rem] lg:mx-0">
-      <div className="pointer-events-none absolute inset-x-6 top-10 h-48 rounded-full bg-[radial-gradient(circle,_rgba(16,185,129,0.14),_transparent_68%)] blur-2xl" />
-      <div className="pointer-events-none absolute -right-6 bottom-10 h-28 w-28 rounded-full bg-[radial-gradient(circle,_rgba(120,113,108,0.15),_transparent_70%)] blur-2xl" />
-      <Card className="relative overflow-hidden rounded-[2rem] border-stone-200/90 bg-white/95 p-4 shadow-sm sm:p-5">
-        <div className="pointer-events-none absolute right-2 top-3 opacity-80">
+    <div className="relative mx-auto w-full max-w-[30rem] lg:mx-0">
+      <div className="pointer-events-none absolute inset-x-6 top-8 h-52 rounded-full bg-[radial-gradient(circle,_rgba(16,185,129,0.12),_transparent_68%)] blur-3xl" />
+      <Card className="relative overflow-hidden rounded-[2rem] border-stone-200/90 bg-white p-4 shadow-md sm:p-5">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(5,150,105,0.08),_transparent_38%),radial-gradient(circle_at_bottom_left,_rgba(214,211,209,0.45),_transparent_45%)]" />
+        <div className="pointer-events-none absolute -bottom-8 -right-4 opacity-10">
           <HorseSilhouette />
         </div>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-stone-500">Heute</p>
-              <p className="text-sm font-semibold text-stone-900">Probetermin mit Lisa</p>
-            </div>
-            <Badge tone="pending">Ausstehend</Badge>
-          </div>
 
-          <div className="mx-auto w-full max-w-[16rem] rounded-[1.8rem] border border-stone-200 bg-white p-3 shadow-sm">
-            <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-stone-200" />
-            <div className="space-y-3 rounded-[1.4rem] border border-stone-200 bg-stone-50 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-stone-500">reitbeteiligung.app</p>
-                  <p className="text-sm font-semibold text-stone-900">Apollo</p>
-                </div>
-                <Badge tone="approved">Aktiv</Badge>
-              </div>
-              <div className="space-y-2 rounded-2xl border border-stone-200 bg-white p-3">
-                <p className="text-sm font-semibold text-stone-900">Freischaltung abgeschlossen</p>
-                <p className="text-xs leading-5 text-stone-600">Kontaktdaten sind jetzt sichtbar und weitere Termine koennen geplant werden.</p>
-              </div>
-            </div>
+        <div className="relative z-10 flex items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-stone-50/90 px-4 py-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-stone-500">reitbeteiligung.app</p>
+            <p className="text-sm font-semibold text-stone-900">Organisiert statt Nachrichten-Chaos</p>
           </div>
+          <span aria-hidden="true" className="h-10 w-10 rounded-full border border-stone-200 bg-white shadow-sm" />
+        </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between rounded-2xl border border-stone-200 px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold text-stone-900">01 Probetermin</p>
-                <p className="text-xs text-stone-500">Anfrage mit kurzer Nachricht</p>
-              </div>
-              <Badge tone="pending">Ausstehend</Badge>
+        <div className="relative z-10 mt-4 space-y-3">
+          <WorkflowCard
+            title="Probetermin-Anfrage"
+            statusLabel="Ausstehend"
+            tone="pending"
+            meta="Wunschtermin: Sa, 10:00"
+            ctaLabel="Details"
+          />
+          <WorkflowCard
+            title="Freischaltung"
+            statusLabel="Freigeschaltet"
+            tone="approved"
+            meta="Kontaktdaten sichtbar"
+            subtext="Chat bleibt intern bis zur Freigabe"
+          />
+          <WorkflowCard
+            title="Terminbuchung"
+            statusLabel={"Best\u00e4tigt"}
+            tone="approved"
+            meta="Mi, 18:00 - 19:00"
+            subtext="Einzeltermin"
+          />
+
+          <div className="rounded-2xl border border-stone-200 bg-white/95 p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-stone-900">Nachricht</p>
+              <StatusPill label="Intern" tone="internal" />
             </div>
-            <div className="flex items-center justify-between rounded-2xl border border-stone-200 px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold text-stone-900">02 Freischaltung</p>
-                <p className="text-xs text-stone-500">Kontaktdaten erst danach</p>
-              </div>
-              <Badge tone="approved">Freigeschaltet</Badge>
-            </div>
-            <div className="flex items-center justify-between rounded-2xl border border-stone-200 px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold text-stone-900">03 Termin</p>
-                <p className="text-xs text-stone-500">Kalender und Status im Blick</p>
-              </div>
-              <Badge tone="info">Bestaetigt</Badge>
-            </div>
+            <p className="mt-2 text-sm leading-6 text-stone-700">&quot;Passt dir Mittwoch oder Freitag?&quot;</p>
           </div>
         </div>
       </Card>
     </div>
   );
 }
-
