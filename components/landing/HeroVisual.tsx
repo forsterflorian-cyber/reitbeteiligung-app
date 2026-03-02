@@ -13,7 +13,7 @@ type WorkflowCardProps = {
 
 const badgeClassNames: Record<HeroVisualTone, string> = {
   pending: "border border-amber-200 bg-amber-100 text-amber-800",
-  approved: "border border-emerald-200 bg-emerald-100 text-emerald-800",
+  approved: "border border-stone-200 bg-sand text-forest",
   internal: "border border-stone-200 bg-stone-100 text-stone-700"
 };
 
@@ -99,7 +99,7 @@ export function HeroVisual() {
           />
           <WorkflowCard
             title="Terminbuchung"
-            statusLabel="Bestätigt"
+            statusLabel="BestÃ¤tigt"
             tone="approved"
             meta="Mi, 18:00 - 19:00"
             subtext="Einzeltermin"

@@ -27,11 +27,11 @@ export function TopNav({ email, profile }: TopNavProps) {
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 sm:px-5 lg:px-8">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 space-y-1">
-            <Link className="text-base font-semibold text-emerald-800 sm:text-lg" href="/">
+            <Link className="text-base font-semibold text-forest sm:text-lg" href="/">
               reitbeteiligung.app
             </Link>
             <div className="flex flex-wrap items-center gap-2 text-sm text-stone-600">
-              <span className="inline-flex min-h-[28px] items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-800">
+              <span className="inline-flex min-h-[28px] items-center rounded-full border border-stone-200 bg-sand px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-forest">
                 {roleLabel}
               </span>
               <span className="truncate">{displayName}</span>

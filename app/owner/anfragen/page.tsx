@@ -174,10 +174,10 @@ export default async function OwnerAnfragenPage({
                     <div className="flex flex-wrap gap-2">
                       <StatusBadge status={request.status} />
                       {approval ? <StatusBadge status={approval.status} /> : null}
-                      {hasUnread ? <span className="inline-flex rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800">Neue Nachricht</span> : null}
+                      {hasUnread ? <span className="inline-flex rounded-full border border-stone-200 bg-sand px-3 py-1 text-xs font-semibold text-ink">Neue Nachricht</span> : null}
                     </div>
                     {approval?.status === "approved" && conversation ? (
-                      <p className="text-sm text-emerald-700">Kontaktdaten sind jetzt im Chat sichtbar.</p>
+                      <p className="rounded-xl border border-stone-200 bg-sand px-3 py-2 text-sm text-ink">Kontaktdaten sind jetzt im Chat sichtbar.</p>
                     ) : null}
                     <div className="space-y-2">
                       {request.status === "requested" ? (
@@ -185,7 +185,7 @@ export default async function OwnerAnfragenPage({
                           <form action={updateTrialRequestStatusAction}>
                             <input name="requestId" type="hidden" value={request.id} />
                             <input name="status" type="hidden" value="accepted" />
-                            <button className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white hover:bg-sky-700" type="submit">
+                            <button className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-forest px-4 py-3 text-sm font-semibold text-white hover:bg-forest/90" type="submit">
                               Annehmen
                             </button>
                           </form>
@@ -202,7 +202,7 @@ export default async function OwnerAnfragenPage({
                         <form action={updateTrialRequestStatusAction}>
                           <input name="requestId" type="hidden" value={request.id} />
                           <input name="status" type="hidden" value="completed" />
-                          <button className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700" type="submit">
+                          <button className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-forest px-4 py-3 text-sm font-semibold text-white hover:bg-forest/90" type="submit">
                             Als durchgefuehrt markieren
                           </button>
                         </form>
@@ -268,13 +268,13 @@ export default async function OwnerAnfragenPage({
                     {request.recurrence_rrule ? <p className="text-sm text-stone-600">Wiederholung: {request.recurrence_rrule}</p> : null}
                     <div className="flex flex-wrap gap-2">
                       <StatusBadge status={request.status} />
-                      {hasUnread ? <span className="inline-flex rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800">Neue Nachricht</span> : null}
+                      {hasUnread ? <span className="inline-flex rounded-full border border-stone-200 bg-sand px-3 py-1 text-xs font-semibold text-ink">Neue Nachricht</span> : null}
                     </div>
                     {request.status === "requested" ? (
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <form action={acceptBookingRequestAction}>
                           <input name="requestId" type="hidden" value={request.id} />
-                          <button className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white hover:bg-sky-700" type="submit">
+                          <button className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-forest px-4 py-3 text-sm font-semibold text-white hover:bg-forest/90" type="submit">
                             Annehmen
                           </button>
                         </form>

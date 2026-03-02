@@ -36,7 +36,7 @@ function RoleCard({ bullets, ctaLabel, previewMeta, previewStatus, previewTone, 
         <ul className="space-y-3 text-sm leading-7 text-stone-600">
           {bullets.map((bullet) => (
             <li className="flex gap-3" key={bullet}>
-              <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-emerald-800" />
+              <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-clay" />
               <span>{bullet}</span>
             </li>
           ))}
@@ -56,21 +56,21 @@ export function RoleCards() {
     <section className="space-y-6 py-2 sm:space-y-8 sm:py-4">
       <div className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Rollen</p>
-        <h2 className="font-serif text-3xl text-stone-900 sm:text-4xl">Für Pferdehalter und Reiter</h2>
+        <h2 className="font-serif text-3xl text-stone-900 sm:text-4xl">FÃ¼r Pferdehalter und Reiter</h2>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <RoleCard
           bullets={[
             "Pferdeprofile verwalten",
-            "Anfragen prüfen und freischalten",
-            "Verfügbarkeiten und Termine im Blick"
+            "Anfragen prÃ¼fen und freischalten",
+            "VerfÃ¼gbarkeiten und Termine im Blick"
           ]}
           ctaLabel="Als Pferdehalter starten"
-          previewMeta="Neue Probeanfrage für Apollo"
+          previewMeta="Neue Probeanfrage fÃ¼r Apollo"
           previewStatus="Ausstehend"
           previewTone="pending"
           subtitle="Alle Schritte von der ersten Anfrage bis zur Freigabe bleiben geordnet an einem Ort."
-          title="Für Pferdehalter"
+          title="FÃ¼r Pferdehalter"
         />
         <RoleCard
           bullets={[
@@ -79,11 +79,11 @@ export function RoleCards() {
             "Nach Freischaltung Termine buchen"
           ]}
           ctaLabel="Als Reiter starten"
-          previewMeta="Nächster Termin: Mittwoch, 18:00"
-          previewStatus="Bestätigt"
+          previewMeta="NÃ¤chster Termin: Mittwoch, 18:00"
+          previewStatus="BestÃ¤tigt"
           previewTone="info"
-          subtitle="Du siehst sofort, was offen ist, was bestätigt wurde und wann der nächste Termin ansteht."
-          title="Für Reiter"
+          subtitle="Du siehst sofort, was offen ist, was bestÃ¤tigt wurde und wann der nÃ¤chste Termin ansteht."
+          title="FÃ¼r Reiter"
         />
       </div>
     </section>

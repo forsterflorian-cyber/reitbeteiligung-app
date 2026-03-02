@@ -119,7 +119,7 @@ export default async function PferdDetailPage({
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-emerald-800 hover:bg-transparent")} href="/suchen">
+      <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href="/suchen">
         Zurueck zur Suche
       </Link>
 
@@ -186,7 +186,7 @@ export default async function PferdDetailPage({
               <div className="space-y-3">
                 {facts.map((fact) => (
                   <div className="flex items-start gap-3 text-sm leading-6 text-stone-600" key={fact}>
-                    <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-emerald-700" />
+                    <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-clay" />
                     <span>{fact}</span>
                   </div>
                 ))}
@@ -224,7 +224,7 @@ export default async function PferdDetailPage({
           title="Probetermin anfragen"
         >
           {approved ? (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="rounded-2xl border border-stone-200 bg-sand p-4">
               <div className="space-y-3">
                 <StatusBadge status="approved" />
                 <p className="text-sm leading-6 text-stone-600">

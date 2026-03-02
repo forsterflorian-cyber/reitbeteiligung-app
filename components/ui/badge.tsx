@@ -9,11 +9,11 @@ type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
 };
 
 const toneClassNames: Record<StatusTone, string> = {
-  pending: "bg-amber-100 text-amber-700",
-  approved: "bg-emerald-100 text-emerald-700",
-  rejected: "bg-rose-100 text-rose-700",
-  info: "bg-sky-100 text-sky-700",
-  neutral: "bg-stone-100 text-stone-700"
+  pending: "border border-amber-200 bg-amber-50 text-amber-800",
+  approved: "border border-stone-200 bg-sand text-forest",
+  rejected: "border border-rose-200 bg-rose-50 text-rose-700",
+  info: "border border-stone-200 bg-stone-100 text-ink",
+  neutral: "border border-stone-200 bg-white text-stone-700"
 };
 
 export function Badge({ children, className, tone = "neutral", ...props }: BadgeProps) {

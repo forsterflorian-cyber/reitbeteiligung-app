@@ -28,7 +28,7 @@ a {
 input:not([type="checkbox"]):not([type="radio"]),
 textarea,
 select {
-  @apply w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-900 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10;
+  @apply w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base text-stone-900 outline-none transition focus:border-forest focus:ring-2 focus:ring-forest/10;
   min-height: 44px;
 }
 

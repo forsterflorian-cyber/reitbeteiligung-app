@@ -167,10 +167,10 @@ export default async function AnfragenPage({
                     <div className="flex flex-wrap gap-2">
                       <StatusBadge status={request.status} />
                       {approval ? <StatusBadge status={approval.status} /> : null}
-                      {hasUnread ? <span className="inline-flex rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800">Neue Nachricht</span> : null}
+                      {hasUnread ? <span className="inline-flex rounded-full border border-stone-200 bg-sand px-3 py-1 text-xs font-semibold text-ink">Neue Nachricht</span> : null}
                     </div>
                     {approval?.status === "approved" && conversation ? (
-                      <p className="text-sm text-emerald-700">Kontaktdaten sind jetzt im Chat sichtbar.</p>
+                      <p className="rounded-xl border border-stone-200 bg-sand px-3 py-2 text-sm text-ink">Kontaktdaten sind jetzt im Chat sichtbar.</p>
                     ) : null}
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/pferde/${request.horse_id}` as Route}>
@@ -218,7 +218,7 @@ export default async function AnfragenPage({
                     {request.recurrence_rrule ? <p className="text-sm text-stone-600">Wiederholung: {request.recurrence_rrule}</p> : null}
                     <div className="flex flex-wrap gap-2">
                       <StatusBadge status={request.status} />
-                      {hasUnread ? <span className="inline-flex rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800">Neue Nachricht</span> : null}
+                      {hasUnread ? <span className="inline-flex rounded-full border border-stone-200 bg-sand px-3 py-1 text-xs font-semibold text-ink">Neue Nachricht</span> : null}
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <Link className="inline-flex min-h-[44px] items-center text-sm font-semibold text-forest hover:text-clay" href={`/pferde/${request.horse_id}/kalender` as Route}>

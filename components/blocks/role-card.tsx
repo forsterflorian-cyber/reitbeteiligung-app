@@ -21,12 +21,12 @@ export function RoleCard({ ctaLabel, href, points, title }: RoleCardProps) {
         <ul className="space-y-3 text-sm leading-6 text-stone-600">
           {points.map((point) => (
             <li className="flex gap-3" key={point}>
-              <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-emerald-700" />
+              <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-clay" />
               <span>{point}</span>
             </li>
           ))}
         </ul>
-        <Link className={buttonVariants("ghost", "justify-start px-0 py-0 text-emerald-800 hover:bg-transparent")} href={href}>
+        <Link className={buttonVariants("ghost", "justify-start px-0 py-0 text-forest hover:bg-transparent hover:text-clay")} href={href}>
           {ctaLabel}
         </Link>
       </div>

@@ -19,7 +19,7 @@ type DiagnosticsCardProps = {
 
 function DiagnosticsErrorBlock({ error }: { error: DiagnosticsError }) {
   if (!error) {
-    return <p className="text-sm text-emerald-700">Kein Fehler.</p>;
+    return <p className="text-sm text-forest">Kein Fehler.</p>;
   }
 
   return (

@@ -124,20 +124,20 @@ export default async function OwnerManageHorsesPage({
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-2xl border border-blue-800 bg-gradient-to-br from-blue-800 via-blue-700 to-blue-600 text-white">
+      <section className="overflow-hidden rounded-2xl surface-panel bg-white">
         <div className="space-y-5 px-5 py-6 sm:px-6">
           <div className="space-y-2">
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-blue-100">Pferdehalter</p>
-            <h1 className="text-3xl font-semibold sm:text-4xl">Pferde verwalten</h1>
-            <p className="max-w-3xl text-sm text-blue-50 sm:text-base">
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-clay">Pferdehalter</p>
+            <h1 className="text-3xl font-semibold text-ink sm:text-4xl">Pferde verwalten</h1>
+            <p className="max-w-3xl text-sm text-stone-600 sm:text-base">
               Deine Verwaltungsansicht fuer Desktop und Mobil: Bilder, Status, offene Anfragen und die wichtigsten Aktionen liegen direkt an jedem Pferdeprofil.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Link className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-semibold text-blue-800 hover:bg-blue-50" href={createPath}>
+            <Link className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-forest px-4 py-3 text-sm font-semibold text-white hover:bg-forest/90" href={createPath}>
               Neues Pferd anlegen
             </Link>
-            <Link className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-blue-300/60 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10" href="/owner/anfragen">
+            <Link className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-semibold text-stone-900 hover:border-forest hover:text-forest" href="/owner/anfragen">
               Reitbeteiligungen ansehen
             </Link>
           </div>
@@ -150,22 +150,22 @@ export default async function OwnerManageHorsesPage({
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-sm font-semibold text-stone-500">Pferdeprofile</p>
-          <p className="mt-3 text-4xl font-semibold text-blue-800">{horses.length}</p>
+          <p className="mt-3 text-4xl font-semibold text-forest">{horses.length}</p>
           <p className="mt-2 text-sm text-stone-600">Insgesamt angelegte Pferdeprofile.</p>
         </div>
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-sm font-semibold text-stone-500">Aktiv</p>
-          <p className="mt-3 text-4xl font-semibold text-blue-800">{activeHorseCount}</p>
+          <p className="mt-3 text-4xl font-semibold text-forest">{activeHorseCount}</p>
           <p className="mt-2 text-sm text-stone-600">{inactiveHorseCount} inaktiv oder noch nicht veroeffentlicht.</p>
         </div>
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-sm font-semibold text-stone-500">Mit Bildern</p>
-          <p className="mt-3 text-4xl font-semibold text-blue-800">{horseWithImagesCount}</p>
+          <p className="mt-3 text-4xl font-semibold text-forest">{horseWithImagesCount}</p>
           <p className="mt-2 text-sm text-stone-600">{horses.length - horseWithImagesCount} ohne Galeriebilder.</p>
         </div>
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-sm font-semibold text-stone-500">Offene Anfragen</p>
-          <p className="mt-3 text-4xl font-semibold text-blue-800">{totalOpenRequests}</p>
+          <p className="mt-3 text-4xl font-semibold text-forest">{totalOpenRequests}</p>
           <p className="mt-2 text-sm text-stone-600">{openTrialRequests.length} Probetermine und {openBookingRequests.length} Terminanfragen warten.</p>
         </div>
       </div>
@@ -205,12 +205,12 @@ export default async function OwnerManageHorsesPage({
                   <div className="space-y-4">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div className="space-y-1">
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">Pferdeprofil</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-clay">Pferdeprofil</p>
                         <h2 className="text-xl font-semibold text-stone-900">{horse.title}</h2>
                         <p className="text-sm text-stone-600">PLZ {horse.plz}</p>
                         <p className="text-xs text-stone-500">Angelegt am {formatDate(horse.created_at)}</p>
                       </div>
-                      <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${horse.active ? "bg-emerald-100 text-emerald-800" : "bg-stone-200 text-stone-700"}`}>
+                      <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${horse.active ? "border border-stone-200 bg-sand text-forest" : "border border-stone-200 bg-white text-stone-700"}`}>
                         {horse.active ? "Aktiv" : "Inaktiv"}
                       </span>
                     </div>
@@ -223,25 +223,25 @@ export default async function OwnerManageHorsesPage({
                       <div>{horse.description?.trim() ? "Beschreibung vorhanden" : "Beschreibung: offen"}</div>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800">{trialCount} offene Probetermine</span>
+                      <span className="inline-flex rounded-full border border-stone-200 bg-sand px-3 py-1 text-xs font-semibold text-ink">{trialCount} offene Probetermine</span>
                       <span className="inline-flex rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-700">{bookingCount} offene Terminanfragen</span>
                     </div>
                   </div>
                   <div className="space-y-2 rounded-2xl border border-stone-200 bg-stone-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Aktionen</p>
-                    <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800" href={`/pferde/${horse.id}` as Route}>
+                    <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-forest px-4 py-2 text-sm font-semibold text-white hover:bg-forest/90" href={`/pferde/${horse.id}` as Route}>
                       Pferdeprofil ansehen
                     </Link>
                     <Link
-                      className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 hover:border-blue-700 hover:text-blue-800"
+                      className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 hover:border-forest hover:text-forest"
                       href={{ pathname: managePath as Route, query: { edit: horse.id }, hash: `bearbeiten-${horse.id}` }}
                     >
                       Pferd editieren
                     </Link>
-                    <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 hover:border-blue-700 hover:text-blue-800" href="/owner/anfragen">
+                    <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 hover:border-forest hover:text-forest" href="/owner/anfragen">
                       Reitbeteiligungen ansehen
                     </Link>
-                    <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 hover:border-blue-700 hover:text-blue-800" href={`/pferde/${horse.id}/kalender` as Route}>
+                    <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 hover:border-forest hover:text-forest" href={`/pferde/${horse.id}/kalender` as Route}>
                       Kalender
                     </Link>
                     <form action={deleteHorseAction}>
@@ -257,8 +257,8 @@ export default async function OwnerManageHorsesPage({
                   </div>
                 </div>
                 {isEditing ? (
-                  <div className="mt-5 overflow-hidden rounded-2xl border border-blue-100 bg-blue-50/60" id={`bearbeiten-${horse.id}`}>
-                    <div className="border-b border-blue-100 px-5 py-4">
+                  <div className="mt-5 overflow-hidden rounded-2xl border border-stone-200 bg-sand/60" id={`bearbeiten-${horse.id}`}>
+                    <div className="border-b border-stone-200 px-5 py-4">
                       <h3 className="text-lg font-semibold text-stone-900">Pferdeprofil bearbeiten</h3>
                       <p className="mt-1 text-sm text-stone-600">Stammdaten, Sichtbarkeit und Galerie direkt an einem Ort.</p>
                     </div>
@@ -333,7 +333,7 @@ export default async function OwnerManageHorsesPage({
                                   <input name="imageId" type="hidden" value={image.id} />
                                   <input name="redirectTo" type="hidden" value={editPath} />
                                   <ConfirmSubmitButton
-                                    className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 hover:border-blue-700 hover:text-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
+                                    className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 hover:border-forest hover:text-forest disabled:cursor-not-allowed disabled:opacity-70"
                                     confirmMessage="Moechtest du dieses Bild wirklich entfernen?"
                                     idleLabel="Bild entfernen"
                                     pendingLabel="Wird entfernt..."

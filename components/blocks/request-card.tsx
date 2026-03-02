@@ -21,7 +21,7 @@ type RequestCardProps = {
 
 export function RequestCard({ ctaLabel, description, eyebrow, href, meta, status, timeline = false, title }: RequestCardProps) {
   return (
-    <Card className={cx("p-4 sm:p-5", timeline ? "border-l-4 border-l-emerald-200" : undefined)}>
+    <Card className={cx("p-4 sm:p-5", timeline ? "border-l-4 border-l-stone-200" : undefined)}>
       <div className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
@@ -34,7 +34,7 @@ export function RequestCard({ ctaLabel, description, eyebrow, href, meta, status
         <p className="text-sm leading-6 text-stone-600">{description}</p>
         {href && ctaLabel ? (
           <div>
-            <Link className={buttonVariants("ghost", "justify-start px-0 py-0 text-sm font-semibold text-emerald-800 hover:bg-transparent")} href={href}>
+            <Link className={buttonVariants("ghost", "justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={href}>
               {ctaLabel}
             </Link>
           </div>

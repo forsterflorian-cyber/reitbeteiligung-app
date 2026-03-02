@@ -106,14 +106,14 @@ export default async function ChatPage({
         </div>
       </section>
       {approval?.status === "approved" ? (
-        <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 sm:p-6">
+        <section className="rounded-2xl border border-stone-200 bg-sand p-5 sm:p-6">
           <div className="space-y-3">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">Kontakt</p>
-              <h2 className="mt-2 text-xl font-semibold text-emerald-900">Kontaktdaten freigeschaltet</h2>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Kontakt</p>
+              <h2 className="mt-2 text-xl font-semibold text-ink">Kontaktdaten freigeschaltet</h2>
             </div>
-            <p className="text-sm text-emerald-900">Ihr koennt jetzt ausserhalb der Plattform kommunizieren.</p>
-            <div className="space-y-2 rounded-2xl bg-white/80 p-4 text-sm text-emerald-950">
+            <p className="text-sm text-ink">Ihr koennt jetzt ausserhalb der Plattform kommunizieren.</p>
+            <div className="space-y-2 rounded-2xl border border-stone-200 bg-white p-4 text-sm text-ink">
               <p>Name: {partnerLabel}</p>
               <p>{contactInfo?.partner_email ? `E-Mail: ${contactInfo.partner_email}` : "E-Mail: nicht hinterlegt"}</p>
               <p>{contactInfo?.partner_phone ? `Telefon: ${contactInfo.partner_phone}` : "Telefon: nicht hinterlegt"}</p>
