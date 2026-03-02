@@ -1,4 +1,4 @@
-﻿create table if not exists public.conversations (
+create table if not exists public.conversations (
   id uuid primary key default gen_random_uuid(),
   horse_id uuid not null references public.horses (id) on delete cascade,
   rider_id uuid not null references public.profiles (id) on delete cascade,
