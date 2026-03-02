@@ -20,7 +20,7 @@ export default async function SuchenPage() {
   const {
     data: { user }
   } = await supabase.auth.getUser();
-  const { data } = await supabase
+  const { data, error: horsesError } = await supabase
     .from("horses")
     .select(HORSE_SELECT_FIELDS)
     .eq("active", true)
@@ -28,6 +28,7 @@ export default async function SuchenPage() {
     .limit(8);
 
   const horses = (data as Horse[] | null) ?? [];
+  const horsesLoadErrorMessage = horsesError ? `Pferdeprofile konnten nicht geladen werden: ${horsesError.message}` : null;
   const horseIds = horses.map((horse) => horse.id);
 
   let imageMap = new Map<string, string>();
@@ -56,8 +57,13 @@ export default async function SuchenPage() {
         <p className="text-sm text-stone-600 sm:text-base">Hier findest du freigeschaltete Pferdeprofile und kommst direkt zur Anfrage fuer deinen Probetermin.</p>
       </div>
       {!user ? <Notice text="Melde dich an, um einen Probetermin anzufragen und spaeter freigeschaltet zu werden." /> : null}
+      <Notice text={horsesLoadErrorMessage} tone="error" />
       <div className="space-y-3">
-        {horses.length === 0 ? (
+        {horsesError ? (
+          <div className="rounded-3xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+            Die Pferdeprofile konnten derzeit nicht geladen werden. Bitte pruefe spaeter erneut oder oeffne /diagnose.
+          </div>
+        ) : horses.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
             Aktuell sind keine freigeschalteten Reitbeteiligungen sichtbar.
           </div>

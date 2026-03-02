@@ -47,13 +47,14 @@ export default async function OwnerHorsesPage({ searchParams }: OwnerHorsesPageP
 
   const error = readSearchParam(searchParams, "error");
   const message = readSearchParam(searchParams, "message");
-  const { data } = await supabase
+  const { data, error: horsesError } = await supabase
     .from("horses")
     .select(HORSE_SELECT_FIELDS)
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
 
   const horses = (data as Horse[] | null) ?? [];
+  const horsesLoadErrorMessage = horsesError ? `Pferdeprofile konnten nicht geladen werden: ${horsesError.message}` : null;
   const horseIds = horses.map((horse) => horse.id);
 
   let horseImages: HorseImageWithUrl[] = [];
@@ -88,6 +89,7 @@ export default async function OwnerHorsesPage({ searchParams }: OwnerHorsesPageP
         <p className="text-sm text-stone-600 sm:text-base">Bearbeite dein Pferdeprofil in einer mobilen Einspaltenansicht ohne horizontales Scrollen.</p>
       </div>
       <Notice text={error} tone="error" />
+      <Notice text={horsesLoadErrorMessage} tone="error" />
       <Notice text={message} tone="success" />
       <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-soft sm:p-6">
         <h2 className="text-xl font-semibold text-ink">Neues Pferdeprofil</h2>
@@ -141,7 +143,11 @@ export default async function OwnerHorsesPage({ searchParams }: OwnerHorsesPageP
       </section>
       <section className="space-y-4">
         <h2 className="text-xl font-semibold text-ink">Bestehende Pferdeprofile</h2>
-        {horses.length === 0 ? (
+        {horsesError ? (
+          <div className="rounded-3xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+            Die Pferdeprofile konnten derzeit nicht geladen werden. Bitte pruefe spaeter erneut oder oeffne /diagnose.
+          </div>
+        ) : horses.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
             Noch kein Pferdeprofil vorhanden.
           </div>
