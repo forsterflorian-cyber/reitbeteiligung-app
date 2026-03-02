@@ -21,17 +21,41 @@ import {
   isMutableTrialRequestStatus
 } from "@/lib/statuses";
 import { createClient } from "@/lib/supabase/server";
-import type { Approval, AvailabilityRule, BookingRequest, CalendarBlock, Horse, HorseImage, TrialRequest } from "@/types/database";
+import type { Approval, AvailabilityRule, Booking, BookingRequest, CalendarBlock, Horse, HorseImage, TrialRequest } from "@/types/database";
 
 const PASSWORD_RESET_REDIRECT_URL = "https://reitbeteiligung.app/passwort-zuruecksetzen";
+const RECURRENCE_HORIZON_WEEKS = 12;
+const MAX_RECURRENCE_OCCURRENCES = 100;
+const RRULE_WEEKDAYS: Record<string, number> = {
+  FR: 5,
+  MO: 1,
+  SA: 6,
+  SU: 0,
+  TH: 4,
+  TU: 2,
+  WE: 3
+};
 
 type OwnerRequestRecord = Pick<TrialRequest, "id" | "horse_id" | "rider_id" | "status">;
 type HorseOwnerRecord = Pick<Horse, "id" | "owner_id">;
 type HorseImageRecord = Pick<HorseImage, "id" | "horse_id" | "storage_path" | "created_at">;
 type CalendarBlockRecord = Pick<CalendarBlock, "id" | "horse_id" | "start_at" | "end_at" | "created_at">;
 type AvailabilityRuleRecord = Pick<AvailabilityRule, "id" | "horse_id" | "slot_id" | "start_at" | "end_at" | "active" | "created_at">;
-type BookingRequestRecord = Pick<BookingRequest, "id" | "slot_id" | "availability_rule_id" | "horse_id" | "rider_id" | "status" | "requested_start_at" | "requested_end_at" | "created_at">;
+type BookingRequestRecord = Pick<BookingRequest, "id" | "slot_id" | "availability_rule_id" | "horse_id" | "rider_id" | "status" | "requested_start_at" | "requested_end_at" | "recurrence_rrule" | "created_at">;
 type ApprovalRecord = Pick<Approval, "horse_id" | "rider_id" | "status">;
+type BookingRecord = Pick<Booking, "id" | "start_at" | "end_at">;
+type TimeRangeRecord = Pick<CalendarBlock, "start_at" | "end_at">;
+type ParsedRecurrenceRule = {
+  byDays: number[] | null;
+  count: number | null;
+  freq: "DAILY" | "WEEKLY";
+  interval: number;
+  until: Date | null;
+};
+type BookingWindow = {
+  endAt: string;
+  startAt: string;
+};
 type SupabaseErrorLike = {
   code?: string | null;
   details?: string | null;
@@ -49,6 +73,260 @@ function logSupabaseError(context: string, error: SupabaseErrorLike) {
     details: error.details ?? null,
     hint: error.hint ?? null
   });
+}
+
+function addDaysUtc(date: Date, days: number) {
+  const next = new Date(date.getTime());
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function parseRruleDate(value: string) {
+  if (/^\d{8}$/.test(value)) {
+    const year = Number.parseInt(value.slice(0, 4), 10);
+    const month = Number.parseInt(value.slice(4, 6), 10) - 1;
+    const day = Number.parseInt(value.slice(6, 8), 10);
+
+    return new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+  }
+
+  if (/^\d{8}T\d{6}Z$/.test(value)) {
+    const year = Number.parseInt(value.slice(0, 4), 10);
+    const month = Number.parseInt(value.slice(4, 6), 10) - 1;
+    const day = Number.parseInt(value.slice(6, 8), 10);
+    const hours = Number.parseInt(value.slice(9, 11), 10);
+    const minutes = Number.parseInt(value.slice(11, 13), 10);
+    const seconds = Number.parseInt(value.slice(13, 15), 10);
+
+    return new Date(Date.UTC(year, month, day, hours, minutes, seconds, 0));
+  }
+
+  return null;
+}
+
+function parseRecurrenceRule(value: string, baseStart: Date): ParsedRecurrenceRule {
+  const parts = value
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    throw new Error("INVALID_RRULE");
+  }
+
+  const options = new Map<string, string>();
+
+  for (const part of parts) {
+    const [rawKey, ...rawValueParts] = part.split("=");
+    const key = rawKey?.trim().toUpperCase();
+    const optionValue = rawValueParts.join("=").trim();
+
+    if (!key || !optionValue || options.has(key)) {
+      throw new Error("INVALID_RRULE");
+    }
+
+    if (!["FREQ", "INTERVAL", "COUNT", "UNTIL", "BYDAY"].includes(key)) {
+      throw new Error("UNSUPPORTED_RRULE");
+    }
+
+    options.set(key, optionValue.toUpperCase());
+  }
+
+  const freq = options.get("FREQ");
+
+  if (freq !== "DAILY" && freq !== "WEEKLY") {
+    throw new Error("UNSUPPORTED_RRULE");
+  }
+
+  const intervalRaw = options.get("INTERVAL");
+  const interval = intervalRaw ? Number.parseInt(intervalRaw, 10) : 1;
+
+  if (!Number.isInteger(interval) || interval < 1) {
+    throw new Error("INVALID_RRULE");
+  }
+
+  const countRaw = options.get("COUNT");
+  const count = countRaw ? Number.parseInt(countRaw, 10) : null;
+
+  if (count !== null && (!Number.isInteger(count) || count < 1)) {
+    throw new Error("INVALID_RRULE");
+  }
+
+  const untilRaw = options.get("UNTIL");
+  const until = untilRaw ? parseRruleDate(untilRaw) : null;
+
+  if (untilRaw && !until) {
+    throw new Error("INVALID_RRULE");
+  }
+
+  if (until && until.getTime() < baseStart.getTime()) {
+    throw new Error("INVALID_RRULE");
+  }
+
+  const byDayRaw = options.get("BYDAY");
+  let byDays: number[] | null = null;
+
+  if (byDayRaw) {
+    if (freq !== "WEEKLY") {
+      throw new Error("UNSUPPORTED_RRULE");
+    }
+
+    const dayValues = [...new Set(byDayRaw.split(",").map((part) => part.trim()).filter(Boolean))];
+
+    if (dayValues.length === 0) {
+      throw new Error("INVALID_RRULE");
+    }
+
+    byDays = dayValues
+      .map((dayValue) => RRULE_WEEKDAYS[dayValue])
+      .filter((dayValue): dayValue is number => Number.isInteger(dayValue))
+      .sort((left, right) => left - right);
+
+    if (byDays.length !== dayValues.length) {
+      throw new Error("INVALID_RRULE");
+    }
+
+    if (!byDays.includes(baseStart.getUTCDay())) {
+      throw new Error("INVALID_RRULE");
+    }
+  }
+
+  return {
+    byDays,
+    count,
+    freq,
+    interval,
+    until
+  };
+}
+
+function buildBookingWindows(request: BookingRequestRecord): BookingWindow[] {
+  if (!request.requested_start_at || !request.requested_end_at) {
+    throw new Error("INVALID_RANGE");
+  }
+
+  const baseStart = new Date(request.requested_start_at);
+  const baseEnd = new Date(request.requested_end_at);
+
+  if (Number.isNaN(baseStart.getTime()) || Number.isNaN(baseEnd.getTime()) || baseEnd <= baseStart) {
+    throw new Error("INVALID_RANGE");
+  }
+
+  const durationMs = baseEnd.getTime() - baseStart.getTime();
+  const starts: Date[] = [baseStart];
+
+  if (request.recurrence_rrule) {
+    const recurrence = parseRecurrenceRule(request.recurrence_rrule, baseStart);
+    const horizonEnd = addDaysUtc(baseStart, RECURRENCE_HORIZON_WEEKS * 7).getTime();
+    const absoluteEnd = recurrence.until ? Math.min(horizonEnd, recurrence.until.getTime()) : horizonEnd;
+
+    if (recurrence.freq === "DAILY") {
+      for (let step = 1; starts.length < MAX_RECURRENCE_OCCURRENCES; step += 1) {
+        if (recurrence.count !== null && starts.length >= recurrence.count) {
+          break;
+        }
+
+        const next = addDaysUtc(baseStart, step * recurrence.interval);
+
+        if (next.getTime() > absoluteEnd) {
+          break;
+        }
+
+        starts.push(next);
+      }
+    } else {
+      const byDays = recurrence.byDays ?? [baseStart.getUTCDay()];
+      const seen = new Set<number>([baseStart.getTime()]);
+
+      for (let cycle = 0; starts.length < MAX_RECURRENCE_OCCURRENCES; cycle += 1) {
+        if (recurrence.count !== null && starts.length >= recurrence.count) {
+          break;
+        }
+
+        const cycleDayOffset = cycle * recurrence.interval * 7;
+        let hasFutureWindow = false;
+
+        for (const weekday of byDays) {
+          const dayOffset = weekday - baseStart.getUTCDay() + cycleDayOffset;
+
+          if (dayOffset <= 0) {
+            continue;
+          }
+
+          const next = addDaysUtc(baseStart, dayOffset);
+          const timestamp = next.getTime();
+
+          if (timestamp > absoluteEnd) {
+            continue;
+          }
+
+          hasFutureWindow = true;
+
+          if (seen.has(timestamp)) {
+            continue;
+          }
+
+          starts.push(next);
+          seen.add(timestamp);
+
+          if (recurrence.count !== null && starts.length >= recurrence.count) {
+            break;
+          }
+        }
+
+        const nextCycleStart = addDaysUtc(baseStart, (cycle + 1) * recurrence.interval * 7).getTime();
+
+        if (!hasFutureWindow && nextCycleStart > absoluteEnd) {
+          break;
+        }
+      }
+    }
+
+    if (recurrence.count !== null && starts.length !== recurrence.count && starts.length === MAX_RECURRENCE_OCCURRENCES) {
+      throw new Error("RECURRENCE_LIMIT");
+    }
+  }
+
+  const windows = starts
+    .sort((left, right) => left.getTime() - right.getTime())
+    .map((startDate) => ({
+      endAt: new Date(startDate.getTime() + durationMs).toISOString(),
+      startAt: startDate.toISOString()
+    }));
+
+  for (let index = 1; index < windows.length; index += 1) {
+    if (windows[index - 1].endAt > windows[index].startAt) {
+      throw new Error("TIME_UNAVAILABLE");
+    }
+  }
+
+  return windows;
+}
+
+function windowsOverlap(left: BookingWindow, right: BookingWindow) {
+  return left.startAt < right.endAt && left.endAt > right.startAt;
+}
+
+function hasWindowConflict(windows: BookingWindow[], existingRanges: TimeRangeRecord[]) {
+  return windows.some((window) =>
+    existingRanges.some((existingRange) =>
+      windowsOverlap(window, {
+        endAt: existingRange.end_at,
+        startAt: existingRange.start_at
+      })
+    )
+  );
+}
+
+function getRecurrenceErrorMessage(error: Error) {
+  switch (error.message) {
+    case "UNSUPPORTED_RRULE":
+      return "Aktuell werden nur einfache RRULEs mit FREQ=DAILY oder FREQ=WEEKLY unterstuetzt.";
+    case "RECURRENCE_LIMIT":
+      return "Die Wiederholung ueberschreitet den maximalen Horizont von 12 Wochen.";
+    default:
+      return "Die Wiederholung ist ungueltig. Nutze zum Beispiel FREQ=WEEKLY;INTERVAL=1;COUNT=6.";
+  }
 }
 
 async function getOwnedHorse(supabase: ReturnType<typeof createClient>, horseId: string, ownerId: string) {
@@ -103,7 +381,7 @@ async function getOwnedAvailabilityRule(supabase: ReturnType<typeof createClient
 async function getManagedBookingRequest(supabase: ReturnType<typeof createClient>, requestId: string, ownerId: string) {
   const { data } = await supabase
     .from("booking_requests")
-    .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, created_at")
+    .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, recurrence_rrule, created_at")
     .eq("id", requestId)
     .maybeSingle();
 
@@ -776,6 +1054,7 @@ export async function requestBookingAction(formData: FormData) {
   const { supabase, user } = await requireProfile("rider");
   const horseId = asString(formData.get("horseId"));
   const ruleId = asString(formData.get("ruleId"));
+  const recurrenceRrule = asOptionalString(formData.get("recurrenceRrule"));
 
   if (!horseId || !ruleId) {
     redirectWithMessage("/suchen", "error", "Das Verfuegbarkeitsfenster konnte nicht gefunden werden.");
@@ -793,6 +1072,14 @@ export async function requestBookingAction(formData: FormData) {
 
   if (endAt <= startAt) {
     redirectWithMessage(redirectPath, "error", "Das Ende muss nach dem Beginn liegen.");
+  }
+
+  if (recurrenceRrule) {
+    try {
+      parseRecurrenceRule(recurrenceRrule, startAt);
+    } catch (error) {
+      redirectWithMessage(redirectPath, "error", getRecurrenceErrorMessage(error as Error));
+    }
   }
 
   const { data: approvalData } = await supabase
@@ -831,6 +1118,7 @@ export async function requestBookingAction(formData: FormData) {
   const { error } = await supabase.from("booking_requests").insert({
     availability_rule_id: rule.id,
     horse_id: horseId,
+    recurrence_rrule: recurrenceRrule,
     requested_end_at: requestedEndIso,
     requested_start_at: requestedStartIso,
     rider_id: user.id,
@@ -863,20 +1151,109 @@ export async function acceptBookingRequestAction(formData: FormData) {
     redirectWithMessage("/owner/anfragen", "error", "Die Buchungsanfrage konnte nicht gefunden werden.");
   }
 
-  const { error } = await supabase.rpc("accept_booking_request", {
-    p_request_id: requestId
-  });
+  if (request.status !== "requested") {
+    redirectWithMessage("/owner/anfragen", "error", "Diese Buchungsanfrage wurde bereits bearbeitet.");
+  }
 
-  if (error) {
-    logSupabaseError("Booking request accept failed", error);
-    redirectWithMessage("/owner/anfragen", "error", getAcceptBookingErrorMessage(error));
+  const { data: ruleData } = await supabase
+    .from("availability_rules")
+    .select("id, horse_id, slot_id, start_at, end_at, active, created_at")
+    .eq("id", request.availability_rule_id)
+    .eq("horse_id", request.horse_id)
+    .maybeSingle();
+
+  const rule = (ruleData as AvailabilityRuleRecord | null) ?? null;
+
+  if (!rule || !rule.active || rule.slot_id !== request.slot_id) {
+    redirectWithMessage("/owner/anfragen", "error", "Dieses Verfuegbarkeitsfenster ist nicht mehr aktiv.");
+  }
+
+  const { data: approvalData } = await supabase
+    .from("approvals")
+    .select("horse_id, rider_id, status")
+    .eq("horse_id", request.horse_id)
+    .eq("rider_id", request.rider_id)
+    .maybeSingle();
+
+  const approval = (approvalData as ApprovalRecord | null) ?? null;
+
+  if (approval?.status !== APPROVAL_STATUS.approved) {
+    redirectWithMessage("/owner/anfragen", "error", "Nur freigeschaltete Reiter koennen gebucht werden.");
+  }
+
+  if (!request.requested_start_at || !request.requested_end_at || request.requested_start_at < rule.start_at || request.requested_end_at > rule.end_at) {
+    redirectWithMessage("/owner/anfragen", "error", "Der erste Termin liegt nicht im Verfuegbarkeitsfenster.");
+  }
+
+  let bookingWindows: BookingWindow[];
+
+  try {
+    bookingWindows = buildBookingWindows(request);
+  } catch (error) {
+    if (error instanceof Error && (error.message === "INVALID_RRULE" || error.message === "UNSUPPORTED_RRULE" || error.message === "RECURRENCE_LIMIT")) {
+      redirectWithMessage("/owner/anfragen", "error", getRecurrenceErrorMessage(error));
+    }
+
+    redirectWithMessage("/owner/anfragen", "error", "Die Buchungsanfrage enthaelt einen ungueltigen Zeitraum.");
+  }
+
+  const [{ data: existingBookingsData }, { data: blocksData }] = await Promise.all([
+    supabase.from("bookings").select("id, start_at, end_at").eq("horse_id", request.horse_id),
+    supabase.from("calendar_blocks").select("start_at, end_at").eq("horse_id", request.horse_id)
+  ]);
+
+  const existingBookings = (existingBookingsData as BookingRecord[] | null) ?? [];
+  const existingBlocks = (blocksData as TimeRangeRecord[] | null) ?? [];
+
+  if (hasWindowConflict(bookingWindows, existingBookings) || hasWindowConflict(bookingWindows, existingBlocks)) {
+    redirectWithMessage(
+      "/owner/anfragen",
+      "error",
+      request.recurrence_rrule
+        ? "Mindestens ein Wiederholungstermin kollidiert mit einer bestehenden Buchung oder Sperre."
+        : "Der angefragte Termin ist nicht mehr verfuegbar."
+    );
+  }
+
+  const bookingRows = bookingWindows.map((window) => ({
+    availability_rule_id: rule.id,
+    booking_request_id: request.id,
+    end_at: window.endAt,
+    horse_id: request.horse_id,
+    rider_id: request.rider_id,
+    slot_id: request.slot_id,
+    start_at: window.startAt
+  }));
+
+  const { error: insertError } = await supabase.from("bookings").insert(bookingRows);
+
+  if (insertError) {
+    logSupabaseError("Booking insert failed", insertError);
+    redirectWithMessage("/owner/anfragen", "error", "Die Buchung konnte nicht gespeichert werden.");
+  }
+
+  const { error: updateError } = await supabase.from("booking_requests").update({ status: "accepted" }).eq("id", requestId);
+
+  if (updateError) {
+    logSupabaseError("Booking request accept status update failed", updateError);
+    const { error: cleanupError } = await supabase.from("bookings").delete().eq("booking_request_id", requestId);
+
+    if (cleanupError) {
+      logSupabaseError("Booking accept cleanup failed", cleanupError);
+    }
+
+    redirectWithMessage("/owner/anfragen", "error", "Die Buchungsanfrage konnte nicht angenommen werden.");
   }
 
   revalidatePath("/owner/anfragen");
   revalidatePath("/anfragen");
   revalidatePath(`/pferde/${request.horse_id}`);
   revalidatePath(`/pferde/${request.horse_id}/kalender`);
-  redirectWithMessage("/owner/anfragen", "message", "Die Buchungsanfrage wurde angenommen.");
+  redirectWithMessage(
+    "/owner/anfragen",
+    "message",
+    request.recurrence_rrule ? "Die Buchungsanfrage wurde inklusive Wiederholung angenommen." : "Die Buchungsanfrage wurde angenommen."
+  );
 }
 
 export async function declineBookingRequestAction(formData: FormData) {

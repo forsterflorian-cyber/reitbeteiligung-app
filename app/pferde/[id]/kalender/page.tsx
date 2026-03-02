@@ -86,7 +86,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     isOwner
       ? supabase
           .from("booking_requests")
-          .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, created_at")
+          .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, recurrence_rrule, created_at")
           .eq("horse_id", horse.id)
           .order("created_at", { ascending: false })
           .limit(20)
@@ -94,7 +94,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     isRider && user
       ? supabase
           .from("booking_requests")
-          .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, created_at")
+          .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, recurrence_rrule, created_at")
           .eq("horse_id", horse.id)
           .eq("rider_id", user.id)
           .order("created_at", { ascending: false })
@@ -217,6 +217,11 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                     <label htmlFor="requestEndAt">Ende</label>
                     <input id="requestEndAt" name="endAt" required type="datetime-local" />
                   </div>
+                  <div>
+                    <label htmlFor="recurrenceRrule">Wiederholung (optional)</label>
+                    <input id="recurrenceRrule" name="recurrenceRrule" placeholder="FREQ=WEEKLY;INTERVAL=1;COUNT=6" type="text" />
+                    <p className="mt-2 text-sm text-stone-600">Beispiel: jede Woche fuer sechs Termine.</p>
+                  </div>
                   <SubmitButton idleLabel="Termin anfragen" pendingLabel="Wird gesendet..." />
                 </form>
               ) : (
@@ -249,6 +254,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                             : "Zeitpunkt wird geprueft"}
                         </p>
                         <p className="text-sm text-stone-600">{rule ? `Fenster: ${ruleLabel(rule)}` : "Kein Zeitfenster mehr vorhanden."}</p>
+                        {request.recurrence_rrule ? <p className="text-sm text-stone-600">Wiederholung: {request.recurrence_rrule}</p> : null}
                       </div>
                     </div>
                   );
@@ -391,6 +397,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                           </p>
                           <p className="text-sm text-stone-600">Reiter {request.rider_id.slice(0, 8)}</p>
                           <p className="text-sm text-stone-600">{rule ? `Fenster: ${ruleLabel(rule)}` : "Kein Zeitfenster mehr vorhanden."}</p>
+                          {request.recurrence_rrule ? <p className="text-sm text-stone-600">Wiederholung: {request.recurrence_rrule}</p> : null}
                         </div>
                         {request.status === "requested" ? (
                           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

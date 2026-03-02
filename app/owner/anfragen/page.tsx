@@ -65,7 +65,7 @@ export default async function OwnerAnfragenPage({
       supabase.from("conversations").select("id, horse_id, rider_id, owner_id, created_at").eq("owner_id", user.id).in("horse_id", horseIds),
       supabase
         .from("booking_requests")
-        .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, created_at")
+        .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, recurrence_rrule, created_at")
         .in("horse_id", horseIds)
         .order("created_at", { ascending: false })
         .limit(20)
@@ -209,6 +209,7 @@ export default async function OwnerAnfragenPage({
                     <p className="mt-1 text-sm text-stone-600">Reiter {request.rider_id.slice(0, 8)}</p>
                   </div>
                   <p className="text-sm font-semibold text-ink">{formatDateRange(request.requested_start_at, request.requested_end_at)}</p>
+                  {request.recurrence_rrule ? <p className="text-sm text-stone-600">Wiederholung: {request.recurrence_rrule}</p> : null}
                   <div className="flex flex-wrap gap-2">
                     <StatusBadge status={request.status} />
                   </div>

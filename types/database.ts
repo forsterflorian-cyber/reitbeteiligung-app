@@ -99,6 +99,7 @@ export type BookingRequest = {
   status: BookingRequestStatus;
   requested_start_at: string | null;
   requested_end_at: string | null;
+  recurrence_rrule: string | null;
   created_at: string;
 };
 
