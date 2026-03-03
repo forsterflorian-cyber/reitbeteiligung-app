@@ -30,9 +30,10 @@ export function Backdrop({ className, variant, ...props }: BackdropProps) {
             backgroundImage: "url('/images/brand/pattern_tile_512.png')",
             backgroundRepeat: "repeat",
             backgroundSize: "256px 256px",
-            opacity: 0.12
+            opacity: 0.1
           }}
         />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_10%,rgba(214,211,209,0.34),transparent_30%),radial-gradient(circle_at_88%_0%,rgba(6,78,59,0.07),transparent_28%),linear-gradient(180deg,rgba(250,250,249,0.86),rgba(250,250,249,0.92))]" />
       </div>
     );
   }
@@ -47,26 +48,27 @@ export function Backdrop({ className, variant, ...props }: BackdropProps) {
   if (variant === "hero") {
     return (
       <div aria-hidden="true" className={cx("pointer-events-none absolute inset-0 hidden overflow-hidden md:block", className)} {...props}>
-        <div className="absolute inset-0 opacity-[0.22]" style={baseImageStyle} />
-        <div className="absolute inset-0 bg-gradient-to-r from-white via-white/85 to-white/55" />
-        <div className="absolute inset-y-0 right-0 w-2/3 bg-[radial-gradient(circle_at_top_right,rgba(120,113,108,0.14),transparent_60%)]" />
+        <div className="absolute inset-0 opacity-[0.2]" style={baseImageStyle} />
+        <div className="absolute inset-0 bg-gradient-to-r from-white via-white/88 to-white/60" />
+        <div className="absolute inset-y-0 right-0 w-2/3 bg-[radial-gradient(circle_at_top_right,rgba(120,113,108,0.16),transparent_58%)]" />
       </div>
     );
   }
 
   if (variant === "section") {
     return (
-      <div aria-hidden="true" className={cx("pointer-events-none absolute inset-0 hidden overflow-hidden lg:block", className)} {...props}>
+      <div aria-hidden="true" className={cx("pointer-events-none absolute inset-0 hidden overflow-hidden md:block", className)} {...props}>
         <div className="absolute inset-0 opacity-[0.1]" style={baseImageStyle} />
-        <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-stone-50/70 to-stone-50" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.05),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.3),rgba(250,250,249,0.92))]" />
       </div>
     );
   }
 
   return (
     <div aria-hidden="true" className={cx("pointer-events-none absolute inset-0 hidden overflow-hidden md:block", className)} {...props}>
-      <div className="absolute inset-0 opacity-[0.14]" style={baseImageStyle} />
-      <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-white/65 to-white/95" />
+      <div className="absolute inset-0 opacity-[0.12]" style={baseImageStyle} />
+      <div className="absolute inset-0 bg-gradient-to-br from-white/92 via-white/76 to-white/96" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_15%,rgba(6,78,59,0.07),transparent_24%)]" />
     </div>
   );
 }

@@ -25,11 +25,13 @@ export function PageHeader({
   surface,
   title
 }: PageHeaderProps) {
+  const resolvedEyebrow = surface ? (eyebrow ?? "reitbeteiligung.app") : eyebrow;
+
   const content = (
     <>
       <div className="space-y-2">
-        {eyebrow ? <p className="ui-eyebrow">{eyebrow}</p> : null}
-        <h1 className="text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">{title}</h1>
+        {resolvedEyebrow ? <p className="ui-eyebrow">{resolvedEyebrow}</p> : null}
+        <h1 className="text-3xl font-serif tracking-[-0.02em] text-stone-900 sm:text-4xl">{title}</h1>
         {subtitle ? <p className="max-w-3xl text-sm leading-6 text-stone-600 sm:text-base">{subtitle}</p> : null}
       </div>
       {actions ? <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">{actions}</div> : null}
@@ -39,7 +41,9 @@ export function PageHeader({
   if (surface) {
     return (
       <div className={cx("relative overflow-hidden rounded-2xl surface-panel", className)}>
+        <Backdrop variant="cardTexture" />
         {backdropVariant ? <Backdrop variant={backdropVariant} /> : null}
+        <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-forest/30 to-transparent" />
         <div className={cx("relative z-10 space-y-4 px-5 py-6 sm:px-6", contentClassName)}>{content}</div>
       </div>
     );

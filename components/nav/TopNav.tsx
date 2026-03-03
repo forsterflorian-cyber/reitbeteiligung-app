@@ -5,6 +5,8 @@ import type { Profile } from "@/types/database";
 import { LandingNav } from "@/components/landing/LandingNav";
 import { LogoutForm } from "@/components/logout-form";
 import { NavList } from "@/components/nav/nav-list";
+import { Badge } from "@/components/ui/badge";
+import { BrandMark } from "@/components/ui/brand-mark";
 import { getNavItems } from "@/config/nav";
 import { getProfileDisplayName, getRoleLabel } from "@/lib/profiles";
 
@@ -23,18 +25,19 @@ export function TopNav({ email, profile }: TopNavProps) {
   const roleLabel = getRoleLabel(profile.role);
 
   return (
-    <header className="border-b border-stone-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90">
+    <header className="relative border-b border-stone-200/80 bg-white/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-forest/35 to-transparent" />
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 sm:px-5 lg:px-8">
         <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0 space-y-1">
-            <Link className="text-base font-semibold text-forest sm:text-lg" href="/">
-              reitbeteiligung.app
+          <div className="min-w-0 space-y-2">
+            <Link className="inline-flex" href="/">
+              <BrandMark compact />
             </Link>
             <div className="flex flex-wrap items-center gap-2 text-sm text-stone-600">
-              <span className="inline-flex min-h-[28px] items-center rounded-full border border-stone-200 bg-sand px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-forest">
+              <Badge className="uppercase tracking-[0.14em]" tone="approved">
                 {roleLabel}
-              </span>
-              <span className="truncate">{displayName}</span>
+              </Badge>
+              <span className="truncate font-medium text-stone-700">{displayName}</span>
             </div>
           </div>
           {email ? <span className="hidden max-w-[16rem] truncate pt-1 text-sm text-stone-500 lg:block">{email}</span> : null}
@@ -49,4 +52,3 @@ export function TopNav({ email, profile }: TopNavProps) {
     </header>
   );
 }
-
