@@ -629,9 +629,11 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         title={`Kalender für ${horse.title}`}
       />
 
-      <Notice text={error} tone="error" />
-      <Notice text={message} tone="success" />
-      {occupancyError ? <Notice text="Der Kalender konnte nicht geladen werden." tone="error" /> : null}
+      <div className="space-y-3" id="kalender-feedback">
+        <Notice text={error} tone="error" />
+        <Notice text={message} tone="success" />
+        {occupancyError ? <Notice text="Der Kalender konnte nicht geladen werden." tone="error" /> : null}
+      </div>
 
       <div className="ui-horse-context">
         <div className="ui-horse-context-grid">
@@ -921,7 +923,6 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
               subtitle="Pflege hier dein Wochenmuster und einzelne Ausnahmen. Das Raster oben zeigt dir sofort, wie sich die Eintr?ge auswirken."
               title="Kalender bearbeiten"
             >
-              {message ? <Notice text={message} tone="success" /> : null}
               <Card className="order-3 p-5 sm:p-6" id="tagesfenster">
                 <form action={dayEditorAction} className="space-y-4">
                   <input name="horseId" type="hidden" value={horse.id} />

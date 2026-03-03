@@ -1728,7 +1728,7 @@ export async function createAvailabilityDayAction(formData: FormData) {
 
   const selectedDate = asString(formData.get("selectedDate"));
   const redirectPath = getCalendarRedirectPath(formData, horseId, selectedDate, { anchor: "tagesfenster" });
-  const successRedirectPath = getCalendarRedirectPath(formData, horseId, selectedDate, { anchor: "kalender-bearbeiten" });
+  const successRedirectPath = getCalendarRedirectPath(formData, horseId, selectedDate, { anchor: "kalender-feedback" });
   const startTime = parseClockTime(asString(formData.get("startTime")));
   const endTime = parseClockTime(asString(formData.get("endTime")));
   const isTrialSlot = formData.get("isTrialSlot") === "on";
@@ -1816,7 +1816,7 @@ export async function updateAvailabilityDayAction(formData: FormData) {
 
   const selectedDate = asString(formData.get("selectedDate")) || rule.start_at.slice(0, 10);
   const redirectPath = getCalendarRedirectPath(formData, rule.horse_id, selectedDate, { anchor: "tagesfenster", focusRuleId: rule.id });
-  const successRedirectPath = getCalendarRedirectPath(formData, rule.horse_id, selectedDate, { anchor: "kalender-bearbeiten" });
+  const successRedirectPath = getCalendarRedirectPath(formData, rule.horse_id, selectedDate, { anchor: "kalender-feedback" });
   const startTime = parseClockTime(asString(formData.get("startTime")));
   const endTime = parseClockTime(asString(formData.get("endTime")));
   const isTrialSlotValue = formData.get("isTrialSlot");
@@ -2122,7 +2122,7 @@ export async function updateCalendarBlockAction(formData: FormData) {
 
   const selectedDate = asString(formData.get("selectedDate")) || block.start_at.slice(0, 10);
   const redirectPath = getCalendarRedirectPath(formData, block.horse_id, selectedDate, { anchor: "tagesfenster", focusBlockId: block.id });
-  const successRedirectPath = getCalendarRedirectPath(formData, block.horse_id, selectedDate, { anchor: "kalender-bearbeiten" });
+  const successRedirectPath = getCalendarRedirectPath(formData, block.horse_id, selectedDate, { anchor: "kalender-feedback" });
   const startTime = parseClockTime(asString(formData.get("startTime")));
   const endTime = parseClockTime(asString(formData.get("endTime")));
   const blockTitleValue = formData.get("blockTitle");
