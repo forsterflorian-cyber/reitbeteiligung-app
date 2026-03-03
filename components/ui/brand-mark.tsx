@@ -14,7 +14,7 @@ export function BrandMark({
   className,
   compact = false,
   showBeta = false,
-  subtitle = "Organisation f?r Reitbeteiligungen",
+  subtitle = "Organisation für Reitbeteiligungen",
   ...props
 }: BrandMarkProps) {
   return (

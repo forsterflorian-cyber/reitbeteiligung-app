@@ -1,7 +1,8 @@
 import type { Route } from "next";
 import Link from "next/link";
 
-import { acceptBookingRequestAction, declineBookingRequestAction, saveRiderBookingLimitAction, updateApprovalAction, updateTrialRequestStatusAction } from "@/app/actions";
+import { acceptBookingRequestAction, declineBookingRequestAction, deleteRiderRelationshipAction, saveRiderBookingLimitAction, updateApprovalAction, updateTrialRequestStatusAction } from "@/app/actions";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
 import { AppPageShell } from "@/components/ui/app-page-shell";
 import { StatusBadge } from "@/components/status-badge";
@@ -14,7 +15,7 @@ import { SectionCard } from "@/components/ui/section-card";
 import { requireProfile } from "@/lib/auth";
 import { formatWeeklyHoursLimit } from "@/lib/booking-limits";
 import { readSearchParam } from "@/lib/search-params";
-import type { Approval, BookingRequest, Conversation, Horse, Message, RiderBookingLimit, TrialRequest } from "@/types/database";
+import type { Approval, BookingRequest, Conversation, Horse, Message, Profile, RiderBookingLimit, RiderProfile, TrialRequest } from "@/types/database";
 
 type OwnerRequestItem = TrialRequest & {
   horse?: Horse | null;
@@ -210,7 +211,7 @@ export default async function OwnerAnfragenPage({
                           <div className="space-y-1">
                             <p className="text-sm font-semibold text-stone-900">Wochenkontingent</p>
                             <p className="text-sm text-stone-600">
-                              Lege fest, wie viele Stunden diese Reitbeteiligung pro Woche selbstst?ndig buchen darf.
+                              Lege fest, wie viele Stunden diese Reitbeteiligung pro Woche selbstständig buchen darf.
                             </p>
                           </div>
                           <form action={saveRiderBookingLimitAction} className="space-y-3">
@@ -283,10 +284,24 @@ export default async function OwnerAnfragenPage({
                           </Button>
                         </form>
                       ) : null}
+                      {approval ? (
+                        <form action={deleteRiderRelationshipAction}>
+                          <input name="horseId" type="hidden" value={request.horse_id} />
+                          <input name="riderId" type="hidden" value={request.rider_id} />
+                          <ConfirmSubmitButton
+                            confirmMessage="Möchtest du diese Reitbeteiligung wirklich löschen? Das Wochenkontingent wird ebenfalls entfernt."
+                            idleLabel="Reitbeteiligung löschen"
+                            pendingLabel="Wird gelöscht..."
+                          />
+                        </form>
+                      ) : null}
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
                       <Link className={inlineLinkClassName} href={`/pferde/${request.horse_id}` as Route}>
                         Pferdeprofil ansehen
+                      </Link>
+                      <Link className={inlineLinkClassName} href={`/owner/reiter/${request.rider_id}` as Route}>
+                        Reiterprofil ansehen
                       </Link>
                       {conversation ? (
                         <Link className={inlineLinkClassName} href={`/chat/${conversation.id}` as Route}>
@@ -356,6 +371,9 @@ export default async function OwnerAnfragenPage({
                       </Link>
                       <Link className={inlineLinkClassName} href={`/pferde/${request.horse_id}` as Route}>
                         Pferdeprofil ansehen
+                      </Link>
+                      <Link className={inlineLinkClassName} href={`/owner/reiter/${request.rider_id}` as Route}>
+                        Reiterprofil ansehen
                       </Link>
                       {conversation ? (
                         <Link className={inlineLinkClassName} href={`/chat/${conversation.id}` as Route}>

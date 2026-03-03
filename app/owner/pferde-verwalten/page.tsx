@@ -243,6 +243,7 @@ export default async function OwnerManageHorsesPage({
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-clay">Pferdeprofil</p>
                         <h2 className="text-xl font-semibold text-stone-900">{horse.title}</h2>
                         <p className="text-sm text-stone-600">PLZ {horse.plz}</p>
+                        {horse.location_address ? <p className="text-sm text-stone-600">{horse.location_address}</p> : null}
                         <p className="text-xs text-stone-500">Angelegt am {formatDate(horse.created_at)}</p>
                       </div>
                       <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${horse.active ? "border border-stone-200 bg-sand text-forest" : "border border-stone-200 bg-white text-stone-700"}`}>
@@ -255,6 +256,8 @@ export default async function OwnerManageHorsesPage({
                       <div>{horse.color ? `Farbe: ${horse.color}` : "Farbe: offen"}</div>
                       <div>{horse.sex ? `Geschlecht: ${horse.sex}` : "Geschlecht: offen"}</div>
                       <div>{age !== null ? `Alter: ${age} Jahre` : "Alter: offen"}</div>
+                      <div>{horse.location_address ? "Standort vorhanden" : "Standort: offen"}</div>
+                      <div>{horse.location_notes?.trim() ? "Standorthinweise vorhanden" : "Standorthinweise: offen"}</div>
                       <div>{horse.description?.trim() ? "Beschreibung vorhanden" : "Beschreibung: offen"}</div>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -324,28 +327,36 @@ export default async function OwnerManageHorsesPage({
                           <div className="grid gap-4 sm:grid-cols-2">
                             <div>
                               <label htmlFor={`plz-${horse.id}`}>PLZ</label>
-                              <input defaultValue={horse.plz} id={`plz-${horse.id}`} name="plz" required type="text" />
+                              <input defaultValue={horse.plz} id={`plz-${horse.id}`} inputMode="numeric" maxLength={5} minLength={5} name="plz" pattern="[0-9]{5}" required type="text" />
                             </div>
+                            <div>
+                              <label htmlFor={`locationAddress-${horse.id}`}>Genauer Standort</label>
+                              <input defaultValue={horse.location_address ?? ""} id={`locationAddress-${horse.id}`} name="locationAddress" type="text" />
+                            </div>
+                          </div>
+                          <div>
+                            <label htmlFor={`locationNotes-${horse.id}`}>Hinweise zum Standort</label>
+                            <textarea defaultValue={horse.location_notes ?? ""} id={`locationNotes-${horse.id}`} name="locationNotes" rows={3} />
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
                             <div>
                               <label htmlFor={`heightCm-${horse.id}`}>Stockmass (cm)</label>
                               <input defaultValue={horse.height_cm ?? ""} id={`heightCm-${horse.id}`} max={220} min={50} name="heightCm" type="number" />
                             </div>
-                          </div>
-                          <div className="grid gap-4 sm:grid-cols-2">
                             <div>
                               <label htmlFor={`breed-${horse.id}`}>Rasse</label>
                               <input defaultValue={horse.breed ?? ""} id={`breed-${horse.id}`} name="breed" type="text" />
                             </div>
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
                             <div>
                               <label htmlFor={`color-${horse.id}`}>Farbe</label>
                               <input defaultValue={horse.color ?? ""} id={`color-${horse.id}`} name="color" type="text" />
                             </div>
-                          </div>
-                          <div className="grid gap-4 sm:grid-cols-2">
                             <div>
                               <label htmlFor={`sex-${horse.id}`}>Geschlecht</label>
                               <select defaultValue={horse.sex ?? ""} id={`sex-${horse.id}`} name="sex">
-                                <option value="">Bitte wählen</option>
+                                <option value="">Bitte waehlen</option>
                                 {HORSE_GESCHLECHTER.map((geschlecht) => (
                                   <option key={geschlecht} value={geschlecht}>
                                     {geschlecht.charAt(0).toUpperCase() + geschlecht.slice(1)}
@@ -353,10 +364,10 @@ export default async function OwnerManageHorsesPage({
                                 ))}
                               </select>
                             </div>
-                            <div>
-                              <label htmlFor={`birthYear-${horse.id}`}>Geburtsjahr</label>
-                              <input defaultValue={horse.birth_year ?? ""} id={`birthYear-${horse.id}`} max={currentYear} min={1980} name="birthYear" type="number" />
-                            </div>
+                          </div>
+                          <div>
+                            <label htmlFor={`birthYear-${horse.id}`}>Geburtsjahr</label>
+                            <input defaultValue={horse.birth_year ?? ""} id={`birthYear-${horse.id}`} max={currentYear} min={1980} name="birthYear" type="number" />
                           </div>
                           <div>
                             <label htmlFor={`description-${horse.id}`}>Beschreibung</label>

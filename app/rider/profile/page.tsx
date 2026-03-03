@@ -17,7 +17,7 @@ export default async function RiderProfilePage({ searchParams }: RiderProfilePag
   const message = readSearchParam(searchParams, "message");
   const { data } = await supabase
     .from("rider_profiles")
-    .select("user_id, experience, weight, notes")
+    .select("user_id, experience, weight, preferred_days, goals, notes")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -26,24 +26,52 @@ export default async function RiderProfilePage({ searchParams }: RiderProfilePag
   return (
     <div className="space-y-6 sm:space-y-8">
       <PageHeader
-        subtitle="Pflege hier deine Angaben für Reitbeteiligung und Probetermin in einer kompakten mobilen und klaren Desktop-Ansicht."
+        subtitle="Pflege hier deine Angaben fuer Probetermine, spaetere Terminbuchungen und den ersten Eindruck fuer Pferdehalter."
         title="Reiterprofil"
       />
       <Notice text={error} tone="error" />
       <Notice text={message} tone="success" />
-      <SectionCard subtitle="Je vollständiger dein Profil ist, desto besser können Pferdehalter deine Anfragen einschätzen." title="Deine Angaben">
+      <SectionCard subtitle="Je klarer dein Profil ist, desto einfacher lassen sich passende Pferde und realistische Zeitfenster abstimmen." title="Deine Angaben">
         <form action={saveRiderProfileAction} className="space-y-4">
           <div>
             <label htmlFor="experience">Erfahrung</label>
-            <input defaultValue={profile?.experience ?? ""} id="experience" name="experience" placeholder="8 Jahre, Dressur und Ausritte" type="text" />
+            <input defaultValue={profile?.experience ?? ""} id="experience" name="experience" placeholder="8 Jahre, Dressur, Ausritte und Bodenarbeit" type="text" />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="weight">Gewicht (kg)</label>
+              <input defaultValue={profile?.weight ?? ""} id="weight" min={1} name="weight" placeholder="65" type="number" />
+            </div>
+            <div>
+              <label htmlFor="preferredDays">Typische Verfuegbarkeit</label>
+              <input
+                defaultValue={profile?.preferred_days ?? ""}
+                id="preferredDays"
+                name="preferredDays"
+                placeholder="z. B. Dienstag abends, Freitag flexibel"
+                type="text"
+              />
+            </div>
           </div>
           <div>
-            <label htmlFor="weight">Gewicht (kg)</label>
-            <input defaultValue={profile?.weight ?? ""} id="weight" min={1} name="weight" placeholder="65" type="number" />
+            <label htmlFor="goals">Ziele / Reitstil</label>
+            <textarea
+              defaultValue={profile?.goals ?? ""}
+              id="goals"
+              name="goals"
+              placeholder="Was suchst du: entspannte Ausritte, Dressurarbeit, langfristige Reitbeteiligung, feste Routinen ..."
+              rows={4}
+            />
           </div>
           <div>
-            <label htmlFor="notes">Notizen</label>
-            <textarea defaultValue={profile?.notes ?? ""} id="notes" name="notes" placeholder="Verfügbarkeit, Ziele und Hinweise für den Probetermin." rows={5} />
+            <label htmlFor="notes">Hinweise fuer Pferdehalter</label>
+            <textarea
+              defaultValue={profile?.notes ?? ""}
+              id="notes"
+              name="notes"
+              placeholder="Zum Beispiel Fahrzeit, Stallarbeit, besondere Wuensche fuer den Probetermin oder wichtige Rueckfragen."
+              rows={5}
+            />
           </div>
           <SubmitButton idleLabel="Reiterprofil speichern" pendingLabel="Wird gespeichert..." />
         </form>

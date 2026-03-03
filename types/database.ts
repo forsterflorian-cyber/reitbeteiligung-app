@@ -18,6 +18,8 @@ export type Horse = {
   owner_id: string;
   title: string;
   plz: string;
+  location_address?: string | null;
+  location_notes?: string | null;
   description: string | null;
   active: boolean;
   height_cm?: number | null;
@@ -41,6 +43,8 @@ export type RiderProfile = {
   user_id: string;
   experience: string | null;
   weight: number | null;
+  preferred_days?: string | null;
+  goals?: string | null;
   notes: string | null;
 };
 
@@ -96,6 +100,7 @@ export type AvailabilityRule = {
   start_at: string;
   end_at: string;
   active: boolean;
+  is_trial_slot?: boolean | null;
   created_at: string;
 };
 

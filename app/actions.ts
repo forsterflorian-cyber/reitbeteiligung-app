@@ -50,7 +50,7 @@ type OwnerRequestRecord = Pick<TrialRequest, "id" | "horse_id" | "rider_id" | "s
 type HorseOwnerRecord = Pick<Horse, "id" | "owner_id">;
 type HorseImageRecord = Pick<HorseImage, "id" | "horse_id" | "path" | "storage_path" | "position" | "created_at">;
 type CalendarBlockRecord = Pick<CalendarBlock, "id" | "horse_id" | "start_at" | "end_at" | "created_at">;
-type AvailabilityRuleRecord = Pick<AvailabilityRule, "id" | "horse_id" | "slot_id" | "start_at" | "end_at" | "active" | "created_at">;
+type AvailabilityRuleRecord = Pick<AvailabilityRule, "id" | "horse_id" | "slot_id" | "start_at" | "end_at" | "active" | "is_trial_slot" | "created_at">;
 type BookingRequestRecord = Pick<BookingRequest, "id" | "slot_id" | "availability_rule_id" | "horse_id" | "rider_id" | "status" | "requested_start_at" | "requested_end_at" | "recurrence_rrule" | "created_at">;
 type ApprovalRecord = Pick<Approval, "horse_id" | "rider_id" | "status">;
 type RiderBookingLimitRecord = Pick<RiderBookingLimit, "horse_id" | "rider_id" | "weekly_hours_limit" | "created_at" | "updated_at">;
@@ -543,7 +543,7 @@ async function getOwnedCalendarBlock(supabase: ReturnType<typeof createClient>, 
 async function getOwnedAvailabilityRule(supabase: ReturnType<typeof createClient>, ruleId: string, ownerId: string) {
   const { data } = await supabase
     .from("availability_rules")
-    .select("id, horse_id, slot_id, start_at, end_at, active, created_at")
+    .select("id, horse_id, slot_id, start_at, end_at, active, is_trial_slot, created_at")
     .eq("id", ruleId)
     .maybeSingle();
 
@@ -702,7 +702,7 @@ export async function requestPasswordResetAction(formData: FormData) {
 export async function requestTrialAction(formData: FormData) {
   const { supabase, user } = await requireProfile("rider");
   const horseId = asString(formData.get("horseId"));
-  const availabilityRuleId = asString(formData.get("availabilityRuleId"));
+  const availabilityRuleId = asOptionalString(formData.get("availabilityRuleId"));
   const message = asOptionalString(formData.get("message"));
 
   if (!horseId) {
@@ -710,10 +710,6 @@ export async function requestTrialAction(formData: FormData) {
   }
 
   const redirectPath = `/pferde/${horseId}`;
-
-  if (!availabilityRuleId) {
-    redirectWithMessage(redirectPath, "error", "Bitte wähle einen verfügbaren Probetermin aus.");
-  }
 
   const { data: horseData } = await supabase
     .from("horses")
@@ -725,7 +721,7 @@ export async function requestTrialAction(formData: FormData) {
   const horse = (horseData as HorseOwnerRecord | null) ?? null;
 
   if (!horse) {
-    redirectWithMessage("/suchen", "error", "Dieses Pferd ist aktuell nicht verfügbar.");
+    redirectWithMessage("/suchen", "error", "Dieses Pferd ist aktuell nicht verfuegbar.");
   }
 
   const riderId = user.id;
@@ -739,59 +735,76 @@ export async function requestTrialAction(formData: FormData) {
     .maybeSingle();
 
   if (existingOwnRequest) {
-    redirectWithMessage(redirectPath, "error", "Du hast für dieses Pferd bereits einen laufenden oder abgeschlossenen Probetermin.");
+    redirectWithMessage(redirectPath, "error", "Du hast fuer dieses Pferd bereits einen laufenden oder abgeschlossenen Probetermin.");
   }
 
-  const { data: ruleData } = await supabase
+  const nowIso = new Date().toISOString();
+  const { data: activeTrialRulesData, error: activeTrialRulesError } = await supabase
     .from("availability_rules")
-    .select("id, horse_id, slot_id, start_at, end_at, active, created_at")
-    .eq("id", availabilityRuleId)
+    .select("id, horse_id, slot_id, start_at, end_at, active, is_trial_slot, created_at")
     .eq("horse_id", horseId)
-    .maybeSingle();
+    .eq("active", true)
+    .eq("is_trial_slot", true)
+    .gt("end_at", nowIso);
 
-  const rule = (ruleData as AvailabilityRuleRecord | null) ?? null;
-
-  if (!rule || !rule.active || new Date(rule.end_at).getTime() <= Date.now()) {
-    redirectWithMessage(redirectPath, "error", "Dieser Probetermin ist nicht mehr verfügbar.");
+  if (activeTrialRulesError) {
+    logSupabaseError("Trial request slot lookup failed", activeTrialRulesError);
+    redirectWithMessage(redirectPath, "error", "Die verfuegbaren Probetermine konnten nicht geladen werden.");
   }
 
-  const [{ data: occupancyData, error: occupancyError }, { data: reservedRequestData, error: reservedRequestError }] = await Promise.all([
-    supabase.rpc("get_horse_calendar_occupancy", {
-      p_horse_id: horseId
-    }),
-    supabase
-      .from("trial_requests")
-      .select("availability_rule_id, requested_start_at, requested_end_at, status")
-      .eq("horse_id", horseId)
-      .neq("status", TRIAL_REQUEST_STATUS.declined)
-  ]);
+  const activeTrialRules = (activeTrialRulesData as AvailabilityRuleRecord[] | null) ?? [];
+  const hasExplicitTrialSlots = activeTrialRules.length > 0;
+  let selectedRule: AvailabilityRuleRecord | null = null;
 
-  if (occupancyError) {
-    logSupabaseError("Trial request occupancy lookup failed", occupancyError);
-    redirectWithMessage(redirectPath, "error", "Die verfügbaren Probetermine konnten nicht geladen werden.");
+  if (availabilityRuleId) {
+    selectedRule = activeTrialRules.find((rule) => rule.id === availabilityRuleId) ?? null;
+
+    if (!selectedRule) {
+      redirectWithMessage(redirectPath, "error", "Dieser Probetermin ist nicht mehr verfuegbar.");
+    }
+
+    const [{ data: occupancyData, error: occupancyError }, { data: reservedRequestData, error: reservedRequestError }] = await Promise.all([
+      supabase.rpc("get_horse_calendar_occupancy", {
+        p_horse_id: horseId
+      }),
+      supabase
+        .from("trial_requests")
+        .select("availability_rule_id, requested_start_at, requested_end_at, status")
+        .eq("horse_id", horseId)
+        .neq("status", TRIAL_REQUEST_STATUS.declined)
+    ]);
+
+    if (occupancyError) {
+      logSupabaseError("Trial request occupancy lookup failed", occupancyError);
+      redirectWithMessage(redirectPath, "error", "Die verfuegbaren Probetermine konnten nicht geladen werden.");
+    }
+
+    if (reservedRequestError) {
+      logSupabaseError("Trial request reservation lookup failed", reservedRequestError);
+      redirectWithMessage(redirectPath, "error", "Die verfuegbaren Probetermine konnten nicht geladen werden.");
+    }
+
+    const occupiedRanges = ((occupancyData as Array<{ start_at: string; end_at: string }> | null) ?? []);
+    const reservedRequests = ((reservedRequestData as Array<Pick<TrialRequest, "availability_rule_id" | "requested_start_at" | "requested_end_at" | "status">> | null) ?? []);
+
+    if (isTrialRuleBlocked(selectedRule, occupiedRanges, reservedRequests)) {
+      redirectWithMessage(redirectPath, "error", "Dieser Probetermin ist nicht mehr verfuegbar.");
+    }
+  } else if (hasExplicitTrialSlots) {
+    redirectWithMessage(redirectPath, "error", "Bitte waehle einen verfuegbaren Probetermin aus.");
   }
 
-  if (reservedRequestError) {
-    logSupabaseError("Trial request reservation lookup failed", reservedRequestError);
-    redirectWithMessage(redirectPath, "error", "Die verfügbaren Probetermine konnten nicht geladen werden.");
-  }
-
-  const occupiedRanges = ((occupancyData as Array<{ start_at: string; end_at: string }> | null) ?? []);
-  const reservedRequests = ((reservedRequestData as Array<Pick<TrialRequest, "availability_rule_id" | "requested_start_at" | "requested_end_at" | "status">> | null) ?? []);
-
-  if (isTrialRuleBlocked(rule, occupiedRanges, reservedRequests)) {
-    redirectWithMessage(redirectPath, "error", "Dieser Probetermin ist nicht mehr verfügbar.");
-  }
-
-  const { error } = await supabase.from("trial_requests").insert({
-    availability_rule_id: rule.id,
+  const trialInsert = {
+    availability_rule_id: selectedRule?.id ?? null,
     horse_id: horseId,
     message,
-    requested_end_at: rule.end_at,
-    requested_start_at: rule.start_at,
+    requested_end_at: selectedRule?.end_at ?? null,
+    requested_start_at: selectedRule?.start_at ?? null,
     rider_id: riderId,
     status: TRIAL_REQUEST_STATUS.requested
-  });
+  };
+
+  const { error } = await supabase.from("trial_requests").insert(trialInsert);
 
   if (error) {
     logSupabaseError("Trial request insert failed", error);
@@ -818,7 +831,7 @@ export async function requestTrialAction(formData: FormData) {
     revalidatePath("/owner/anfragen");
     redirect(
       `/pferde/${horseId}?message=${encodeURIComponent(
-        "Deine Anfrage für den Probetermin wurde gesendet."
+        hasExplicitTrialSlots ? "Deine Anfrage fuer den Probetermin wurde gesendet." : "Deine allgemeine Probeanfrage wurde gesendet."
       )}&error=${encodeURIComponent("Chat konnte nicht erstellt werden.")}`
     );
   }
@@ -827,7 +840,11 @@ export async function requestTrialAction(formData: FormData) {
   revalidatePath(`/pferde/${horseId}/kalender`);
   revalidatePath("/anfragen");
   revalidatePath("/owner/anfragen");
-  redirectWithMessage(`/pferde/${horseId}`, "message", "Deine Anfrage für den Probetermin wurde gesendet.");
+  redirectWithMessage(
+    `/pferde/${horseId}`,
+    "message",
+    hasExplicitTrialSlots ? "Deine Anfrage fuer den Probetermin wurde gesendet." : "Deine allgemeine Probeanfrage wurde gesendet."
+  );
 }
 
 export async function updateTrialRequestStatusAction(formData: FormData) {
@@ -1013,6 +1030,65 @@ export async function saveRiderBookingLimitAction(formData: FormData) {
   redirectWithMessage("/owner/anfragen", "message", "Das Wochenkontingent wurde gespeichert.");
 }
 
+export async function deleteRiderRelationshipAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const horseId = asString(formData.get("horseId"));
+  const riderId = asString(formData.get("riderId"));
+
+  if (!horseId || !riderId) {
+    redirectWithMessage("/owner/anfragen", "error", "Die Reitbeteiligung konnte nicht zugeordnet werden.");
+  }
+
+  const horse = await getOwnedHorse(supabase, horseId, user.id);
+
+  if (!horse) {
+    redirectWithMessage("/owner/anfragen", "error", "Du kannst nur eigene Reitbeteiligungen löschen.");
+  }
+
+  const { data: approvalData } = await supabase
+    .from("approvals")
+    .select("horse_id, rider_id, status")
+    .eq("horse_id", horseId)
+    .eq("rider_id", riderId)
+    .maybeSingle();
+
+  const approval = (approvalData as ApprovalRecord | null) ?? null;
+
+  if (!approval) {
+    redirectWithMessage("/owner/anfragen", "error", "Für diese Reitbeteiligung gibt es nichts mehr zu löschen.");
+  }
+
+  const { error: riderLimitDeleteError } = await supabase
+    .from("rider_booking_limits")
+    .delete()
+    .eq("horse_id", horseId)
+    .eq("rider_id", riderId);
+
+  if (riderLimitDeleteError) {
+    logSupabaseError("Rider booking limit delete during rider relationship removal failed", riderLimitDeleteError);
+    redirectWithMessage("/owner/anfragen", "error", "Die Reitbeteiligung konnte nicht gelöscht werden.");
+  }
+
+  const { error: approvalDeleteError } = await supabase
+    .from("approvals")
+    .delete()
+    .eq("horse_id", horseId)
+    .eq("rider_id", riderId);
+
+  if (approvalDeleteError) {
+    logSupabaseError("Approval delete failed", approvalDeleteError);
+    redirectWithMessage("/owner/anfragen", "error", "Die Reitbeteiligung konnte nicht gelöscht werden.");
+  }
+
+  revalidatePath("/owner/anfragen");
+  revalidatePath("/anfragen");
+  revalidatePath("/dashboard");
+  revalidatePath("/owner/pferde-verwalten");
+  revalidatePath(`/pferde/${horseId}`);
+  revalidatePath(`/pferde/${horseId}/kalender`);
+  revalidatePath(`/owner/reiter/${riderId}`);
+  redirectWithMessage("/owner/anfragen", "message", "Die Reitbeteiligung wurde gelöscht.");
+}
 export async function logoutAction() {
   const supabase = createClient();
   await supabase.auth.signOut();
@@ -1094,6 +1170,8 @@ export async function saveHorseAction(formData: FormData) {
   const horseId = asString(formData.get("horseId"));
   const title = asString(formData.get("title"));
   const plz = asString(formData.get("plz"));
+  const locationAddress = asOptionalString(formData.get("locationAddress"));
+  const locationNotes = asOptionalString(formData.get("locationNotes"));
   const description = asOptionalString(formData.get("description"));
   const heightCm = asInteger(formData.get("heightCm"));
   const breed = asOptionalString(formData.get("breed"));
@@ -1103,8 +1181,16 @@ export async function saveHorseAction(formData: FormData) {
   const active = formData.get("active") === "on";
   const currentYear = new Date().getFullYear();
 
-  if (title.length < 2 || plz.length < 3) {
-    redirectWithMessage(redirectPath, "error", "Titel und PLZ sind erforderlich.");
+  if (title.length < 2) {
+    redirectWithMessage(redirectPath, "error", "Bitte gib einen Titel mit mindestens 2 Zeichen an.");
+  }
+
+  if (!/^\d{5}$/.test(plz)) {
+    redirectWithMessage(redirectPath, "error", "Die PLZ muss genau 5 Ziffern haben.");
+  }
+
+  if (locationAddress && locationAddress.length < 5) {
+    redirectWithMessage(redirectPath, "error", "Bitte gib einen genaueren Standort mit mindestens 5 Zeichen an.");
   }
 
   if (heightCm !== null && (heightCm < 50 || heightCm > 220)) {
@@ -1126,6 +1212,8 @@ export async function saveHorseAction(formData: FormData) {
     color,
     description,
     height_cm: heightCm,
+    location_address: locationAddress,
+    location_notes: locationNotes,
     plz,
     sex: sexValue,
     title
@@ -1351,6 +1439,7 @@ export async function createAvailabilityDayAction(formData: FormData) {
   const selectedDate = asString(formData.get("selectedDate"));
   const startTime = parseClockTime(asString(formData.get("startTime")));
   const endTime = parseClockTime(asString(formData.get("endTime")));
+  const isTrialSlot = formData.get("isTrialSlot") === "on";
 
   if (!startTime || !endTime) {
     redirectWithMessage(redirectPath, "error", "Bitte gib eine gültige Uhrzeit an.");
@@ -1403,6 +1492,7 @@ export async function createAvailabilityDayAction(formData: FormData) {
     active: true,
     end_at: window.endAt,
     horse_id: horseId,
+    is_trial_slot: isTrialSlot,
     slot_id: slotData.id,
     start_at: window.startAt
   });
@@ -1443,6 +1533,7 @@ export async function updateAvailabilityDayAction(formData: FormData) {
   const redirectPath = `/pferde/${rule.horse_id}/kalender?day=${selectedDate}&focusRule=${rule.id}`;
   const startTime = parseClockTime(asString(formData.get("startTime")));
   const endTime = parseClockTime(asString(formData.get("endTime")));
+  const isTrialSlot = formData.get("isTrialSlot") === "on";
 
   if (!startTime || !endTime) {
     redirectWithMessage(redirectPath, "error", "Bitte gib eine gueltige Uhrzeit an.");
@@ -1491,6 +1582,7 @@ export async function updateAvailabilityDayAction(formData: FormData) {
     .from("availability_rules")
     .update({
       end_at: window.endAt,
+      is_trial_slot: isTrialSlot,
       start_at: window.startAt
     })
     .eq("id", rule.id);
@@ -1792,6 +1884,7 @@ export async function createAvailabilityRuleAction(formData: FormData) {
     .getAll("weekday")
     .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
     .filter(Boolean);
+  const isTrialSlot = formData.get("isTrialSlot") === "on";
   const days = resolveAvailabilityDays(presetValue, selectedWeekdays);
 
   if (days.length === 0) {
@@ -1872,6 +1965,7 @@ export async function createAvailabilityRuleAction(formData: FormData) {
       active: true,
       end_at: window.endAt,
       horse_id: horseId,
+      is_trial_slot: isTrialSlot,
       slot_id: slotId,
       start_at: window.startAt
     });
@@ -2001,7 +2095,7 @@ export async function requestBookingAction(formData: FormData) {
 
   const { data: ruleData } = await supabase
     .from("availability_rules")
-    .select("id, horse_id, slot_id, start_at, end_at, active, created_at")
+    .select("id, horse_id, slot_id, start_at, end_at, active, is_trial_slot, created_at")
     .eq("id", ruleId)
     .eq("horse_id", horseId)
     .maybeSingle();
@@ -2061,7 +2155,7 @@ export async function acceptBookingRequestAction(formData: FormData) {
 
   const { data: ruleData } = await supabase
     .from("availability_rules")
-    .select("id, horse_id, slot_id, start_at, end_at, active, created_at")
+    .select("id, horse_id, slot_id, start_at, end_at, active, is_trial_slot, created_at")
     .eq("id", request.availability_rule_id)
     .eq("horse_id", request.horse_id)
     .maybeSingle();
@@ -2253,16 +2347,24 @@ export async function saveRiderProfileAction(formData: FormData) {
   const { supabase, user } = await requireProfile("rider");
   const experience = asOptionalString(formData.get("experience"));
   const weight = asInteger(formData.get("weight"));
+  const preferredDays = asOptionalString(formData.get("preferredDays"));
+  const goals = asOptionalString(formData.get("goals"));
   const notes = asOptionalString(formData.get("notes"));
 
   if (weight !== null && weight <= 0) {
     redirectWithMessage("/rider/profile", "error", "Das Gewicht muss groesser als 0 sein.");
   }
 
+  if (preferredDays && preferredDays.length < 3) {
+    redirectWithMessage("/rider/profile", "error", "Bitte beschreibe deine typische Verfuegbarkeit etwas genauer.");
+  }
+
   const { error } = await supabase.from("rider_profiles").upsert(
     {
       experience,
+      goals,
       notes,
+      preferred_days: preferredDays,
       user_id: user.id,
       weight
     },

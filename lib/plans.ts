@@ -13,7 +13,7 @@ export const FREE_OWNER_APPROVAL_LIMIT = 1;
 export const TRIAL_OWNER_HORSE_LIMIT = 1;
 export const TRIAL_OWNER_APPROVAL_LIMIT = 2;
 export const TRIAL_PLAN_DAYS = 14;
-export const PAID_PLAN_CONTACT_EMAIL = "kontakt@reitbeteiligung.app";
+export const PAID_PLAN_CONTACT_EMAIL = "info@reitbeteiligung.app";
 
 export type OwnerPlan = {
   bookingFeaturesEnabled: boolean;

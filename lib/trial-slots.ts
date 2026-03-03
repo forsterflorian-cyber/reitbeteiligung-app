@@ -1,6 +1,6 @@
 import type { AvailabilityRule, TrialRequest } from "@/types/database";
 
-type TrialSlotRule = Pick<AvailabilityRule, "id" | "active" | "start_at" | "end_at">;
+type TrialSlotRule = Pick<AvailabilityRule, "id" | "active" | "start_at" | "end_at" | "is_trial_slot">;
 type TrialReservation = Pick<TrialRequest, "availability_rule_id" | "requested_start_at" | "requested_end_at" | "status">;
 type TimeRange = {
   start_at: string;
@@ -68,7 +68,7 @@ export function getUpcomingTrialSlots({
   rules: TrialSlotRule[];
 }) {
   return rules
-    .filter((rule) => rule.active)
+    .filter((rule) => rule.active && rule.is_trial_slot === true)
     .filter((rule) => new Date(rule.end_at).getTime() > now.getTime())
     .sort((left, right) => new Date(left.start_at).getTime() - new Date(right.start_at).getTime())
     .filter((rule) => !isTrialRuleBlocked(rule, occupiedRanges, reservedRequests))

@@ -79,6 +79,22 @@ type TimelineDayRow = {
   lanes: TimelineLane[];
 };
 
+type MonthOverviewDay = {
+  dayKey: string;
+  dayNumber: string;
+  inMonth: boolean;
+  isSelected: boolean;
+  isToday: boolean;
+  weekOffset: number;
+};
+
+type MonthOverviewWeek = {
+  key: string;
+  label: string;
+  weekOffset: number;
+  days: MonthOverviewDay[];
+};
+
 const CALENDAR_TIMELINE_DAY_COUNT = 7;
 const CALENDAR_TIMELINE_START_HOUR = 8;
 const CALENDAR_TIMELINE_END_HOUR = 22;
@@ -162,15 +178,96 @@ function overlapsDay(startAt: string, endAt: string, dayDate: Date) {
   return rangeStart < dayRangeEnd && rangeEnd > dayRangeStart;
 }
 
-function buildUpcomingDays(count: number) {
+function startOfWeek(date: Date) {
+  const start = dayStart(date);
+  const day = start.getDay();
+  const delta = day === 0 ? -6 : 1 - day;
+  return new Date(start.getFullYear(), start.getMonth(), start.getDate() + delta, 0, 0, 0, 0);
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
+}
+
+function addDays(date: Date, days: number) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days, 0, 0, 0, 0);
+}
+
+function addMonths(date: Date, months: number) {
+  return new Date(date.getFullYear(), date.getMonth() + months, 1, 0, 0, 0, 0);
+}
+
+function parseRelativeOffset(value: string | null) {
+  if (!value || !/^-?\d{1,3}$/.test(value)) {
+    return 0;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) ? parsed : 0;
+}
+
+function buildWeekDays(startDate: Date, count: number) {
   const days: Date[] = [];
-  const start = dayStart(new Date());
 
   for (let index = 0; index < count; index += 1) {
-    days.push(new Date(start.getFullYear(), start.getMonth(), start.getDate() + index));
+    days.push(addDays(startDate, index));
   }
 
   return days;
+}
+
+function toMonthKey(value: Date | string) {
+  const date = typeof value === "string" ? new Date(value) : value;
+  const year = date.getFullYear();
+  const month = `${String(date.getMonth() + 1).padStart(2, "0")}`;
+  return `${year}-${month}`;
+}
+
+function getRelativeWeekOffset(targetWeekStart: Date) {
+  const currentWeekStart = startOfWeek(new Date());
+  const differenceMs = targetWeekStart.getTime() - currentWeekStart.getTime();
+  return Math.round(differenceMs / (7 * 24 * 60 * 60 * 1000));
+}
+
+function buildMonthOverviewWeeks(monthDate: Date, selectedDayKey: string) {
+  const monthStart = startOfMonth(monthDate);
+  const weekdayFormatter = new Intl.DateTimeFormat("de-DE", { weekday: "short" });
+  const weekLabelFormatter = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "short" });
+  const todayKey = toDayKey(new Date());
+  const weeks: MonthOverviewWeek[] = [];
+  let weekStart = startOfWeek(monthStart);
+
+  for (let index = 0; index < 6; index += 1) {
+    const weekDays = buildWeekDays(weekStart, 7);
+    const hasVisibleMonthDay = weekDays.some(
+      (day) => day.getMonth() === monthStart.getMonth() && day.getFullYear() === monthStart.getFullYear()
+    );
+
+    if (!hasVisibleMonthDay && index > 0) {
+      break;
+    }
+
+    weeks.push({
+      days: weekDays.map((day) => ({
+        dayKey: toDayKey(day),
+        dayNumber: String(day.getDate()),
+        inMonth: day.getMonth() === monthStart.getMonth() && day.getFullYear() === monthStart.getFullYear(),
+        isSelected: toDayKey(day) === selectedDayKey,
+        isToday: toDayKey(day) === todayKey,
+        weekOffset: getRelativeWeekOffset(weekStart)
+      })),
+      key: toDayKey(weekStart),
+      label: `${weekLabelFormatter.format(weekDays[0])} - ${weekLabelFormatter.format(weekDays[6])}`,
+      weekOffset: getRelativeWeekOffset(weekStart)
+    });
+
+    weekStart = addDays(weekStart, 7);
+  }
+
+  return {
+    weekdayLabels: buildWeekDays(startOfWeek(monthStart), 7).map((day) => weekdayFormatter.format(day)),
+    weeks
+  };
 }
 
 function clampNumber(value: number, min: number, max: number) {
@@ -247,17 +344,17 @@ function buildTimelineRows({
     // Feste Stundenraster machen freie Zeiten, Belegung und offene Anfragen direkt vergleichbar.
     const availableSegments = rules
       .filter((rule) => overlapsDay(rule.start_at, rule.end_at, dayDate))
-      .map((rule) => buildTimelineSegment(dayDate, rule.start_at, rule.end_at, `Verfügbar ${formatTime(rule.start_at)}–${formatTime(rule.end_at)}`, "available", rule.id))
+      .map((rule) => buildTimelineSegment(dayDate, rule.start_at, rule.end_at, `Verfügbar ${formatTime(rule.start_at)}-${formatTime(rule.end_at)}`, "available", rule.id))
       .filter((segment): segment is TimelineSegment => Boolean(segment));
 
     const occupiedSegments = occupancy
       .filter((entry) => overlapsDay(entry.start_at, entry.end_at, dayDate))
-      .map((entry, index) => buildTimelineSegment(dayDate, entry.start_at, entry.end_at, `Belegt ${formatTime(entry.start_at)}–${formatTime(entry.end_at)}`, "occupied", entry.source === "block" ? `block:${entry.start_at}|${entry.end_at}` : `${entry.source}-${entry.start_at}-${entry.end_at}-${index}`))
+      .map((entry, index) => buildTimelineSegment(dayDate, entry.start_at, entry.end_at, `Belegt ${formatTime(entry.start_at)}-${formatTime(entry.end_at)}`, "occupied", entry.source === "block" ? `block:${entry.start_at}|${entry.end_at}` : `${entry.source}-${entry.start_at}-${entry.end_at}-${index}`))
       .filter((segment): segment is TimelineSegment => Boolean(segment));
 
     const pendingSegments = pendingRequests
       .filter((request) => request.requested_start_at && request.requested_end_at && overlapsDay(request.requested_start_at, request.requested_end_at, dayDate))
-      .map((request) => buildTimelineSegment(dayDate, request.requested_start_at as string, request.requested_end_at as string, `Anfrage ${formatTime(request.requested_start_at as string)}–${formatTime(request.requested_end_at as string)}`, "pending", request.id))
+      .map((request) => buildTimelineSegment(dayDate, request.requested_start_at as string, request.requested_end_at as string, `Anfrage ${formatTime(request.requested_start_at as string)}-${formatTime(request.requested_end_at as string)}`, "pending", request.id))
       .filter((segment): segment is TimelineSegment => Boolean(segment));
 
     const lanes: TimelineLane[] = [
@@ -322,7 +419,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     }),
     supabase
       .from("availability_rules")
-      .select("id, horse_id, slot_id, start_at, end_at, active, created_at")
+      .select("id, horse_id, slot_id, start_at, end_at, active, is_trial_slot, created_at")
       .eq("horse_id", horse.id)
       .order("start_at", { ascending: true }),
     isOwner
@@ -359,21 +456,37 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const ownerBlocks = (ownerBlocksResult.data as CalendarBlock[] | null) ?? [];
   const ownerBookingRequests = (ownerBookingRequestsResult.data as BookingRequest[] | null) ?? [];
   const riderBookingRequests = (riderBookingRequestsResult.data as BookingRequest[] | null) ?? [];
+  const trialSlotCount = rules.filter((rule) => rule.is_trial_slot).length;
   const ruleMap = new Map(rules.map((rule) => [rule.id, rule]));
   const requestedOwnerBookingItems = ownerBookingRequests.filter((request) => request.status === "requested");
   const timelineHours = buildTimelineHours();
-  const upcomingDays = buildUpcomingDays(CALENDAR_TIMELINE_DAY_COUNT);
-  const fallbackDay = upcomingDays[0] ?? new Date();
+  const weekOffset = parseRelativeOffset(readSearchParam(searchParams, "weekOffset"));
+  const monthOffset = parseRelativeOffset(readSearchParam(searchParams, "monthOffset"));
+  const viewedWeekStart = addDays(startOfWeek(new Date()), weekOffset * 7);
+  const viewedMonthStart = startOfMonth(addMonths(new Date(), monthOffset));
+  const weekDays = buildWeekDays(viewedWeekStart, CALENDAR_TIMELINE_DAY_COUNT);
+  const fallbackDay = weekDays[0] ?? viewedWeekStart;
   const dayParam = readSearchParam(searchParams, "day");
-  const selectedDayKey = upcomingDays.some((day) => toDayKey(day) === dayParam) ? (dayParam as string) : toDayKey(fallbackDay);
+  const selectedDayKey = weekDays.some((day) => toDayKey(day) === dayParam) ? (dayParam as string) : toDayKey(fallbackDay);
   const timelineRows = buildTimelineRows({
-    days: upcomingDays,
+    days: weekDays,
     includePendingLane: isOwner,
     occupancy,
     pendingRequests: requestedOwnerBookingItems,
     rules,
     selectedDayKey
   });
+  const monthOverview = buildMonthOverviewWeeks(viewedMonthStart, selectedDayKey);
+  const monthFormatter = new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" });
+  const weekRangeFormatter = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "short" });
+  const currentViewQuery = `weekOffset=${weekOffset}&monthOffset=${monthOffset}`;
+  const prevWeekStart = addDays(viewedWeekStart, -7);
+  const nextWeekStart = addDays(viewedWeekStart, 7);
+  const previousWeekHref = `/pferde/${horse.id}/kalender?weekOffset=${weekOffset - 1}&monthOffset=${monthOffset}&day=${toDayKey(prevWeekStart)}` as Route;
+  const nextWeekHref = `/pferde/${horse.id}/kalender?weekOffset=${weekOffset + 1}&monthOffset=${monthOffset}&day=${toDayKey(nextWeekStart)}` as Route;
+  const previousMonthHref = `/pferde/${horse.id}/kalender?weekOffset=${weekOffset}&monthOffset=${monthOffset - 1}&day=${selectedDayKey}` as Route;
+  const nextMonthHref = `/pferde/${horse.id}/kalender?weekOffset=${weekOffset}&monthOffset=${monthOffset + 1}&day=${selectedDayKey}` as Route;
+  const timelineRowsLabel = `${weekRangeFormatter.format(weekDays[0] ?? viewedWeekStart)} - ${weekRangeFormatter.format(weekDays[weekDays.length - 1] ?? viewedWeekStart)}`;
   const selectedTimelineRow = timelineRows.find((row) => row.dayKey === selectedDayKey) ?? timelineRows[0] ?? null;
   const selectedDayLabel = selectedTimelineRow ? `${selectedTimelineRow.label}, ${selectedTimelineRow.meta}` : "heute";
   const slotStartParam = parseTimelineHourParam(readSearchParam(searchParams, "slotStart"));
@@ -448,7 +561,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
       ? "Sperre aktualisieren"
       : "Tagesfenster speichern";
   const dayEditorPendingLabel = focusedRule || focusedBlock ? "Wird aktualisiert..." : "Wird gespeichert...";
-  const resetEditorHref = `/pferde/${horse.id}/kalender?day=${selectedDayKey}#tagesfenster`;
+  const resetEditorHref = `/pferde/${horse.id}/kalender?${currentViewQuery}&day=${selectedDayKey}#tagesfenster`;
   const decoratedTimelineRows = timelineRows.map((row) => ({
     ...row,
     lanes: row.lanes.map((lane) => ({
@@ -462,7 +575,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           return {
             ...segment,
             entityId: segment.key,
-            href: `/pferde/${horse.id}/kalender?day=${row.dayKey}&focusRule=${segment.key}#tagesfenster`
+            href: `/pferde/${horse.id}/kalender?${currentViewQuery}&day=${row.dayKey}&focusRule=${segment.key}#tagesfenster`
           };
         }
 
@@ -473,7 +586,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
             return {
               ...segment,
               entityId: blockId,
-              href: `/pferde/${horse.id}/kalender?day=${row.dayKey}&focusBlock=${blockId}#tagesfenster`
+              href: `/pferde/${horse.id}/kalender?${currentViewQuery}&day=${row.dayKey}&focusBlock=${blockId}#tagesfenster`
             };
           }
         }
@@ -503,7 +616,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           <div className="space-y-2">
             <p className="ui-eyebrow">Pferdeprofil</p>
             <h2 className="font-serif text-2xl text-stone-900 sm:text-3xl">{horse.title}</h2>
-            <p className="ui-inline-meta">PLZ {horse.plz} {horse.active ? "· Aktiv" : "· Inaktiv"}</p>
+            <p className="ui-inline-meta">{horse.location_address ?? `PLZ ${horse.plz}`} {horse.active ? "- Aktiv" : "- Inaktiv"}</p>
             <p className="text-sm leading-6 text-stone-600">
               {horse.description?.trim() || "Hier steuerst du Verfügbarkeiten, Sperren und eingehende Terminanfragen für dieses Pferd."}
             </p>
@@ -521,14 +634,83 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
       </div>
 
       <SectionCard
-        subtitle="Wie im Planungsassistenten: Tage links, Uhrzeiten oben und freie, belegte oder angefragte Zeiten direkt in einer Zeitleiste."
-        title={`Wochenplanung für ${horse.title}`}
+        subtitle="Springe zwischen Wochen und nutze den Monatsueberblick, um direkt in die passende Detailwoche zu wechseln."
+        title="Monats- und Wochennavigation"
       >
         <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            <Badge tone="approved">Verfügbare Zeiten</Badge>
-            <Badge tone="rejected">Belegte Zeiten</Badge>
-            {isOwner ? <Badge tone="pending">Offene Anfragen</Badge> : null}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-stone-900">{monthFormatter.format(viewedMonthStart)}</p>
+              <p className="text-sm text-stone-600">Jede Zeile steht fuer eine Woche. Ein Klick oeffnet direkt die Detailansicht dieser Woche.</p>
+            </div>
+            <div className="flex gap-2">
+              <Link className={buttonVariants("secondary", "min-h-[40px] px-4 py-2 text-sm")} href={previousMonthHref}>
+                Vorheriger Monat
+              </Link>
+              <Link className={buttonVariants("secondary", "min-h-[40px] px-4 py-2 text-sm")} href={nextMonthHref}>
+                Naechster Monat
+              </Link>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <div className="min-w-[720px] rounded-2xl border border-stone-200 bg-white shadow-sm">
+              <div className="grid grid-cols-[140px_repeat(7,minmax(0,1fr))] border-b border-stone-200 bg-stone-50/80">
+                <div className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Woche</div>
+                {monthOverview.weekdayLabels.map((label) => (
+                  <div className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-[0.12em] text-stone-500" key={label}>
+                    {label}
+                  </div>
+                ))}
+              </div>
+              <div className="divide-y divide-stone-200">
+                {monthOverview.weeks.map((week) => (
+                  <div className="grid grid-cols-[140px_repeat(7,minmax(0,1fr))]" key={week.key}>
+                    <div className="border-r border-stone-200 px-3 py-3">
+                      <Link
+                        className={buttonVariants(week.weekOffset === weekOffset ? "primary" : "ghost", "min-h-[40px] w-full justify-center px-3 py-2 text-xs")}
+                        href={`/pferde/${horse.id}/kalender?weekOffset=${week.weekOffset}&monthOffset=${monthOffset}&day=${week.key}` as Route}
+                      >
+                        {week.label}
+                      </Link>
+                    </div>
+                    {week.days.map((day) => (
+                      <Link
+                        className={`flex min-h-[52px] items-center justify-center border-r border-stone-200 text-sm font-medium last:border-r-0 ${day.inMonth ? "bg-white text-stone-800" : "bg-stone-50/70 text-stone-400"} ${day.isSelected ? "ring-2 ring-forest/20 ring-inset" : ""}`}
+                        href={`/pferde/${horse.id}/kalender?weekOffset=${day.weekOffset}&monthOffset=${monthOffset}&day=${day.dayKey}` as Route}
+                        key={day.dayKey}
+                      >
+                        <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${day.isToday ? "bg-stone-900 text-white" : day.isSelected ? "bg-sand text-forest" : ""}`}>
+                          {day.dayNumber}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        subtitle={`Aktuelle Woche: ${timelineRowsLabel}. Tage links, Uhrzeiten oben und freie, belegte oder angefragte Zeiten direkt in einer Zeitleiste.`}
+        title={`Wochenplanung fuer ${horse.title}`}
+      >
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap gap-2">
+              <Badge tone="approved">Verfuegbare Zeiten</Badge>
+              <Badge tone="rejected">Belegte Zeiten</Badge>
+              {isOwner ? <Badge tone="pending">Offene Anfragen</Badge> : null}
+            </div>
+            <div className="flex gap-2">
+              <Link className={buttonVariants("secondary", "min-h-[40px] px-4 py-2 text-sm")} href={previousWeekHref}>
+                Vorherige Woche
+              </Link>
+              <Link className={buttonVariants("secondary", "min-h-[40px] px-4 py-2 text-sm")} href={nextWeekHref}>
+                Naechste Woche
+              </Link>
+            </div>
           </div>
 
           {isOwner ? (
@@ -556,7 +738,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                   <div className={`grid grid-cols-[180px_minmax(0,1fr)] ${row.isSelected ? "bg-sand/20" : ""}`} key={row.key}>
                     <div className={`border-r border-stone-200 px-4 py-4 ${row.isSelected ? "bg-sand/40" : ""}`}>
                       {isOwner ? (
-                        <a className="block space-y-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-700/30" href={`/pferde/${horse.id}/kalender?day=${row.dayKey}#tagesfenster`}>
+                        <a className="block space-y-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-700/30" href={`/pferde/${horse.id}/kalender?${currentViewQuery}&day=${row.dayKey}#tagesfenster`}>
                           <p className="text-sm font-semibold capitalize text-stone-900">{row.label}</p>
                           <p className="text-xs text-stone-500">{row.meta}</p>
                           <div className="flex flex-wrap gap-2">
@@ -708,6 +890,17 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                     key={`${selectedDayKey}-${focusedRule?.id ?? focusedBlock?.id ?? selectedSlotLabel ?? "default"}`}
                     startHour={CALENDAR_TIMELINE_START_HOUR}
                   />
+                  {!focusedBlock ? (
+                    <label className="flex min-h-[44px] items-center gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-900">
+                      <input
+                        className="h-4 w-4 rounded border-stone-300"
+                        defaultChecked={focusedRule?.is_trial_slot ?? false}
+                        name="isTrialSlot"
+                        type="checkbox"
+                      />
+                      Dieses Zeitfenster auch als Probetermin anbieten
+                    </label>
+                  ) : null}
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <SubmitButton
                       className={buttonVariants("primary", "w-full sm:w-auto px-5 py-3 text-base")}
@@ -742,6 +935,11 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Offene Anfragen</p>
                     <p className="mt-2 text-2xl font-semibold text-stone-900">{requestedOwnerBookingItems.length}</p>
                     <p className="mt-1 text-sm text-stone-600">Direkt unterhalb des Editors zur Freigabe.</p>
+                  </div>
+                  <div className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Probetermin-Slots</p>
+                    <p className="mt-2 text-2xl font-semibold text-stone-900">{trialSlotCount}</p>
+                    <p className="mt-1 text-sm text-stone-600">Nur diese Zeitfenster werden Reitern fuer Probetermine angeboten.</p>
                   </div>
                 </div>
               </Card>
@@ -852,6 +1050,10 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                         <input defaultValue="19:00" id="availabilityEndTime" name="endTime" required type="time" />
                       </div>
                     </div>
+                    <label className="flex min-h-[44px] items-center gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-900">
+                      <input className="h-4 w-4 rounded border-stone-300" name="isTrialSlot" type="checkbox" />
+                      Die erzeugten Zeitfenster auch als Probetermine anbieten
+                    </label>
                     <SubmitButton idleLabel="Wochenmuster speichern" pendingLabel="Wird gespeichert..." />
                   </form>
                 </Card>
@@ -894,7 +1096,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                               {prioritizedRules.slice(0, 4).map((rule) => (
                                 <div className={`rounded-2xl border px-3 py-3 ${focusRuleId === rule.id ? "border-emerald-300 bg-emerald-50/60" : "border-stone-200 bg-white"}`} key={rule.id}>
                                   <p className="text-sm font-semibold text-stone-900">{ruleLabel(rule)}</p>
-                                  <a className={buttonVariants("ghost", "mt-3 w-full justify-center text-sm")} href={`/pferde/${horse.id}/kalender?day=${rule.start_at.slice(0, 10)}&focusRule=${rule.id}#tagesfenster`}>
+                                  <a className={buttonVariants("ghost", "mt-3 w-full justify-center text-sm")} href={`/pferde/${horse.id}/kalender?${currentViewQuery}&day=${rule.start_at.slice(0, 10)}&focusRule=${rule.id}#tagesfenster`}>
                                     {"Im Editor \u00f6ffnen"}
                                   </a>
                                   <form action={deleteAvailabilityRuleAction} className="mt-2">
@@ -925,7 +1127,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                               {prioritizedBlocks.slice(0, 4).map((block) => (
                                 <div className={`rounded-2xl border px-3 py-3 ${focusBlockId === block.id ? "border-rose-300 bg-rose-50/60" : "border-stone-200 bg-white"}`} key={block.id}>
                                   <p className="text-sm font-semibold text-stone-900">{formatDateRange(block.start_at, block.end_at)}</p>
-                                  <a className={buttonVariants("ghost", "mt-3 w-full justify-center text-sm")} href={`/pferde/${horse.id}/kalender?day=${block.start_at.slice(0, 10)}&focusBlock=${block.id}#tagesfenster`}>
+                                  <a className={buttonVariants("ghost", "mt-3 w-full justify-center text-sm")} href={`/pferde/${horse.id}/kalender?${currentViewQuery}&day=${block.start_at.slice(0, 10)}&focusBlock=${block.id}#tagesfenster`}>
                                     {"Im Editor \u00f6ffnen"}
                                   </a>
                                   <form action={deleteCalendarBlockAction} className="mt-2">
@@ -1012,7 +1214,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                 <>
                   {riderBookingLimit ? (
                     <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-4">
-                      <p className="text-sm font-semibold text-stone-900">Dein Wochenkontingent f?r dieses Pferd</p>
+                      <p className="text-sm font-semibold text-stone-900">Dein Wochenkontingent für dieses Pferd</p>
                       <p className="mt-1 text-sm text-stone-600">{formatWeeklyHoursLimit(riderBookingLimit.weekly_hours_limit)}</p>
                     </div>
                   ) : null}
@@ -1100,3 +1302,6 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     </div>
   );
 }
+
+
+
