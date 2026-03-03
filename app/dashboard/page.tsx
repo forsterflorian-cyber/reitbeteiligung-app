@@ -251,17 +251,18 @@ export default async function DashboardPage({
       .eq("rider_id", user.id)
       .gte("start_at", new Date().toISOString())
       .order("start_at", { ascending: true })
-      .limit(1)
+      .limit(4)
   ]);
 
   const riderProfile = (riderProfileData as Pick<RiderProfile, "user_id"> | null) ?? null;
   const trials = (trialRequestsData as TrialRequest[] | null) ?? [];
   const activeApprovals = (riderApprovalsData as Approval[] | null) ?? [];
-  const nextBooking = (((upcomingBookingsData as Booking[] | null) ?? [])[0]) ?? null;
+  const upcomingBookings = (upcomingBookingsData as Booking[] | null) ?? [];
+  const nextBooking = upcomingBookings[0] ?? null;
   const activeRelationshipKeys = new Set(activeApprovals.map((approval) => `${approval.horse_id}:${approval.rider_id}`));
   const openTrials = trials.filter((trial) => (trial.status === "requested" || trial.status === "accepted") && !activeRelationshipKeys.has(`${trial.horse_id}:${trial.rider_id}`));
   const openTrialCount = openTrials.length;
-  const riderHorseIds = [...new Set([...trials.map((trial) => trial.horse_id), ...(nextBooking ? [nextBooking.horse_id] : [])])];
+  const riderHorseIds = [...new Set([...trials.map((trial) => trial.horse_id), ...upcomingBookings.map((booking) => booking.horse_id)])];
   let riderHorseMap = new Map<string, Pick<Horse, "id" | "title" | "plz">>();
 
   if (riderHorseIds.length > 0) {
@@ -348,6 +349,32 @@ export default async function DashboardPage({
           />
         )}
       </SectionCard>
+      {upcomingBookings.length > 0 ? (
+        <SectionCard
+          action={<Link className={buttonVariants("secondary")} href={riderRequestsHref}>Zur Planung</Link>}
+          subtitle="Deine n?chsten bereits best?tigten Termine als aktive Reitbeteiligung."
+          title="N?chste Termine"
+        >
+          <div className="grid gap-3">
+            {upcomingBookings.slice(0, 3).map((booking) => {
+              const horse = riderHorseMap.get(booking.horse_id);
+
+              return (
+                <Card className="p-4" key={booking.id}>
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone="approved">Best?tigt</Badge>
+                      <p className="text-sm text-stone-500">{formatDate(booking.start_at)}</p>
+                    </div>
+                    <p className="font-semibold text-stone-900">{horse?.title ?? "Reitbeteiligung"}</p>
+                    <p className="text-sm text-stone-600">{formatDateTimeRange(booking.start_at, booking.end_at)}</p>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </SectionCard>
+      ) : null}
       <StatGrid className="xl:grid-cols-3" items={riderStats} />
       <SectionCard
         action={<Link className={buttonVariants("secondary")} href={riderRequestsHref}>Alle Anfragen</Link>}

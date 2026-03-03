@@ -356,6 +356,31 @@ function sumHoursByWeek(entries: Array<{ startAt: string; endAt: string }>) {
   return totals;
 }
 
+// Automatic bookings only happen while the weekly quota still has room.
+function exceedsWeeklyHoursLimit(
+  bookingWindows: BookingWindow[],
+  riderBookings: TimeRangeRecord[],
+  weeklyHoursLimit: number
+) {
+  const existingHoursByWeek = sumHoursByWeek(
+    riderBookings.map((booking) => ({
+      endAt: booking.end_at,
+      startAt: booking.start_at
+    }))
+  );
+  const requestedHoursByWeek = sumHoursByWeek(bookingWindows);
+
+  for (const [weekKey, requestedHours] of requestedHoursByWeek.entries()) {
+    const bookedHours = existingHoursByWeek.get(weekKey) ?? 0;
+
+    if (bookedHours + requestedHours > weeklyHoursLimit) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function parseRruleDate(value: string) {
   if (/^\d{8}$/.test(value)) {
     const year = Number.parseInt(value.slice(0, 4), 10);
@@ -695,6 +720,26 @@ async function getManagedBookingRequest(supabase: ReturnType<typeof createClient
   }
 
   return request;
+}
+
+async function loadBookingPlanningData(
+  supabase: ReturnType<typeof createClient>,
+  horseId: string,
+  riderId: string
+) {
+  const [{ data: existingBookingsData }, { data: blocksData }, { data: riderBookingsData }, { data: riderLimitData }] = await Promise.all([
+    supabase.from("bookings").select("id, start_at, end_at").eq("horse_id", horseId),
+    supabase.from("calendar_blocks").select("start_at, end_at").eq("horse_id", horseId),
+    supabase.from("bookings").select("start_at, end_at").eq("horse_id", horseId).eq("rider_id", riderId),
+    supabase.from("rider_booking_limits").select("weekly_hours_limit").eq("horse_id", horseId).eq("rider_id", riderId).maybeSingle()
+  ]);
+
+  return {
+    existingBlocks: (blocksData as TimeRangeRecord[] | null) ?? [],
+    existingBookings: (existingBookingsData as BookingRecord[] | null) ?? [],
+    riderBookings: (riderBookingsData as TimeRangeRecord[] | null) ?? [],
+    riderLimit: (riderLimitData as Pick<RiderBookingLimit, "weekly_hours_limit"> | null) ?? null
+  };
 }
 
 function getAcceptBookingErrorMessage(error: SupabaseErrorLike) {
@@ -2339,21 +2384,21 @@ export async function requestBookingAction(formData: FormData) {
   const recurrenceRrule = asOptionalString(formData.get("recurrenceRrule"));
 
   if (!horseId || !ruleId) {
-    redirectWithMessage("/suchen", "error", "Das Verfügbarkeitsfenster konnte nicht gefunden werden.");
+    redirectWithMessage("/suchen", "error", "Das Verf?gbarkeitsfenster konnte nicht gefunden werden.");
   }
 
-  const redirectPath = `/pferde/${horseId}/kalender`;
+  const redirectPath = "/pferde/" + horseId + "/kalender";
   const startAtValue = asString(formData.get("startAt"));
   const endAtValue = asString(formData.get("endAt"));
   const startAt = new Date(startAtValue);
   const endAt = new Date(endAtValue);
 
   if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
-    redirectWithMessage(redirectPath, "error", "Bitte gib einen gültigen Termin an.");
+    redirectWithMessage(redirectPath, "error", "Bitte gib einen g?ltigen Termin an.");
   }
 
   if (!isQuarterHourAligned(startAt) || !isQuarterHourAligned(endAt)) {
-    redirectWithMessage(redirectPath, "error", "Bitte wähle Beginn und Ende im 15-Minuten-Raster.");
+    redirectWithMessage(redirectPath, "error", "Bitte w?hle Beginn und Ende im 15-Minuten-Raster.");
   }
 
   if (endAt <= startAt) {
@@ -2378,7 +2423,7 @@ export async function requestBookingAction(formData: FormData) {
   const approval = (approvalData as ApprovalRecord | null) ?? null;
 
   if (approval?.status !== APPROVAL_STATUS.approved) {
-    redirectWithMessage(redirectPath, "error", "Nur freigeschaltete Reiter können einen Termin anfragen.");
+    redirectWithMessage(redirectPath, "error", "Nur freigeschaltete Reiter k?nnen einen Termin anfragen.");
   }
 
   const { data: ruleData } = await supabase
@@ -2391,7 +2436,7 @@ export async function requestBookingAction(formData: FormData) {
   const rule = (ruleData as AvailabilityRuleRecord | null) ?? null;
 
   if (!rule || !rule.active) {
-    redirectWithMessage(redirectPath, "error", "Dieses Verfügbarkeitsfenster ist nicht mehr verfügbar.");
+    redirectWithMessage(redirectPath, "error", "Dieses Verf?gbarkeitsfenster ist nicht mehr verf?gbar.");
   }
 
   const requestedStartIso = startAt.toISOString();
@@ -2407,26 +2452,127 @@ export async function requestBookingAction(formData: FormData) {
   ) {
     redirectWithMessage(redirectPath, "error", "Der Termin muss komplett im Verf?gbarkeitsfenster liegen.");
   }
-  const { error } = await supabase.from("booking_requests").insert({
-    availability_rule_id: rule.id,
-    horse_id: horseId,
-    recurrence_rrule: recurrenceRrule,
-    requested_end_at: requestedEndIso,
-    requested_start_at: requestedStartIso,
-    rider_id: user.id,
-    slot_id: rule.slot_id,
-    status: "requested"
-  });
+
+  let bookingWindows: BookingWindow[];
+
+  try {
+    bookingWindows = buildBookingWindows({
+      availability_rule_id: rule.id,
+      created_at: new Date().toISOString(),
+      horse_id: horseId,
+      id: "pending",
+      recurrence_rrule: recurrenceRrule,
+      requested_end_at: requestedEndIso,
+      requested_start_at: requestedStartIso,
+      rider_id: user.id,
+      slot_id: rule.slot_id,
+      status: "requested"
+    });
+  } catch (error) {
+    if (error instanceof Error && (error.message === "INVALID_RRULE" || error.message === "UNSUPPORTED_RRULE" || error.message === "RECURRENCE_LIMIT")) {
+      redirectWithMessage(redirectPath, "error", getRecurrenceErrorMessage(error));
+    }
+
+    redirectWithMessage(redirectPath, "error", "Die Terminanfrage enth?lt einen ung?ltigen Zeitraum.");
+  }
+
+  const { existingBlocks, existingBookings, riderBookings, riderLimit } = await loadBookingPlanningData(supabase, horseId, user.id);
+
+  if (hasWindowConflict(bookingWindows, existingBookings) || hasWindowConflict(bookingWindows, existingBlocks)) {
+    redirectWithMessage(
+      redirectPath,
+      "error",
+      recurrenceRrule
+        ? "Mindestens ein Wiederholungstermin kollidiert mit einer bestehenden Buchung oder Sperre."
+        : "Der angefragte Termin ist nicht mehr verf?gbar."
+    );
+  }
+
+  const shouldAutoBook =
+    typeof riderLimit?.weekly_hours_limit === "number" &&
+    !exceedsWeeklyHoursLimit(bookingWindows, riderBookings, riderLimit.weekly_hours_limit);
+
+  const { data: insertedRequestData, error } = await supabase
+    .from("booking_requests")
+    .insert({
+      availability_rule_id: rule.id,
+      horse_id: horseId,
+      recurrence_rrule: recurrenceRrule,
+      requested_end_at: requestedEndIso,
+      requested_start_at: requestedStartIso,
+      rider_id: user.id,
+      slot_id: rule.slot_id,
+      status: "requested"
+    })
+    .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, recurrence_rrule, created_at")
+    .maybeSingle();
 
   if (error) {
     logSupabaseError("Booking request insert failed", error);
     redirectWithMessage(redirectPath, "error", "Die Terminanfrage konnte nicht gespeichert werden.");
   }
 
+  const insertedRequest = (insertedRequestData as BookingRequestRecord | null) ?? null;
+
+  if (!insertedRequest) {
+    redirectWithMessage(redirectPath, "error", "Die Terminanfrage konnte nicht gespeichert werden.");
+  }
+
+  if (!shouldAutoBook) {
+    revalidatePath(redirectPath);
+    revalidatePath("/anfragen");
+    revalidatePath("/owner/reitbeteiligungen");
+    redirectWithMessage(redirectPath, "message", "Die Terminanfrage wurde gesendet.");
+  }
+
+  const bookingRows = bookingWindows.map((window) => ({
+    availability_rule_id: rule.id,
+    booking_request_id: insertedRequest.id,
+    end_at: window.endAt,
+    horse_id: horseId,
+    rider_id: user.id,
+    slot_id: rule.slot_id,
+    start_at: window.startAt
+  }));
+
+  const { error: bookingInsertError } = await supabase.from("bookings").insert(bookingRows);
+
+  if (bookingInsertError) {
+    logSupabaseError("Automatic booking insert failed", bookingInsertError);
+    const { error: cleanupError } = await supabase.from("booking_requests").delete().eq("id", insertedRequest.id);
+
+    if (cleanupError) {
+      logSupabaseError("Automatic booking request cleanup failed", cleanupError);
+    }
+
+    redirectWithMessage(redirectPath, "error", "Der Termin konnte nicht direkt gebucht werden.");
+  }
+
+  const { error: statusError } = await supabase.from("booking_requests").update({ status: "accepted" }).eq("id", insertedRequest.id);
+
+  if (statusError) {
+    logSupabaseError("Automatic booking status update failed", statusError);
+    const { error: cleanupError } = await supabase.from("bookings").delete().eq("booking_request_id", insertedRequest.id);
+
+    if (cleanupError) {
+      logSupabaseError("Automatic booking cleanup failed", cleanupError);
+    }
+
+    revalidatePath(redirectPath);
+    revalidatePath("/anfragen");
+    revalidatePath("/owner/reitbeteiligungen");
+    redirectWithMessage(redirectPath, "message", "Die direkte Buchung konnte nicht best?tigt werden. Die Anfrage wurde stattdessen gespeichert.");
+  }
+
   revalidatePath(redirectPath);
   revalidatePath("/anfragen");
-  revalidatePath("/owner/anfragen");
-  redirectWithMessage(redirectPath, "message", "Die Terminanfrage wurde gesendet.");
+  revalidatePath("/owner/reitbeteiligungen");
+  revalidatePath("/dashboard");
+  redirectWithMessage(
+    redirectPath,
+    "message",
+    recurrenceRrule ? "Die Termine wurden direkt gebucht." : "Der Termin wurde direkt gebucht."
+  );
 }
 
 export async function acceptBookingRequestAction(formData: FormData) {
@@ -2434,17 +2580,17 @@ export async function acceptBookingRequestAction(formData: FormData) {
   const requestId = asString(formData.get("requestId"));
 
   if (!requestId) {
-    redirectWithMessage("/owner/anfragen", "error", "Die Buchungsanfrage konnte nicht gefunden werden.");
+    redirectWithMessage("/owner/reitbeteiligungen", "error", "Die Buchungsanfrage konnte nicht gefunden werden.");
   }
 
   const request = await getManagedBookingRequest(supabase, requestId, user.id);
 
   if (!request) {
-    redirectWithMessage("/owner/anfragen", "error", "Die Buchungsanfrage konnte nicht gefunden werden.");
+    redirectWithMessage("/owner/reitbeteiligungen", "error", "Die Buchungsanfrage konnte nicht gefunden werden.");
   }
 
   if (request.status !== "requested") {
-    redirectWithMessage("/owner/anfragen", "error", "Diese Buchungsanfrage wurde bereits bearbeitet.");
+    redirectWithMessage("/owner/reitbeteiligungen", "error", "Diese Buchungsanfrage wurde bereits bearbeitet.");
   }
 
   const { data: ruleData } = await supabase
@@ -2457,7 +2603,7 @@ export async function acceptBookingRequestAction(formData: FormData) {
   const rule = (ruleData as AvailabilityRuleRecord | null) ?? null;
 
   if (!rule || !rule.active || rule.slot_id !== request.slot_id) {
-    redirectWithMessage("/owner/anfragen", "error", "Dieses Verfügbarkeitsfenster ist nicht mehr aktiv.");
+    redirectWithMessage("/owner/reitbeteiligungen", "error", "Dieses Verf?gbarkeitsfenster ist nicht mehr aktiv.");
   }
 
   const { data: approvalData } = await supabase
@@ -2470,7 +2616,7 @@ export async function acceptBookingRequestAction(formData: FormData) {
   const approval = (approvalData as ApprovalRecord | null) ?? null;
 
   if (approval?.status !== APPROVAL_STATUS.approved) {
-    redirectWithMessage("/owner/anfragen", "error", "Nur freigeschaltete Reiter können gebucht werden.");
+    redirectWithMessage("/owner/reitbeteiligungen", "error", "Nur freigeschaltete Reiter k?nnen gebucht werden.");
   }
 
   const requestedStart = request.requested_start_at ? new Date(request.requested_start_at) : null;
@@ -2488,7 +2634,7 @@ export async function acceptBookingRequestAction(formData: FormData) {
     requestedStart.getTime() < ruleStart.getTime() ||
     requestedEnd.getTime() > ruleEnd.getTime()
   ) {
-    redirectWithMessage("/owner/anfragen", "error", "Der erste Termin liegt nicht im Verf?gbarkeitsfenster.");
+    redirectWithMessage("/owner/reitbeteiligungen", "error", "Der erste Termin liegt nicht im Verf?gbarkeitsfenster.");
   }
 
   let bookingWindows: BookingWindow[];
@@ -2497,55 +2643,25 @@ export async function acceptBookingRequestAction(formData: FormData) {
     bookingWindows = buildBookingWindows(request);
   } catch (error) {
     if (error instanceof Error && (error.message === "INVALID_RRULE" || error.message === "UNSUPPORTED_RRULE" || error.message === "RECURRENCE_LIMIT")) {
-      redirectWithMessage("/owner/anfragen", "error", getRecurrenceErrorMessage(error));
+      redirectWithMessage("/owner/reitbeteiligungen", "error", getRecurrenceErrorMessage(error));
     }
 
-    redirectWithMessage("/owner/anfragen", "error", "Die Buchungsanfrage enthält einen ungültigen Zeitraum.");
+    redirectWithMessage("/owner/reitbeteiligungen", "error", "Die Buchungsanfrage enth?lt einen ung?ltigen Zeitraum.");
   }
 
-  const [{ data: existingBookingsData }, { data: blocksData }, { data: riderBookingsData }, { data: riderLimitData }] = await Promise.all([
-    supabase.from("bookings").select("id, start_at, end_at").eq("horse_id", request.horse_id),
-    supabase.from("calendar_blocks").select("start_at, end_at").eq("horse_id", request.horse_id),
-    supabase.from("bookings").select("start_at, end_at").eq("horse_id", request.horse_id).eq("rider_id", request.rider_id),
-    supabase.from("rider_booking_limits").select("weekly_hours_limit").eq("horse_id", request.horse_id).eq("rider_id", request.rider_id).maybeSingle()
-  ]);
-
-  const existingBookings = (existingBookingsData as BookingRecord[] | null) ?? [];
-  const existingBlocks = (blocksData as TimeRangeRecord[] | null) ?? [];
-  const riderBookings = (riderBookingsData as TimeRangeRecord[] | null) ?? [];
-  const riderLimit = (riderLimitData as Pick<RiderBookingLimit, "weekly_hours_limit"> | null) ?? null;
+  const { existingBlocks, existingBookings } = await loadBookingPlanningData(supabase, request.horse_id, request.rider_id);
 
   if (hasWindowConflict(bookingWindows, existingBookings) || hasWindowConflict(bookingWindows, existingBlocks)) {
     redirectWithMessage(
-      "/owner/anfragen",
+      "/owner/reitbeteiligungen",
       "error",
       request.recurrence_rrule
         ? "Mindestens ein Wiederholungstermin kollidiert mit einer bestehenden Buchung oder Sperre."
-        : "Der angefragte Termin ist nicht mehr verfügbar."
+        : "Der angefragte Termin ist nicht mehr verf?gbar."
     );
   }
-  if (typeof riderLimit?.weekly_hours_limit === "number") {
-    const existingHoursByWeek = sumHoursByWeek(
-      riderBookings.map((booking) => ({
-        endAt: booking.end_at,
-        startAt: booking.start_at
-      }))
-    );
-    const requestedHoursByWeek = sumHoursByWeek(bookingWindows);
 
-    for (const [weekKey, requestedHours] of requestedHoursByWeek.entries()) {
-      const bookedHours = existingHoursByWeek.get(weekKey) ?? 0;
-
-      if (bookedHours + requestedHours > riderLimit.weekly_hours_limit) {
-        redirectWithMessage(
-          "/owner/anfragen",
-          "error",
-          `Das Wochenkontingent von ${formatWeeklyHoursLimit(riderLimit.weekly_hours_limit)} würde überschritten.`
-        );
-      }
-    }
-  }
-
+  // Oberhalb des Wochenkontingents entscheidet der Pferdehalter ausdr?cklich selbst.
   const bookingRows = bookingWindows.map((window) => ({
     availability_rule_id: rule.id,
     booking_request_id: request.id,
@@ -2560,7 +2676,7 @@ export async function acceptBookingRequestAction(formData: FormData) {
 
   if (insertError) {
     logSupabaseError("Booking insert failed", insertError);
-    redirectWithMessage("/owner/anfragen", "error", "Die Buchung konnte nicht gespeichert werden.");
+    redirectWithMessage("/owner/reitbeteiligungen", "error", "Die Buchung konnte nicht gespeichert werden.");
   }
 
   const { error: updateError } = await supabase.from("booking_requests").update({ status: "accepted" }).eq("id", requestId);
@@ -2573,15 +2689,16 @@ export async function acceptBookingRequestAction(formData: FormData) {
       logSupabaseError("Booking accept cleanup failed", cleanupError);
     }
 
-    redirectWithMessage("/owner/anfragen", "error", "Die Buchungsanfrage konnte nicht angenommen werden.");
+    redirectWithMessage("/owner/reitbeteiligungen", "error", "Die Buchungsanfrage konnte nicht angenommen werden.");
   }
 
-  revalidatePath("/owner/anfragen");
+  revalidatePath("/owner/reitbeteiligungen");
   revalidatePath("/anfragen");
-  revalidatePath(`/pferde/${request.horse_id}`);
-  revalidatePath(`/pferde/${request.horse_id}/kalender`);
+  revalidatePath("/dashboard");
+  revalidatePath("/pferde/" + request.horse_id);
+  revalidatePath("/pferde/" + request.horse_id + "/kalender");
   redirectWithMessage(
-    "/owner/anfragen",
+    "/owner/reitbeteiligungen",
     "message",
     request.recurrence_rrule ? "Die Buchungsanfrage wurde inklusive Wiederholung angenommen." : "Die Buchungsanfrage wurde angenommen."
   );
@@ -2592,30 +2709,30 @@ export async function declineBookingRequestAction(formData: FormData) {
   const requestId = asString(formData.get("requestId"));
 
   if (!requestId) {
-    redirectWithMessage("/owner/anfragen", "error", "Die Buchungsanfrage konnte nicht gefunden werden.");
+    redirectWithMessage("/owner/reitbeteiligungen", "error", "Die Buchungsanfrage konnte nicht gefunden werden.");
   }
 
   const request = await getManagedBookingRequest(supabase, requestId, user.id);
 
   if (!request) {
-    redirectWithMessage("/owner/anfragen", "error", "Die Buchungsanfrage konnte nicht gefunden werden.");
+    redirectWithMessage("/owner/reitbeteiligungen", "error", "Die Buchungsanfrage konnte nicht gefunden werden.");
   }
 
   if (request.status !== "requested") {
-    redirectWithMessage("/owner/anfragen", "error", "Diese Buchungsanfrage wurde bereits bearbeitet.");
+    redirectWithMessage("/owner/reitbeteiligungen", "error", "Diese Buchungsanfrage wurde bereits bearbeitet.");
   }
 
   const { error } = await supabase.from("booking_requests").update({ status: "declined" }).eq("id", requestId);
 
   if (error) {
     logSupabaseError("Booking request decline failed", error);
-    redirectWithMessage("/owner/anfragen", "error", "Die Buchungsanfrage konnte nicht abgelehnt werden.");
+    redirectWithMessage("/owner/reitbeteiligungen", "error", "Die Buchungsanfrage konnte nicht abgelehnt werden.");
   }
 
-  revalidatePath("/owner/anfragen");
+  revalidatePath("/owner/reitbeteiligungen");
   revalidatePath("/anfragen");
-  revalidatePath(`/pferde/${request.horse_id}/kalender`);
-  redirectWithMessage("/owner/anfragen", "message", "Die Buchungsanfrage wurde abgelehnt.");
+  revalidatePath("/pferde/" + request.horse_id + "/kalender");
+  redirectWithMessage("/owner/reitbeteiligungen", "message", "Die Buchungsanfrage wurde abgelehnt.");
 }
 
 export async function deleteHorseAction(formData: FormData) {
@@ -2630,7 +2747,19 @@ export async function deleteHorseAction(formData: FormData) {
   const horse = await getOwnedHorse(supabase, horseId, user.id);
 
   if (!horse) {
-    redirectWithMessage(redirectPath, "error", "Du kannst nur eigene Pferdeprofile löschen.");
+    redirectWithMessage(redirectPath, "error", "Du kannst nur eigene Pferdeprofile l?schen.");
+  }
+
+  const { data: activeApprovalData } = await supabase
+    .from("approvals")
+    .select("horse_id")
+    .eq("horse_id", horseId)
+    .eq("status", "approved")
+    .limit(1);
+  const hasActiveRiderRelationship = ((activeApprovalData as Array<Pick<Approval, "horse_id">> | null) ?? []).length > 0;
+
+  if (hasActiveRiderRelationship) {
+    redirectWithMessage(redirectPath, "error", "Pferdeprofile mit aktiven Reitbeteiligungen k?nnen nicht gel?scht werden.");
   }
 
   const { data: imagesData } = await supabase
@@ -2642,7 +2771,7 @@ export async function deleteHorseAction(formData: FormData) {
   const images = sortHorseImages(
     (Array.isArray(imagesData) ? (imagesData as HorseImageRecord[]) : []).filter((image) => image.id)
   );
-  const imagePaths = images.map((image) => image.path ?? image.storage_path ?? null).filter((path): path is string => Boolean(path));
+  const imagePaths = images.map((image) => image.path ?? image.storage_path ?? null).filter((imagePath): imagePath is string => Boolean(imagePath));
 
   if (imagePaths.length > 0) {
     const { error: storageError } = await supabase.storage.from(HORSE_IMAGE_BUCKET).remove(imagePaths);
@@ -2660,20 +2789,21 @@ export async function deleteHorseAction(formData: FormData) {
     logSupabaseError("Horse delete failed", error);
 
     if (error.code === "23503") {
-      redirectWithMessage(redirectPath, "error", "Das Pferd hat noch aktive Termine oder Anfragen und kann derzeit nicht gelöscht werden.");
+      redirectWithMessage(redirectPath, "error", "Das Pferd hat noch aktive Termine oder Anfragen und kann derzeit nicht gel?scht werden.");
     }
 
-    redirectWithMessage(redirectPath, "error", "Pferdeprofil konnte nicht gelöscht werden.");
+    redirectWithMessage(redirectPath, "error", "Pferdeprofil konnte nicht gel?scht werden.");
   }
 
   revalidatePath("/owner/horses");
   revalidatePath("/owner/pferde-verwalten");
+  revalidatePath("/owner/reitbeteiligungen");
   revalidatePath("/dashboard");
   revalidatePath("/suchen");
   revalidatePath("/owner/anfragen");
   revalidatePath("/anfragen");
-  revalidatePath(`/pferde/${horseId}`);
-  redirectWithMessage(redirectPath, "message", "Das Pferdeprofil wurde gelöscht.");
+  revalidatePath("/pferde/" + horseId);
+  redirectWithMessage(redirectPath, "message", "Das Pferdeprofil wurde gel?scht.");
 }
 
 export async function saveRiderProfileAction(formData: FormData) {
