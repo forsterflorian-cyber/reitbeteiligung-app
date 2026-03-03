@@ -360,7 +360,7 @@ export default async function AnfragenPage({
                             )}
                             type="submit"
                           >
-                            Anfrage zur\u00fcckziehen
+                            {"Anfrage zur?ckziehen"}
                           </button>
                         </form>
                       ) : null}
