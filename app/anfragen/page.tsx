@@ -2,6 +2,7 @@ import type { Route } from "next";
 import Link from "next/link";
 
 import { Notice } from "@/components/notice";
+import { AppPageShell } from "@/components/ui/app-page-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -139,9 +140,11 @@ export default async function AnfragenPage({
   }));
 
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <AppPageShell>
       <PageHeader
+        backdropVariant="hero"
         subtitle="Hier siehst du deine Probetermine, Freischaltungen und konkrete Terminanfragen."
+        surface
         title="Meine Anfragen"
       />
       <Notice text={error} tone="error" />
@@ -253,6 +256,6 @@ export default async function AnfragenPage({
           </div>
         )}
       </SectionCard>
-    </div>
+    </AppPageShell>
   );
 }

@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { acceptBookingRequestAction, declineBookingRequestAction, updateApprovalAction, updateTrialRequestStatusAction } from "@/app/actions";
 import { Notice } from "@/components/notice";
+import { AppPageShell } from "@/components/ui/app-page-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -147,9 +148,11 @@ export default async function OwnerAnfragenPage({
   }));
 
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <AppPageShell>
       <PageHeader
+        backdropVariant="hero"
         subtitle="Bearbeite Probetermine, Freischaltungen und konkrete Terminanfragen deiner Reiter."
+        surface
         title="Anfragen verwalten"
       />
       <Notice text={error} tone="error" />
@@ -318,6 +321,6 @@ export default async function OwnerAnfragenPage({
           </div>
         )}
       </SectionCard>
-    </div>
+    </AppPageShell>
   );
 }

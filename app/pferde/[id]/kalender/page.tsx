@@ -363,7 +363,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           <div className="flex flex-col gap-3 lg:items-end">
             <div className="ui-kpi-row">
               <Badge tone={horse.active ? "approved" : "neutral"}>{horse.active ? "Aktiv" : "Inaktiv"}</Badge>
-              <Badge tone={ownerPlan.key === "premium" ? "approved" : "neutral"}>{ownerPlan.key === "premium" ? "Premium" : "Kostenlos inklusive"}</Badge>
+              <Badge tone={ownerPlan.key === "paid" ? "approved" : ownerPlan.key === "trial" ? "pending" : "neutral"}>{ownerPlan.label}</Badge>
             </div>
             <Link className={buttonVariants("secondary", "w-full lg:w-auto")} href={detailHref}>
               Pferdeprofil öffnen

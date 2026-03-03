@@ -5,6 +5,7 @@ import { EntityCard } from "@/components/blocks/entity-card";
 import { RequestCard } from "@/components/blocks/request-card";
 import { StatGrid, type StatItem } from "@/components/blocks/stat-grid";
 import { Notice } from "@/components/notice";
+import { AppPageShell } from "@/components/ui/app-page-shell";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -128,9 +129,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         value: ownerPlan.label,
         valueClassName: "text-xl",
         helper:
-          ownerPlan.key === "premium"
+          ownerPlan.key === "paid"
             ? ownerPlan.summary
-            : `${ownerPlan.summary} ${approvedApprovals.length} von 1 Reitbeteiligung aktuell genutzt.`
+            : `${ownerPlan.summary} ${approvedApprovals.length} von ${ownerPlan.maxApprovedRiders} Reitbeteiligungen aktuell genutzt.`
       }
     ];
 
@@ -165,7 +166,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     ].sort((left, right) => right.sortValue - left.sortValue);
 
     return (
-      <div className="space-y-6 sm:space-y-8">
+      <AppPageShell>
         <PageHeader
           actions={
             <>
@@ -180,7 +181,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </Link>
             </>
           }
+          backdropVariant="hero"
           subtitle={`Hallo ${displayName}. Hier siehst du, was heute Aufmerksamkeit braucht.`}
+          surface
           title="Übersicht"
         />
         <Notice text={message} tone="success" />
@@ -254,7 +257,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
           </SectionCard>
         </div>
-      </div>
+      </AppPageShell>
     );
   }
 
@@ -308,7 +311,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   ];
 
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <AppPageShell>
       <PageHeader
         actions={
           <>
@@ -323,7 +326,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </Link>
           </>
         }
+        backdropVariant="hero"
         subtitle={`Hallo ${displayName}. Hier siehst du deinen Profilstatus und die nächsten Probetermine auf einen Blick.`}
+        surface
         title="Übersicht"
       />
       <Notice text={message} tone="success" />
@@ -379,6 +384,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         </SectionCard>
       ) : null}
-    </div>
+    </AppPageShell>
   );
 }

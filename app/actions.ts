@@ -21,7 +21,7 @@ import {
   isMutableTrialRequestStatus
 } from "@/lib/statuses";
 import { createClient } from "@/lib/supabase/server";
-import { canApproveRider, canCreateHorseProfile, getOwnerPlanUsage } from "@/lib/plans";
+import { canApproveRider, canCreateHorseProfile, getOwnerPlan, getOwnerPlanUsage } from "@/lib/plans";
 import { isTrialRuleBlocked } from "@/lib/trial-slots";
 import type { Approval, AvailabilityRule, Booking, BookingRequest, CalendarBlock, Horse, HorseImage, TrialRequest } from "@/types/database";
 
@@ -854,10 +854,14 @@ export async function updateApprovalAction(formData: FormData) {
     const ownerUsage = await getOwnerPlanUsage(record.supabase, user.id);
 
     if (!canApproveRider(profile, ownerUsage, currentApproval?.status ?? null)) {
+      const ownerPlan = getOwnerPlan(profile, ownerUsage);
+      const riderLimit = ownerPlan.maxApprovedRiders ?? 0;
+      const riderLabel = riderLimit === 1 ? "1 Reitbeteiligung" : `${riderLimit} Reitbeteiligungen`;
+
       redirectWithMessage(
         "/owner/anfragen",
         "error",
-        "Im kostenlosen Tarif ist 1 Reitbeteiligung enthalten. Für weitere Freischaltungen brauchst du später Premium."
+        `Im Tarif ${ownerPlan.label} sind ${riderLabel} enthalten. Für weitere Freischaltungen brauchst du später den bezahlten Tarif.`
       );
     }
   }
@@ -1012,10 +1016,14 @@ export async function saveHorseAction(formData: FormData) {
     const ownerUsage = await getOwnerPlanUsage(supabase, user.id);
 
     if (!canCreateHorseProfile(profile, ownerUsage)) {
+      const ownerPlan = getOwnerPlan(profile, ownerUsage);
+      const horseLimit = ownerPlan.maxHorses ?? 0;
+      const horseLabel = horseLimit === 1 ? "1 Pferd" : `${horseLimit} Pferde`;
+
       redirectWithMessage(
         redirectPath,
         "error",
-        "Im kostenlosen Tarif ist 1 Pferd enthalten. Für weitere Pferde brauchst du später Premium."
+        `Im Tarif ${ownerPlan.label} sind ${horseLabel} enthalten. Für weitere Pferde brauchst du später den bezahlten Tarif.`
       );
     }
 
