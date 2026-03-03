@@ -21,6 +21,7 @@ Stand: 2026-03-03
 - Direkte Kalenderauswahl im Raster fuer Tagesfenster plus Fokus-Spruenge in die Direktbearbeitung
 - Bestehende Zeitfenster und Sperren lassen sich direkt aus dem Raster im Tageseditor fokussieren und anpassen
 - Markierte Balken lassen sich direkt im Planer stundenweise verl?ngern oder verk?rzen
+- Pferdehalter koennen pro freigeschalteter Reitbeteiligung ein Wochenkontingent hinterlegen
 - FCFS-Probetermin-Slots auf Basis freier Verfuegbarkeiten
 - Gemeinsamer UI-Layer mit mobile-first Layout
 - Owner-Tarifstatus mit sichtbaren Start-Trial- und Upgrade-CTAs

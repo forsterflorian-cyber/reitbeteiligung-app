@@ -1,7 +1,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 
-import { acceptBookingRequestAction, declineBookingRequestAction, updateApprovalAction, updateTrialRequestStatusAction } from "@/app/actions";
+import { acceptBookingRequestAction, declineBookingRequestAction, saveRiderBookingLimitAction, updateApprovalAction, updateTrialRequestStatusAction } from "@/app/actions";
 import { Notice } from "@/components/notice";
 import { AppPageShell } from "@/components/ui/app-page-shell";
 import { StatusBadge } from "@/components/status-badge";
@@ -12,8 +12,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { requireProfile } from "@/lib/auth";
+import { formatWeeklyHoursLimit } from "@/lib/booking-limits";
 import { readSearchParam } from "@/lib/search-params";
-import type { Approval, BookingRequest, Conversation, Horse, Message, TrialRequest } from "@/types/database";
+import type { Approval, BookingRequest, Conversation, Horse, Message, RiderBookingLimit, TrialRequest } from "@/types/database";
 
 type OwnerRequestItem = TrialRequest & {
   horse?: Horse | null;
@@ -77,9 +78,10 @@ export default async function OwnerAnfragenPage({
   let approvals: Approval[] = [];
   let conversationsArray: Conversation[] = [];
   let bookingRequests: BookingRequest[] = [];
+  let riderBookingLimits: RiderBookingLimit[] = [];
 
   if (horseIds.length > 0) {
-    const [{ data: requestsData }, { data: approvalsData }, { data: conversationsData }, { data: bookingRequestsData }] = await Promise.all([
+    const [{ data: requestsData }, { data: approvalsData }, { data: conversationsData }, { data: bookingRequestsData }, { data: riderBookingLimitsData }] = await Promise.all([
       supabase
         .from("trial_requests")
         .select("id, horse_id, rider_id, status, message, availability_rule_id, requested_start_at, requested_end_at, created_at")
@@ -97,13 +99,18 @@ export default async function OwnerAnfragenPage({
         .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, recurrence_rrule, created_at")
         .in("horse_id", horseIds)
         .order("created_at", { ascending: false })
-        .limit(20)
+        .limit(20),
+      supabase
+        .from("rider_booking_limits")
+        .select("horse_id, rider_id, weekly_hours_limit, created_at, updated_at")
+        .in("horse_id", horseIds)
     ]);
 
     requests = (requestsData as TrialRequest[] | null) ?? [];
     approvals = (approvalsData as Approval[] | null) ?? [];
     conversationsArray = (conversationsData as Conversation[] | null) ?? [];
     bookingRequests = (bookingRequestsData as BookingRequest[] | null) ?? [];
+    riderBookingLimits = (riderBookingLimitsData as RiderBookingLimit[] | null) ?? [];
   }
 
   const conversationIds = conversationsArray.map((conversation) => conversation.id);
@@ -129,6 +136,7 @@ export default async function OwnerAnfragenPage({
   const horseMap = new Map(horses.map((horse) => [horse.id, horse]));
   const approvalMap = new Map(approvals.map((approval) => [`${approval.horse_id}:${approval.rider_id}`, approval]));
   const conversationMap = new Map(conversationsArray.map((conversation) => [`${conversation.horse_id}:${conversation.rider_id}`, conversation]));
+  const riderBookingLimitMap = new Map(riderBookingLimits.map((limit) => [`${limit.horse_id}:${limit.rider_id}`, limit]));
   const conversationInfo = new Map(contactInfoEntries);
   const latestMessages = new Map<string, Message>();
 
@@ -174,6 +182,7 @@ export default async function OwnerAnfragenPage({
               const contact = conversation ? conversationInfo.get(conversation.id) ?? null : null;
               const riderName = contact?.partner_name?.trim() || "Reiter";
               const hasUnread = hasUnreadMessage(conversation, conversation ? latestMessages.get(conversation.id) ?? null : null, user.id);
+              const riderBookingLimit = riderBookingLimitMap.get(`${request.horse_id}:${request.rider_id}`) ?? null;
 
               return (
                 <Card className="p-5" key={request.id}>
@@ -194,6 +203,44 @@ export default async function OwnerAnfragenPage({
                     </div>
                     {approval?.status === "approved" && conversation ? (
                       <Notice text="Kontaktdaten sind jetzt im Chat sichtbar." tone="success" />
+                    ) : null}
+                    {approval?.status === "approved" ? (
+                      <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-4">
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <p className="text-sm font-semibold text-stone-900">Wochenkontingent</p>
+                            <p className="text-sm text-stone-600">
+                              Lege fest, wie viele Stunden diese Reitbeteiligung pro Woche selbstst?ndig buchen darf.
+                            </p>
+                          </div>
+                          <form action={saveRiderBookingLimitAction} className="space-y-3">
+                            <input name="horseId" type="hidden" value={request.horse_id} />
+                            <input name="riderId" type="hidden" value={request.rider_id} />
+                            <div>
+                              <label htmlFor={`weeklyHoursLimit-${request.id}`}>Stunden pro Woche</label>
+                              <input
+                                defaultValue={riderBookingLimit?.weekly_hours_limit ?? ""}
+                                id={`weeklyHoursLimit-${request.id}`}
+                                max={40}
+                                min={1}
+                                name="weeklyHoursLimit"
+                                placeholder="z. B. 4"
+                                type="number"
+                              />
+                            </div>
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <p className="text-xs text-stone-500">
+                                {riderBookingLimit
+                                  ? `Aktuell: ${formatWeeklyHoursLimit(riderBookingLimit.weekly_hours_limit)}`
+                                  : "Aktuell ist kein festes Wochenkontingent hinterlegt."}
+                              </p>
+                              <Button className="w-full sm:w-auto" type="submit" variant="secondary">
+                                Kontingent speichern
+                              </Button>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
                     ) : null}
                     <div className="space-y-2">
                       {request.status === "requested" ? (
@@ -270,6 +317,7 @@ export default async function OwnerAnfragenPage({
               const contact = conversation ? conversationInfo.get(conversation.id) ?? null : null;
               const riderName = contact?.partner_name?.trim() || "Reiter";
               const hasUnread = hasUnreadMessage(conversation, conversation ? latestMessages.get(conversation.id) ?? null : null, user.id);
+              const riderBookingLimit = riderBookingLimitMap.get(`${request.horse_id}:${request.rider_id}`) ?? null;
 
               return (
                 <Card className="p-5" key={request.id}>
@@ -283,6 +331,7 @@ export default async function OwnerAnfragenPage({
                     {request.recurrence_rrule ? <p className="text-sm text-stone-600">Wiederholung: {request.recurrence_rrule}</p> : null}
                     <div className="flex flex-wrap gap-2">
                       <StatusBadge status={request.status} />
+                      {riderBookingLimit ? <Badge tone="neutral">{formatWeeklyHoursLimit(riderBookingLimit.weekly_hours_limit)}</Badge> : null}
                       {hasUnread ? <Badge tone="info">Neue Nachricht</Badge> : null}
                     </div>
                     {request.status === "requested" ? (

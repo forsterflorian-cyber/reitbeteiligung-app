@@ -120,6 +120,14 @@ export type CalendarBlock = {
   created_at: string;
 };
 
+export type RiderBookingLimit = {
+  horse_id: string;
+  rider_id: string;
+  weekly_hours_limit: number;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Booking = {
   id: string;
   booking_request_id: string;

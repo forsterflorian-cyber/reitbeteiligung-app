@@ -31,10 +31,11 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { isApproved } from "@/lib/approvals";
 import { getViewerContext } from "@/lib/auth";
+import { formatWeeklyHoursLimit } from "@/lib/booking-limits";
 import { HORSE_SELECT_FIELDS } from "@/lib/horses";
 import { getOwnerPlan, getOwnerPlanUsage } from "@/lib/plans";
 import { readSearchParam } from "@/lib/search-params";
-import type { AvailabilityRule, BookingRequest, CalendarBlock, Horse, Profile } from "@/types/database";
+import type { AvailabilityRule, BookingRequest, CalendarBlock, Horse, Profile, RiderBookingLimit } from "@/types/database";
 
 type PferdKalenderPageProps = {
   params: { id: string };
@@ -305,6 +306,15 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const ownerPlanUsage = isOwner && user ? await getOwnerPlanUsage(supabase, user.id) : { approvedRiderCount: 0, horseCount: 1 };
   const ownerPlan = getOwnerPlan(ownerProfile, ownerPlanUsage);
   const riderApproved = isRider && user ? await isApproved(horse.id, user.id, supabase) : false;
+  const { data: riderBookingLimitData } = isRider && riderApproved && user
+    ? await supabase
+        .from("rider_booking_limits")
+        .select("horse_id, rider_id, weekly_hours_limit, created_at, updated_at")
+        .eq("horse_id", horse.id)
+        .eq("rider_id", user.id)
+        .maybeSingle()
+    : { data: null };
+  const riderBookingLimit = (riderBookingLimitData as RiderBookingLimit | null) ?? null;
 
   const [occupancyResult, rulesResult, ownerBlocksResult, ownerBookingRequestsResult, riderBookingRequestsResult] = await Promise.all([
     supabase.rpc("get_horse_calendar_occupancy", {
@@ -999,7 +1009,14 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           >
             {riderApproved ? (
               rules.length > 0 ? (
-                <form action={requestBookingAction} className="space-y-4">
+                <>
+                  {riderBookingLimit ? (
+                    <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-4">
+                      <p className="text-sm font-semibold text-stone-900">Dein Wochenkontingent f?r dieses Pferd</p>
+                      <p className="mt-1 text-sm text-stone-600">{formatWeeklyHoursLimit(riderBookingLimit.weekly_hours_limit)}</p>
+                    </div>
+                  ) : null}
+                  <form action={requestBookingAction} className="space-y-4">
                   <input name="horseId" type="hidden" value={horse.id} />
                   <div>
                     <label htmlFor="ruleId">Verfügbarkeitsfenster</label>
@@ -1028,7 +1045,8 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                     <p className="mt-2 text-sm text-stone-600">Beispiel: jede Woche für sechs Termine.</p>
                   </div>
                   <SubmitButton idleLabel="Termin anfragen" pendingLabel="Wird gesendet..." />
-                </form>
+                  </form>
+                </>
               ) : (
                 <EmptyState description="Aktuell gibt es keine offenen Verfügbarkeitsfenster für dieses Pferd." title="Kein Zeitfenster verfügbar" />
               )

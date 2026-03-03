@@ -21,9 +21,10 @@ import {
   isMutableTrialRequestStatus
 } from "@/lib/statuses";
 import { createClient } from "@/lib/supabase/server";
+import { MAX_WEEKLY_HOURS_LIMIT, MIN_WEEKLY_HOURS_LIMIT } from "@/lib/booking-limits";
 import { canApproveRider, canCreateHorseProfile, getOwnerPlan, getOwnerPlanUsage } from "@/lib/plans";
 import { isTrialRuleBlocked } from "@/lib/trial-slots";
-import type { Approval, AvailabilityRule, Booking, BookingRequest, CalendarBlock, Horse, HorseImage, TrialRequest } from "@/types/database";
+import type { Approval, AvailabilityRule, Booking, BookingRequest, CalendarBlock, Horse, HorseImage, RiderBookingLimit, TrialRequest } from "@/types/database";
 
 const PASSWORD_RESET_REDIRECT_URL = "https://reitbeteiligung.app/passwort-zuruecksetzen";
 const RECURRENCE_HORIZON_WEEKS = 12;
@@ -52,6 +53,7 @@ type CalendarBlockRecord = Pick<CalendarBlock, "id" | "horse_id" | "start_at" | 
 type AvailabilityRuleRecord = Pick<AvailabilityRule, "id" | "horse_id" | "slot_id" | "start_at" | "end_at" | "active" | "created_at">;
 type BookingRequestRecord = Pick<BookingRequest, "id" | "slot_id" | "availability_rule_id" | "horse_id" | "rider_id" | "status" | "requested_start_at" | "requested_end_at" | "recurrence_rrule" | "created_at">;
 type ApprovalRecord = Pick<Approval, "horse_id" | "rider_id" | "status">;
+type RiderBookingLimitRecord = Pick<RiderBookingLimit, "horse_id" | "rider_id" | "weekly_hours_limit" | "created_at" | "updated_at">;
 type BookingRecord = Pick<Booking, "id" | "start_at" | "end_at">;
 type TimeRangeRecord = Pick<CalendarBlock, "start_at" | "end_at">;
 type ParsedRecurrenceRule = {
@@ -928,6 +930,87 @@ export async function updateApprovalAction(formData: FormData) {
   revalidatePath(`/pferde/${record.request.horse_id}`);
   const successMessage = nextStatus === APPROVAL_STATUS.approved ? "Die Reitbeteiligung wurde freigeschaltet." : "Die Freischaltung wurde entzogen.";
   redirectWithMessage("/owner/anfragen", "message", successMessage);
+}
+
+export async function saveRiderBookingLimitAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const horseId = asString(formData.get("horseId"));
+  const riderId = asString(formData.get("riderId"));
+  const weeklyHoursLimitInput = asString(formData.get("weeklyHoursLimit"));
+  const weeklyHoursLimit = asInteger(formData.get("weeklyHoursLimit"));
+
+  if (!horseId || !riderId) {
+    redirectWithMessage("/owner/anfragen", "error", "Das Kontingent konnte nicht zugeordnet werden.");
+  }
+
+  const horse = await getOwnedHorse(supabase, horseId, user.id);
+
+  if (!horse) {
+    redirectWithMessage("/owner/anfragen", "error", "Du kannst nur eigene Reitbeteiligungen verwalten.");
+  }
+
+  const { data: approvalData } = await supabase
+    .from("approvals")
+    .select("horse_id, rider_id, status")
+    .eq("horse_id", horseId)
+    .eq("rider_id", riderId)
+    .maybeSingle();
+
+  const approval = (approvalData as ApprovalRecord | null) ?? null;
+
+  if (approval?.status !== APPROVAL_STATUS.approved) {
+    redirectWithMessage("/owner/anfragen", "error", "Ein Kontingent kannst du erst nach der Freischaltung hinterlegen.");
+  }
+
+  if (!weeklyHoursLimitInput) {
+    const { error } = await supabase
+      .from("rider_booking_limits")
+      .delete()
+      .eq("horse_id", horseId)
+      .eq("rider_id", riderId);
+
+    if (error) {
+      logSupabaseError("Rider booking limit delete failed", error);
+      redirectWithMessage("/owner/anfragen", "error", "Das Kontingent konnte nicht entfernt werden.");
+    }
+
+    revalidatePath("/owner/anfragen");
+    revalidatePath("/anfragen");
+    revalidatePath(`/pferde/${horseId}`);
+    revalidatePath(`/pferde/${horseId}/kalender`);
+    redirectWithMessage("/owner/anfragen", "message", "Das Wochenkontingent wurde entfernt.");
+  }
+
+  if (weeklyHoursLimit === null || weeklyHoursLimit < MIN_WEEKLY_HOURS_LIMIT || weeklyHoursLimit > MAX_WEEKLY_HOURS_LIMIT) {
+    redirectWithMessage(
+      "/owner/anfragen",
+      "error",
+      `Bitte gib ein Wochenkontingent zwischen ${MIN_WEEKLY_HOURS_LIMIT} und ${MAX_WEEKLY_HOURS_LIMIT} Stunden an.`
+    );
+  }
+
+  const { error } = await supabase.from("rider_booking_limits").upsert(
+    {
+      horse_id: horseId,
+      rider_id: riderId,
+      updated_at: new Date().toISOString(),
+      weekly_hours_limit: weeklyHoursLimit
+    },
+    {
+      onConflict: "horse_id,rider_id"
+    }
+  );
+
+  if (error) {
+    logSupabaseError("Rider booking limit upsert failed", error);
+    redirectWithMessage("/owner/anfragen", "error", "Das Wochenkontingent konnte nicht gespeichert werden.");
+  }
+
+  revalidatePath("/owner/anfragen");
+  revalidatePath("/anfragen");
+  revalidatePath(`/pferde/${horseId}`);
+  revalidatePath(`/pferde/${horseId}/kalender`);
+  redirectWithMessage("/owner/anfragen", "message", "Das Wochenkontingent wurde gespeichert.");
 }
 
 export async function logoutAction() {

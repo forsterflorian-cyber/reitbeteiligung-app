@@ -11,8 +11,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { buttonVariants } from "@/components/ui/button";
 import { requireProfile } from "@/lib/auth";
+import { formatWeeklyHoursLimit } from "@/lib/booking-limits";
 import { readSearchParam } from "@/lib/search-params";
-import type { Approval, BookingRequest, Conversation, Horse, Message, TrialRequest } from "@/types/database";
+import type { Approval, BookingRequest, Conversation, Horse, Message, RiderBookingLimit, TrialRequest } from "@/types/database";
 
 type TrialRequestListItem = TrialRequest & {
   horse?: Horse | null;
@@ -81,7 +82,7 @@ export default async function AnfragenPage({
   const requests = (trialData as TrialRequest[] | null) ?? [];
   const bookingRequests = (bookingData as BookingRequest[] | null) ?? [];
   const horseIds = [...new Set([...requests.map((request) => request.horse_id), ...bookingRequests.map((request) => request.horse_id)])];
-  const [{ data: horsesData }, { data: approvalsData }, { data: conversationsData }] = await Promise.all([
+  const [{ data: horsesData }, { data: approvalsData }, { data: conversationsData }, { data: riderBookingLimitsData }] = await Promise.all([
     horseIds.length > 0
       ? supabase.from("horses").select("id, owner_id, title, plz, description, active, created_at").in("id", horseIds)
       : Promise.resolve({ data: [] as Horse[] }),
@@ -94,7 +95,14 @@ export default async function AnfragenPage({
           .select("id, horse_id, rider_id, owner_id, owner_last_read_at, rider_last_read_at, created_at")
           .eq("rider_id", user.id)
           .in("horse_id", horseIds)
-      : Promise.resolve({ data: [] as Conversation[] })
+      : Promise.resolve({ data: [] as Conversation[] }),
+    horseIds.length > 0
+      ? supabase
+          .from("rider_booking_limits")
+          .select("horse_id, rider_id, weekly_hours_limit, created_at, updated_at")
+          .eq("rider_id", user.id)
+          .in("horse_id", horseIds)
+      : Promise.resolve({ data: [] as RiderBookingLimit[] })
   ]);
 
   const conversationsArray = (conversationsData as Conversation[] | null) ?? [];
@@ -121,6 +129,7 @@ export default async function AnfragenPage({
   const horses = new Map(((horsesData as Horse[] | null) ?? []).map((horse) => [horse.id, horse]));
   const approvals = new Map((((approvalsData as Approval[] | null) ?? []).map((approval) => [`${approval.horse_id}:${approval.rider_id}`, approval])));
   const conversations = new Map(conversationsArray.map((conversation) => [`${conversation.horse_id}:${conversation.rider_id}`, conversation]));
+  const riderBookingLimits = new Map((((riderBookingLimitsData as RiderBookingLimit[] | null) ?? []).map((limit) => [`${limit.horse_id}:${limit.rider_id}`, limit])));
   const conversationInfo = new Map(contactInfoEntries);
   const latestMessages = new Map<string, Message>();
 
@@ -167,6 +176,7 @@ export default async function AnfragenPage({
               const contact = conversation ? conversationInfo.get(conversation.id) ?? null : null;
               const hasUnread = hasUnreadMessage(conversation, conversation ? latestMessages.get(conversation.id) ?? null : null, user.id);
               const ownerName = contact?.partner_name?.trim() || "Pferdehalter";
+              const riderBookingLimit = riderBookingLimits.get(`${request.horse_id}:${request.rider_id}`) ?? null;
 
               return (
                 <Card className="p-5" key={request.id}>
@@ -187,6 +197,11 @@ export default async function AnfragenPage({
                     </div>
                     {approval?.status === "approved" && conversation ? (
                       <Notice text="Kontaktdaten sind jetzt im Chat sichtbar." tone="success" />
+                    ) : null}
+                    {approval?.status === "approved" && riderBookingLimit ? (
+                      <p className="text-sm text-stone-600">
+                        Dein Wochenkontingent: <span className="font-semibold text-stone-900">{formatWeeklyHoursLimit(riderBookingLimit.weekly_hours_limit)}</span>
+                      </p>
                     ) : null}
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
                       <Link className={inlineLinkClassName} href={`/pferde/${request.horse_id}` as Route}>
@@ -221,6 +236,7 @@ export default async function AnfragenPage({
               const contact = conversation ? conversationInfo.get(conversation.id) ?? null : null;
               const hasUnread = hasUnreadMessage(conversation, conversation ? latestMessages.get(conversation.id) ?? null : null, user.id);
               const ownerName = contact?.partner_name?.trim() || "Pferdehalter";
+              const riderBookingLimit = riderBookingLimits.get(`${request.horse_id}:${request.rider_id}`) ?? null;
 
               return (
                 <Card className="p-5" key={request.id}>
@@ -234,6 +250,7 @@ export default async function AnfragenPage({
                     {request.recurrence_rrule ? <p className="text-sm text-stone-600">Wiederholung: {request.recurrence_rrule}</p> : null}
                     <div className="flex flex-wrap gap-2">
                       <StatusBadge status={request.status} />
+                      {riderBookingLimit ? <Badge tone="neutral">{formatWeeklyHoursLimit(riderBookingLimit.weekly_hours_limit)}</Badge> : null}
                       {hasUnread ? <Badge tone="info">Neue Nachricht</Badge> : null}
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
