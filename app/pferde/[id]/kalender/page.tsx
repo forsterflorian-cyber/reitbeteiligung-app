@@ -403,6 +403,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const ownerPlanUsage = isOwner && user ? await getOwnerPlanUsage(supabase, user.id) : { approvedRiderCount: 0, horseCount: 1 };
   const ownerPlan = getOwnerPlan(ownerProfile, ownerPlanUsage);
   const riderApproved = isRider && user ? await isApproved(horse.id, user.id, supabase) : false;
+  const canUseCalendar = isOwner || riderApproved;
   const { data: riderBookingLimitData } = isRider && riderApproved && user
     ? await supabase
         .from("rider_booking_limits")
@@ -617,6 +618,47 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
       })
     }))
   }));
+
+  const restrictedCalendarTitle = profile?.role === "rider" ? "Kalender erst nach Freischaltung" : profile ? "Kalender aktuell nicht verf\u00fcgbar" : "Kalender nutzen";
+  const restrictedCalendarSubtitle =
+    profile?.role === "rider"
+      ? "Das Tagesgesch\u00e4ft im Kalender startet erst, wenn du f\u00fcr dieses Pferd als Reitbeteiligung freigeschaltet bist."
+      : profile
+        ? "F\u00fcr dieses Pferd ist der operative Kalender nur f\u00fcr den Pferdehalter und aktive Reitbeteiligungen sichtbar."
+        : "Melde dich an, um Verf\u00fcgbarkeiten, Anfragen und deinen eigenen Status zu sehen.";
+
+  if (!canUseCalendar) {
+    return (
+      <div className="space-y-6 sm:space-y-8">
+        <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={detailHref}>
+          {"Zur\u00fcck zum Pferdeprofil"}
+        </Link>
+
+        <PageHeader
+          subtitle={"Kalender, Verf\u00fcgbarkeiten und Terminanfragen auf einen Blick."}
+          title={`Kalender f\u00fcr ${horse.title}`}
+        />
+
+        <div className="space-y-3" id="kalender-feedback">
+          <Notice text={error} tone="error" />
+          <Notice text={message} tone="success" />
+          {occupancyError ? <Notice text="Der Kalender konnte nicht geladen werden." tone="error" /> : null}
+        </div>
+
+        <SectionCard subtitle={restrictedCalendarSubtitle} title={restrictedCalendarTitle}>
+          {profile ? (
+            <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href={detailHref}>
+              {"Zur\u00fcck zum Pferdeprofil"}
+            </Link>
+          ) : (
+            <Link className={buttonVariants("primary", "w-full sm:w-auto")} href="/login">
+              Anmelden, um den Kalender zu nutzen
+            </Link>
+          )}
+        </SectionCard>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 sm:space-y-8">
