@@ -147,17 +147,36 @@ export default async function AnfragenPage({
     ...request,
     horse: horses.get(request.horse_id) ?? null
   }));
+  const approvedCount = Array.from(approvals.values()).filter((approval) => approval.status === "approved").length;
 
   return (
     <AppPageShell>
       <PageHeader
         backdropVariant="hero"
+        eyebrow="Reiter"
         subtitle="Hier siehst du deine Probetermine, Freischaltungen und konkrete Terminanfragen."
         surface
         title="Meine Anfragen"
       />
       <Notice text={error} tone="error" />
       <Notice text={message} tone="success" />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card className="p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Probetermine</p>
+          <p className="mt-2 text-2xl font-semibold text-stone-900">{items.length}</p>
+          <p className="mt-1 text-sm text-stone-600">Alle aktiven und vergangenen Probetermine.</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Freigeschaltet</p>
+          <p className="mt-2 text-2xl font-semibold text-stone-900">{approvedCount}</p>
+          <p className="mt-1 text-sm text-stone-600">Diese Reitbeteiligungen sind bereits freigegeben.</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Terminanfragen</p>
+          <p className="mt-2 text-2xl font-semibold text-stone-900">{bookingItems.length}</p>
+          <p className="mt-1 text-sm text-stone-600">Konkrete Buchungen innerhalb freier Zeitfenster.</p>
+        </Card>
+      </div>
       <SectionCard
         subtitle="Hier siehst du den Status deiner Probetermin-Anfragen und ob du bereits freigeschaltet wurdest."
         title="Meine Probetermine"

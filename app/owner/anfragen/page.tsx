@@ -155,17 +155,37 @@ export default async function OwnerAnfragenPage({
     ...request,
     horse: horseMap.get(request.horse_id) ?? null
   }));
+  const openTrialCount = items.filter((request) => request.status === "requested").length;
+  const approvedCount = approvals.filter((approval) => approval.status === "approved").length;
 
   return (
     <AppPageShell>
       <PageHeader
         backdropVariant="hero"
+        eyebrow="Pferdehalter"
         subtitle="Bearbeite Probetermine, Freischaltungen und konkrete Terminanfragen deiner Reiter."
         surface
         title="Anfragen verwalten"
       />
       <Notice text={error} tone="error" />
       <Notice text={message} tone="success" />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card className="p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Offene Probetermine</p>
+          <p className="mt-2 text-2xl font-semibold text-stone-900">{openTrialCount}</p>
+          <p className="mt-1 text-sm text-stone-600">Diese Anfragen warten noch auf deine Antwort.</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Freigeschaltet</p>
+          <p className="mt-2 text-2xl font-semibold text-stone-900">{approvedCount}</p>
+          <p className="mt-1 text-sm text-stone-600">Aktive Reitbeteiligungen in deinen Pferdeprofilen.</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Buchungsanfragen</p>
+          <p className="mt-2 text-2xl font-semibold text-stone-900">{bookingItems.length}</p>
+          <p className="mt-1 text-sm text-stone-600">Konkrete Termine innerhalb deiner Verfügbarkeiten.</p>
+        </Card>
+      </div>
       <SectionCard
         subtitle="Nimm Probetermine an, lehne sie ab oder schalte eine Reitbeteiligung nach dem Termin frei."
         title="Probetermine"

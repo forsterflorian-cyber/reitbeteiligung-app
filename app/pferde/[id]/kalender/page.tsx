@@ -10,6 +10,8 @@ import {
   declineBookingRequestAction,
   deleteAvailabilityRuleAction,
   deleteCalendarBlockAction,
+  moveAvailabilityRuleAction,
+  moveCalendarBlockAction,
   requestBookingAction,
   resizeAvailabilityRuleAction,
   resizeCalendarBlockAction,
@@ -793,17 +795,29 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                                     segmentEndHour - segmentStartHour <= 1;
                                   const isFocusedAvailability = lane.key === "available" && Boolean(segment.entityId) && segment.entityId === focusRuleId;
                                   const isFocusedBlock = lane.key === "occupied" && Boolean(segment.entityId) && segment.entityId === focusBlockId;
+                                  const moveAction = isFocusedAvailability
+                                    ? moveAvailabilityRuleAction
+                                    : isFocusedBlock
+                                      ? moveCalendarBlockAction
+                                      : null;
                                   const resizeAction = isFocusedAvailability
                                     ? resizeAvailabilityRuleAction
                                     : isFocusedBlock
                                       ? resizeCalendarBlockAction
                                       : null;
-                                  const resizeFieldName = isFocusedAvailability ? "ruleId" : isFocusedBlock ? "blockId" : null;
-                                  const resizeTargetId = resizeFieldName ? segment.entityId ?? null : null;
+                                  const targetFieldName = isFocusedAvailability ? "ruleId" : isFocusedBlock ? "blockId" : null;
+                                  const targetId = targetFieldName ? segment.entityId ?? null : null;
+                                  const resolvedMoveAction = moveAction ?? moveAvailabilityRuleAction;
                                   const resolvedResizeAction = resizeAction ?? resizeAvailabilityRuleAction;
-                                  const resolvedResizeFieldName = resizeFieldName ?? "ruleId";
-                                  const resolvedResizeTargetId = resizeTargetId ?? "";
-                                  const resizeControls = resizeAction && resizeFieldName && resizeTargetId
+                                  const resolvedTargetFieldName = targetFieldName ?? "ruleId";
+                                  const resolvedTargetId = targetId ?? "";
+                                  const moveControls = moveAction && targetFieldName && targetId
+                                    ? [
+                                        { direction: "earlier", disabled: !(typeof segmentStartHour === "number" && segmentStartHour > CALENDAR_TIMELINE_START_HOUR), label: "V-", title: "Eine Stunde früher verschieben" },
+                                        { direction: "later", disabled: !(typeof segmentEndHour === "number" && segmentEndHour < CALENDAR_TIMELINE_END_HOUR), label: "V+", title: "Eine Stunde später verschieben" }
+                                      ]
+                                    : [];
+                                  const resizeControls = resizeAction && targetFieldName && targetId
                                     ? [
                                         { direction: "start-earlier", disabled: !(typeof segmentStartHour === "number" && segmentStartHour > CALENDAR_TIMELINE_START_HOUR), label: "S-", title: "Beginn eine Stunde fr\u00fcher" },
                                         { direction: "start-later", disabled: minDurationReached, label: "S+", title: "Beginn eine Stunde sp\u00e4ter" },
@@ -811,8 +825,8 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                                         { direction: "end-later", disabled: !(typeof segmentEndHour === "number" && segmentEndHour < CALENDAR_TIMELINE_END_HOUR), label: "E+", title: "Ende eine Stunde sp\u00e4ter" }
                                       ]
                                     : [];
-                                  const segmentClassName = `absolute top-1/2 z-20 h-11 -translate-y-1/2 overflow-visible rounded-xl border text-xs font-semibold shadow-sm ${timelineToneClassName(segment.tone)} ${resizeControls.length > 0 ? "ring-2 ring-forest/20" : ""}`;
-                                  const segmentContentClassName = `flex h-full w-full items-center ${resizeControls.length > 0 ? "px-2" : "px-3"}`;
+                                  const segmentClassName = `absolute top-1/2 z-20 h-11 -translate-y-1/2 overflow-visible rounded-xl border text-xs font-semibold shadow-sm ${timelineToneClassName(segment.tone)} ${moveControls.length > 0 || resizeControls.length > 0 ? "ring-2 ring-forest/20" : ""}`;
+                                  const segmentContentClassName = `flex h-full w-full items-center ${moveControls.length > 0 || resizeControls.length > 0 ? "px-2" : "px-3"}`;
 
                                   return (
                                     <div
@@ -821,11 +835,25 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                                       style={{ left: `${segment.left}%`, width: `${segment.width}%` }}
                                       title={segment.title}
                                     >
-                                      {resizeControls.length > 0 ? (
+                                      {moveControls.length > 0 || resizeControls.length > 0 ? (
                                         <div className="absolute -top-8 left-1/2 z-30 flex -translate-x-1/2 gap-1 rounded-xl border border-stone-200 bg-white/95 p-1 shadow-sm">
+                                          {moveControls.map((control) => (
+                                            <form action={resolvedMoveAction} key={control.direction}>
+                                              <input name={resolvedTargetFieldName} type="hidden" value={resolvedTargetId} />
+                                              <input name="direction" type="hidden" value={control.direction} />
+                                              <button
+                                                className={`min-h-[28px] min-w-[34px] rounded-lg px-2 text-[11px] font-semibold transition ${control.disabled ? "cursor-not-allowed border border-stone-200 bg-stone-100 text-stone-400" : "border border-stone-200 bg-white text-stone-700 hover:border-forest/30 hover:bg-sand hover:text-stone-900"}`}
+                                                disabled={control.disabled}
+                                                title={control.title}
+                                                type="submit"
+                                              >
+                                                {control.label}
+                                              </button>
+                                            </form>
+                                          ))}
                                           {resizeControls.map((control) => (
                                             <form action={resolvedResizeAction} key={control.direction}>
-                                              <input name={resolvedResizeFieldName} type="hidden" value={resolvedResizeTargetId} />
+                                              <input name={resolvedTargetFieldName} type="hidden" value={resolvedTargetId} />
                                               <input name="direction" type="hidden" value={control.direction} />
                                               <button
                                                 className={`min-h-[28px] min-w-[34px] rounded-lg px-2 text-[11px] font-semibold transition ${control.disabled ? "cursor-not-allowed border border-stone-200 bg-stone-100 text-stone-400" : "border border-stone-200 bg-white text-stone-700 hover:border-forest/30 hover:bg-sand hover:text-stone-900"}`}
@@ -946,7 +974,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                   <div className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Probetermin-Slots</p>
                     <p className="mt-2 text-2xl font-semibold text-stone-900">{trialSlotCount}</p>
-                    <p className="mt-1 text-sm text-stone-600">Nur diese Zeitfenster werden Reitern fuer Probetermine angeboten.</p>
+                    <p className="mt-1 text-sm text-stone-600">{"Nur diese Zeitfenster werden Reitern für Probetermine angeboten."}</p>
                   </div>
                 </div>
               </Card>
