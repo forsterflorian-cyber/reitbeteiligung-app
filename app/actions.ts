@@ -221,6 +221,48 @@ function buildSingleAvailabilityWindow(dayValue: string, startTime: ParsedClockT
   } satisfies BookingWindow;
 }
 
+function isResizeDirection(value: string): value is "start-earlier" | "start-later" | "end-earlier" | "end-later" {
+  return value === "start-earlier" || value === "start-later" || value === "end-earlier" || value === "end-later";
+}
+
+function shiftRangeBoundary(
+  startAtValue: string,
+  endAtValue: string,
+  direction: "start-earlier" | "start-later" | "end-earlier" | "end-later"
+) {
+  const startAt = new Date(startAtValue);
+  const endAt = new Date(endAtValue);
+
+  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
+    return null;
+  }
+
+  if (direction === "start-earlier") {
+    startAt.setHours(startAt.getHours() - 1);
+  }
+
+  if (direction === "start-later") {
+    startAt.setHours(startAt.getHours() + 1);
+  }
+
+  if (direction === "end-earlier") {
+    endAt.setHours(endAt.getHours() - 1);
+  }
+
+  if (direction === "end-later") {
+    endAt.setHours(endAt.getHours() + 1);
+  }
+
+  if (endAt <= startAt) {
+    return null;
+  }
+
+  return {
+    endAt: endAt.toISOString(),
+    startAt: startAt.toISOString()
+  } satisfies BookingWindow;
+}
+
 function parseRruleDate(value: string) {
   if (/^\d{8}$/.test(value)) {
     const year = Number.parseInt(value.slice(0, 4), 10);
@@ -1395,6 +1437,96 @@ export async function updateAvailabilityDayAction(formData: FormData) {
   revalidatePath("/anfragen");
   redirectWithMessage(redirectPath, "message", "Das Zeitfenster wurde aktualisiert.");
 }
+export async function resizeAvailabilityRuleAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const ruleId = asString(formData.get("ruleId"));
+  const directionValue = asString(formData.get("direction"));
+
+  if (!ruleId || !isResizeDirection(directionValue)) {
+    redirectWithMessage("/owner/horses", "error", "Das Zeitfenster konnte nicht angepasst werden.");
+  }
+
+  const rule = await getOwnedAvailabilityRule(supabase, ruleId, user.id);
+
+  if (!rule) {
+    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verf\u00fcgbarkeiten anpassen.");
+  }
+
+  const selectedDate = rule.start_at.slice(0, 10);
+  const redirectPath = `/pferde/${rule.horse_id}/kalender?day=${selectedDate}&focusRule=${rule.id}`;
+  const resizedWindow = shiftRangeBoundary(rule.start_at, rule.end_at, directionValue);
+
+  if (!resizedWindow || resizedWindow.startAt.slice(0, 10) !== selectedDate || resizedWindow.endAt.slice(0, 10) !== selectedDate) {
+    redirectWithMessage(redirectPath, "error", "Im Planer l\u00e4sst sich das Zeitfenster nur innerhalb dieses Tages anpassen.");
+  }
+
+  const { data: duplicateRuleData, error: duplicateRuleError } = await supabase
+    .from("availability_rules")
+    .select("id")
+    .eq("horse_id", rule.horse_id)
+    .eq("start_at", resizedWindow.startAt)
+    .eq("end_at", resizedWindow.endAt)
+    .eq("active", true)
+    .neq("id", rule.id)
+    .maybeSingle();
+
+  if (duplicateRuleError) {
+    logSupabaseError("Availability planner resize lookup failed", duplicateRuleError);
+    redirectWithMessage(redirectPath, "error", "Die vorhandenen Verf\u00fcgbarkeiten konnten nicht geladen werden.");
+  }
+
+  if (duplicateRuleData?.id) {
+    redirectWithMessage(redirectPath, "error", "Ein anderes Zeitfenster liegt bereits auf diesem Zeitraum.");
+  }
+
+  const { error: slotError } = await supabase
+    .from("availability_slots")
+    .update({
+      end_at: resizedWindow.endAt,
+      start_at: resizedWindow.startAt
+    })
+    .eq("id", rule.slot_id)
+    .eq("horse_id", rule.horse_id);
+
+  if (slotError) {
+    logSupabaseError("Availability slot planner resize failed", slotError);
+    redirectWithMessage(redirectPath, "error", "Das Zeitfenster konnte nicht im Planer angepasst werden.");
+  }
+
+  const { error: ruleError } = await supabase
+    .from("availability_rules")
+    .update({
+      end_at: resizedWindow.endAt,
+      start_at: resizedWindow.startAt
+    })
+    .eq("id", rule.id);
+
+  if (ruleError) {
+    logSupabaseError("Availability rule planner resize failed", ruleError);
+
+    const { error: rollbackError } = await supabase
+      .from("availability_slots")
+      .update({
+        end_at: rule.end_at,
+        start_at: rule.start_at
+      })
+      .eq("id", rule.slot_id)
+      .eq("horse_id", rule.horse_id);
+
+    if (rollbackError) {
+      logSupabaseError("Availability slot planner resize rollback failed", rollbackError);
+    }
+
+    redirectWithMessage(redirectPath, "error", "Das Zeitfenster konnte nicht im Planer angepasst werden.");
+  }
+
+  revalidatePath(`/pferde/${rule.horse_id}/kalender`);
+  revalidatePath(`/pferde/${rule.horse_id}`);
+  revalidatePath("/owner/anfragen");
+  revalidatePath("/anfragen");
+  redirectWithMessage(redirectPath, "message", "Das Zeitfenster wurde direkt im Planer angepasst.");
+}
+
 export async function createCalendarBlockAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
   const horseId = asString(formData.get("horseId"));
@@ -1485,6 +1617,47 @@ export async function updateCalendarBlockAction(formData: FormData) {
   revalidatePath(`/pferde/${block.horse_id}`);
   redirectWithMessage(redirectPath, "message", "Die Kalender-Sperre wurde aktualisiert.");
 }
+export async function resizeCalendarBlockAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const blockId = asString(formData.get("blockId"));
+  const directionValue = asString(formData.get("direction"));
+
+  if (!blockId || !isResizeDirection(directionValue)) {
+    redirectWithMessage("/owner/horses", "error", "Die Kalender-Sperre konnte nicht angepasst werden.");
+  }
+
+  const block = await getOwnedCalendarBlock(supabase, blockId, user.id);
+
+  if (!block) {
+    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Kalender-Sperren anpassen.");
+  }
+
+  const selectedDate = block.start_at.slice(0, 10);
+  const redirectPath = `/pferde/${block.horse_id}/kalender?day=${selectedDate}&focusBlock=${block.id}`;
+  const resizedWindow = shiftRangeBoundary(block.start_at, block.end_at, directionValue);
+
+  if (!resizedWindow || resizedWindow.startAt.slice(0, 10) !== selectedDate || resizedWindow.endAt.slice(0, 10) !== selectedDate) {
+    redirectWithMessage(redirectPath, "error", "Im Planer l\u00e4sst sich die Sperre nur innerhalb dieses Tages anpassen.");
+  }
+
+  const { error } = await supabase
+    .from("calendar_blocks")
+    .update({
+      end_at: resizedWindow.endAt,
+      start_at: resizedWindow.startAt
+    })
+    .eq("id", block.id);
+
+  if (error) {
+    logSupabaseError("Calendar block planner resize failed", error);
+    redirectWithMessage(redirectPath, "error", "Die Kalender-Sperre konnte nicht im Planer angepasst werden.");
+  }
+
+  revalidatePath(`/pferde/${block.horse_id}/kalender`);
+  revalidatePath(`/pferde/${block.horse_id}`);
+  redirectWithMessage(redirectPath, "message", "Die Kalender-Sperre wurde direkt im Planer angepasst.");
+}
+
 export async function deleteCalendarBlockAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
   const blockId = asString(formData.get("blockId"));

@@ -20,6 +20,7 @@ Stand: 2026-03-03
 - Kalender mit Verfuegbarkeiten, Sperren und Terminanfragen
 - Direkte Kalenderauswahl im Raster fuer Tagesfenster plus Fokus-Spruenge in die Direktbearbeitung
 - Bestehende Zeitfenster und Sperren lassen sich direkt aus dem Raster im Tageseditor fokussieren und anpassen
+- Markierte Balken lassen sich direkt im Planer stundenweise verl?ngern oder verk?rzen
 - FCFS-Probetermin-Slots auf Basis freier Verfuegbarkeiten
 - Gemeinsamer UI-Layer mit mobile-first Layout
 - Owner-Tarifstatus mit sichtbaren Start-Trial- und Upgrade-CTAs
@@ -49,6 +50,6 @@ Die Limits werden serverseitig beim Anlegen neuer Pferdeprofile und beim Freisch
 
 ## Naechste sinnvolle Schritte
 
-1. Kalender-Interaktion als naechstes mit echtem Resize und spaeter direkt verschiebbaren Eintraegen ausbauen.
+1. Kalender-Eintr?ge als N?chstes direkt im Raster verschiebbar machen.
 2. Verwaltungsansichten fuer Pferdehalter weiter als Desktop-Cockpit verdichten.
 3. Upgrade-Fluss fuer den bezahlten Tarif finalisieren.

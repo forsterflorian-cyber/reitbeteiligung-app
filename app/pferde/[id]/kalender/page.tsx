@@ -11,6 +11,8 @@ import {
   deleteAvailabilityRuleAction,
   deleteCalendarBlockAction,
   requestBookingAction,
+  resizeAvailabilityRuleAction,
+  resizeCalendarBlockAction,
   updateAvailabilityDayAction,
   updateCalendarBlockAction
 } from "@/app/actions";
@@ -48,9 +50,12 @@ type CalendarOccupancyRow = {
 type TimelineTone = "available" | "occupied" | "pending";
 
 type TimelineSegment = {
+  endAt: string;
+  entityId?: string;
   href?: string;
   key: string;
   left: number;
+  startAt: string;
   width: number;
   title: string;
   tone: TimelineTone;
@@ -208,8 +213,10 @@ function buildTimelineSegment(dayDate: Date, startAt: string, endAt: string, tit
   const durationMinutes = (endTime - startTime) / 60000;
 
   return {
+    endAt,
     key,
     left: clampNumber((startOffsetMinutes / totalVisibleMinutes) * 100, 0, 100),
+    startAt,
     width: clampNumber((durationMinutes / totalVisibleMinutes) * 100, 2.5, 100),
     title,
     tone
@@ -444,7 +451,8 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         if (lane.key === "available") {
           return {
             ...segment,
-            href: `/pferde/${horse.id}/kalender?day=${row.dayKey}&focusRule=${segment.key}#direktbearbeitung`
+            entityId: segment.key,
+            href: `/pferde/${horse.id}/kalender?day=${row.dayKey}&focusRule=${segment.key}#tagesfenster`
           };
         }
 
@@ -454,7 +462,8 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           if (blockId) {
             return {
               ...segment,
-              href: `/pferde/${horse.id}/kalender?day=${row.dayKey}&focusBlock=${blockId}#direktbearbeitung`
+              entityId: blockId,
+              href: `/pferde/${horse.id}/kalender?day=${row.dayKey}&focusBlock=${blockId}#tagesfenster`
             };
           }
         }
@@ -577,26 +586,69 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                                 </div>
                               ) : (
                                 lane.segments.map((segment) => {
-                                  const segmentClassName = `absolute top-1/2 z-20 flex h-11 -translate-y-1/2 items-center overflow-hidden rounded-xl border px-3 text-xs font-semibold shadow-sm ${timelineToneClassName(segment.tone)}`;
+                                  const segmentStartHour = segment.startAt ? getTimelineHourFromIso(segment.startAt) : null;
+                                  const segmentEndHour = segment.endAt ? getTimelineHourFromIso(segment.endAt, true) : null;
+                                  const minDurationReached =
+                                    typeof segmentStartHour === "number" &&
+                                    typeof segmentEndHour === "number" &&
+                                    segmentEndHour - segmentStartHour <= 1;
+                                  const isFocusedAvailability = lane.key === "available" && Boolean(segment.entityId) && segment.entityId === focusRuleId;
+                                  const isFocusedBlock = lane.key === "occupied" && Boolean(segment.entityId) && segment.entityId === focusBlockId;
+                                  const resizeAction = isFocusedAvailability
+                                    ? resizeAvailabilityRuleAction
+                                    : isFocusedBlock
+                                      ? resizeCalendarBlockAction
+                                      : null;
+                                  const resizeFieldName = isFocusedAvailability ? "ruleId" : isFocusedBlock ? "blockId" : null;
+                                  const resizeTargetId = resizeFieldName ? segment.entityId ?? null : null;
+                                  const resolvedResizeAction = resizeAction ?? resizeAvailabilityRuleAction;
+                                  const resolvedResizeFieldName = resizeFieldName ?? "ruleId";
+                                  const resolvedResizeTargetId = resizeTargetId ?? "";
+                                  const resizeControls = resizeAction && resizeFieldName && resizeTargetId
+                                    ? [
+                                        { direction: "start-earlier", disabled: !(typeof segmentStartHour === "number" && segmentStartHour > CALENDAR_TIMELINE_START_HOUR), label: "S-", title: "Beginn eine Stunde fr\u00fcher" },
+                                        { direction: "start-later", disabled: minDurationReached, label: "S+", title: "Beginn eine Stunde sp\u00e4ter" },
+                                        { direction: "end-earlier", disabled: minDurationReached, label: "E-", title: "Ende eine Stunde fr\u00fcher" },
+                                        { direction: "end-later", disabled: !(typeof segmentEndHour === "number" && segmentEndHour < CALENDAR_TIMELINE_END_HOUR), label: "E+", title: "Ende eine Stunde sp\u00e4ter" }
+                                      ]
+                                    : [];
+                                  const segmentClassName = `absolute top-1/2 z-20 h-11 -translate-y-1/2 overflow-visible rounded-xl border text-xs font-semibold shadow-sm ${timelineToneClassName(segment.tone)} ${resizeControls.length > 0 ? "ring-2 ring-forest/20" : ""}`;
+                                  const segmentContentClassName = `flex h-full w-full items-center ${resizeControls.length > 0 ? "px-2" : "px-3"}`;
 
-                                  return segment.href ? (
-                                    <a
-                                      className={segmentClassName}
-                                      href={segment.href}
-                                      key={segment.key}
-                                      style={{ left: `${segment.left}%`, width: `${segment.width}%` }}
-                                      title={segment.title}
-                                    >
-                                      <span className="truncate">{segment.title}</span>
-                                    </a>
-                                  ) : (
+                                  return (
                                     <div
                                       className={segmentClassName}
                                       key={segment.key}
                                       style={{ left: `${segment.left}%`, width: `${segment.width}%` }}
                                       title={segment.title}
                                     >
-                                      <span className="truncate">{segment.title}</span>
+                                      {resizeControls.length > 0 ? (
+                                        <div className="absolute -top-8 left-1/2 z-30 flex -translate-x-1/2 gap-1 rounded-xl border border-stone-200 bg-white/95 p-1 shadow-sm">
+                                          {resizeControls.map((control) => (
+                                            <form action={resolvedResizeAction} key={control.direction}>
+                                              <input name={resolvedResizeFieldName} type="hidden" value={resolvedResizeTargetId} />
+                                              <input name="direction" type="hidden" value={control.direction} />
+                                              <button
+                                                className={`min-h-[28px] min-w-[34px] rounded-lg px-2 text-[11px] font-semibold transition ${control.disabled ? "cursor-not-allowed border border-stone-200 bg-stone-100 text-stone-400" : "border border-stone-200 bg-white text-stone-700 hover:border-forest/30 hover:bg-sand hover:text-stone-900"}`}
+                                                disabled={control.disabled}
+                                                title={control.title}
+                                                type="submit"
+                                              >
+                                                {control.label}
+                                              </button>
+                                            </form>
+                                          ))}
+                                        </div>
+                                      ) : null}
+                                      {segment.href ? (
+                                        <a className={segmentContentClassName} href={segment.href} title={segment.title}>
+                                          <span className="truncate">{segment.title}</span>
+                                        </a>
+                                      ) : (
+                                        <div className={segmentContentClassName} title={segment.title}>
+                                          <span className="truncate">{segment.title}</span>
+                                        </div>
+                                      )}
                                     </div>
                                   );
                                 })
