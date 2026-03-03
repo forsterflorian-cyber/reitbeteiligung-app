@@ -1356,6 +1356,7 @@ export async function saveHorseAction(formData: FormData) {
   const { profile, supabase, user } = await requireProfile("owner");
   const redirectPath = getOwnerRedirectPath(formData);
   const horseId = asString(formData.get("horseId"));
+  const successRedirectPath = horseId ? redirectPath : "/owner/pferde-verwalten";
   const title = asString(formData.get("title"));
   const plz = asString(formData.get("plz"));
   const locationAddress = asOptionalString(formData.get("locationAddress"));
@@ -1442,7 +1443,7 @@ export async function saveHorseAction(formData: FormData) {
   revalidatePath("/owner/pferde-verwalten");
   revalidatePath("/dashboard");
   revalidatePath("/suchen");
-  redirectWithMessage(redirectPath, "message", "Das Pferdeprofil wurde gespeichert.");
+  redirectWithMessage(successRedirectPath, "message", "Das Pferdeprofil wurde gespeichert.");
 }
 
 export async function uploadHorseImagesAction(formData: FormData) {

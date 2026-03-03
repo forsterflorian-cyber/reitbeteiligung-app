@@ -34,6 +34,7 @@ F?r konsistente Tests brauchen wir mindestens:
 ### HP1: Pferd anlegen und sichtbar machen
 
 Referenzlauf: siehe `docs/manual-tests/hp1-pdca.md`
+Status: Einmal manuell gr?n gepr?ft (2026-03-03). Der Redirect nach dem ersten Speichern wurde auf `Pferde verwalten` nachgezogen.
 
 1. Pferdehalter legt ein neues Pferdeprofil an.
 2. Pferd erscheint unter `Pferde verwalten`.
