@@ -14,6 +14,7 @@ import {
 } from "@/app/actions";
 import { RequestCard } from "@/components/blocks/request-card";
 import { DayRangePicker } from "@/components/calendar/day-range-picker";
+import { InteractiveTimelineLane } from "@/components/calendar/interactive-timeline-lane";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
 import { StatusBadge } from "@/components/status-badge";
@@ -45,6 +46,7 @@ type CalendarOccupancyRow = {
 type TimelineTone = "available" | "occupied" | "pending";
 
 type TimelineSegment = {
+  href?: string;
   key: string;
   left: number;
   width: number;
@@ -228,7 +230,7 @@ function buildTimelineRows({
 
     const occupiedSegments = occupancy
       .filter((entry) => overlapsDay(entry.start_at, entry.end_at, dayDate))
-      .map((entry, index) => buildTimelineSegment(dayDate, entry.start_at, entry.end_at, `Belegt ${formatTime(entry.start_at)}–${formatTime(entry.end_at)}`, "occupied", `${entry.source}-${entry.start_at}-${entry.end_at}-${index}`))
+      .map((entry, index) => buildTimelineSegment(dayDate, entry.start_at, entry.end_at, `Belegt ${formatTime(entry.start_at)}–${formatTime(entry.end_at)}`, "occupied", entry.source === "block" ? `block:${entry.start_at}|${entry.end_at}` : `${entry.source}-${entry.start_at}-${entry.end_at}-${index}`))
       .filter((segment): segment is TimelineSegment => Boolean(segment));
 
     const pendingSegments = pendingRequests
@@ -357,6 +359,48 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     selectedSlotStartHour !== null && selectedSlotEndHour !== null && selectedSlotEndHour > selectedSlotStartHour
       ? `${String(selectedSlotStartHour).padStart(2, "0")}:00 - ${String(selectedSlotEndHour).padStart(2, "0")}:00`
       : null;
+  const focusRuleId = isOwner ? readSearchParam(searchParams, "focusRule") : null;
+  const focusBlockId = isOwner ? readSearchParam(searchParams, "focusBlock") : null;
+  const ownerBlockIdByRange = new Map(ownerBlocks.map((block) => [`${block.start_at}|${block.end_at}`, block.id]));
+  const prioritizedRules =
+    focusRuleId && rules.some((rule) => rule.id === focusRuleId)
+      ? [...rules].sort((left, right) => Number(right.id === focusRuleId) - Number(left.id === focusRuleId))
+      : rules;
+  const prioritizedBlocks =
+    focusBlockId && ownerBlocks.some((block) => block.id === focusBlockId)
+      ? [...ownerBlocks].sort((left, right) => Number(right.id === focusBlockId) - Number(left.id === focusBlockId))
+      : ownerBlocks;
+  const decoratedTimelineRows = timelineRows.map((row) => ({
+    ...row,
+    lanes: row.lanes.map((lane) => ({
+      ...lane,
+      segments: lane.segments.map((segment) => {
+        if (!isOwner) {
+          return segment;
+        }
+
+        if (lane.key === "available") {
+          return {
+            ...segment,
+            href: `/pferde/${horse.id}/kalender?day=${row.dayKey}&focusRule=${segment.key}#direktbearbeitung`
+          };
+        }
+
+        if (lane.key === "occupied" && segment.key.startsWith("block:")) {
+          const blockId = ownerBlockIdByRange.get(segment.key.slice(6));
+
+          if (blockId) {
+            return {
+              ...segment,
+              href: `/pferde/${horse.id}/kalender?day=${row.dayKey}&focusBlock=${blockId}#direktbearbeitung`
+            };
+          }
+        }
+
+        return segment;
+      })
+    }))
+  }));
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -408,8 +452,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
 
           {isOwner ? (
             <p className="text-sm text-stone-600">
-              Tipp: Klicke links auf einen Tag. Unten öffnet sich direkt der Tageseditor für genau dieses Datum.
-            </p>
+              Tipp: Klicke links auf einen Tag oder ziehe direkt ueber freie Stunden. Der Tageseditor wird sofort mit Datum und Uhrzeit vorbelegt.</p>
           ) : null}
 
           <div className="overflow-x-auto">
@@ -428,7 +471,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
               </div>
 
               <div className="divide-y divide-stone-200">
-                {timelineRows.map((row) => (
+                {decoratedTimelineRows.map((row) => (
                   <div className={`grid grid-cols-[180px_minmax(0,1fr)] ${row.isSelected ? "bg-sand/20" : ""}`} key={row.key}>
                     <div className={`border-r border-stone-200 px-4 py-4 ${row.isSelected ? "bg-sand/40" : ""}`}>
                       {isOwner ? (
@@ -464,37 +507,37 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                               </div>
 
                               {isOwner && lane.key === "available" ? (
-                                <div className="absolute inset-0 z-10 grid" style={{ gridTemplateColumns: `repeat(${timelineHours.length}, minmax(0, 1fr))` }}>
-                                  {timelineHours.map((hour) => {
-                                    const slotStart = `${String(hour).padStart(2, "0")}:00`;
-                                    const slotEnd = `${String(hour + 1).padStart(2, "0")}:00`;
-
-                                    return (
-                                      <a
-                                        aria-label={`${row.label} ${row.meta}: ${slotStart} bis ${slotEnd} als verf?gbar markieren`}
-                                        className="block h-11 border-r border-transparent transition hover:bg-emerald-50/80 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 last:border-r-0"
-                                        href={`/pferde/${horse.id}/kalender?day=${row.dayKey}&slotStart=${encodeURIComponent(slotStart)}&slotEnd=${encodeURIComponent(slotEnd)}#tagesfenster`}
-                                        key={`${row.key}-${lane.key}-slot-${hour}`}
-                                      />
-                                    );
-                                  })}
-                                </div>
+                                <InteractiveTimelineLane dayKey={row.dayKey} horseId={horse.id} hourCount={timelineHours.length} hours={timelineHours} />
                               ) : null}
                               {lane.segments.length === 0 ? (
                                 <div className="relative z-20 flex h-11 items-center text-xs text-stone-400">
-                                  {isOwner && lane.key === "available" ? "Freie Stunde anklicken" : "Keine Eintr?ge"}
+                                  {isOwner && lane.key === "available" ? "Freie Stunden ziehen oder anklicken" : "Keine Eintraege"}
                                 </div>
                               ) : (
-                                lane.segments.map((segment) => (
-                                  <div
-                                    className={`absolute top-1/2 z-20 flex h-11 -translate-y-1/2 items-center overflow-hidden rounded-xl border px-3 text-xs font-semibold shadow-sm ${timelineToneClassName(segment.tone)}`}
-                                    key={segment.key}
-                                    style={{ left: `${segment.left}%`, width: `${segment.width}%` }}
-                                    title={segment.title}
-                                  >
-                                    <span className="truncate">{segment.title}</span>
-                                  </div>
-                                ))
+                                lane.segments.map((segment) => {
+                                  const segmentClassName = `absolute top-1/2 z-20 flex h-11 -translate-y-1/2 items-center overflow-hidden rounded-xl border px-3 text-xs font-semibold shadow-sm ${timelineToneClassName(segment.tone)}`;
+
+                                  return segment.href ? (
+                                    <a
+                                      className={segmentClassName}
+                                      href={segment.href}
+                                      key={segment.key}
+                                      style={{ left: `${segment.left}%`, width: `${segment.width}%` }}
+                                      title={segment.title}
+                                    >
+                                      <span className="truncate">{segment.title}</span>
+                                    </a>
+                                  ) : (
+                                    <div
+                                      className={segmentClassName}
+                                      key={segment.key}
+                                      style={{ left: `${segment.left}%`, width: `${segment.width}%` }}
+                                      title={segment.title}
+                                    >
+                                      <span className="truncate">{segment.title}</span>
+                                    </div>
+                                  );
+                                })
                               )}
                             </div>
                           </div>
@@ -524,8 +567,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                   <div className="ui-subpanel">
                     <p className="ui-eyebrow">Schnell für einen Tag</p>
                     <p className="mt-2 ui-inline-meta">
-                      Ausgewählt: {selectedDayLabel}. Klicke links im Raster auf einen Tag und ziehe unten direkt den Zeitraum für dieses Datum auf.
-                    </p>
+                      Ausgewaehlt: {selectedDayLabel}{selectedSlotLabel ? `, ${selectedSlotLabel}` : ""}. Ziehe direkt im Raster ueber freie Stunden oder justiere unten den genauen Zeitraum.</p>
                   </div>
                   <DayRangePicker
                     dayLabel={selectedDayLabel}
@@ -698,7 +740,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                       <SubmitButton idleLabel="Ausnahme speichern" pendingLabel="Wird gespeichert..." />
                     </form>
 
-                    <div className="space-y-4 border-t border-stone-200 pt-5">
+                    <div className="space-y-4 border-t border-stone-200 pt-5" id="direktbearbeitung">
                       <div className="space-y-1">
                         <h3 className="text-base font-semibold text-stone-900">Direktbearbeitung</h3>
                         <p className="text-sm text-stone-600">Hier entfernst du die nächsten Einträge direkt. Für die Gesamtübersicht bleibt das Raster oben die wichtigste Ansicht.</p>
@@ -714,8 +756,8 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                             <p className="text-sm text-stone-500">Noch keine wiederkehrenden Zeitfenster vorhanden.</p>
                           ) : (
                             <div className="space-y-2">
-                              {rules.slice(0, 4).map((rule) => (
-                                <div className="rounded-2xl border border-stone-200 bg-white px-3 py-3" key={rule.id}>
+                              {prioritizedRules.slice(0, 4).map((rule) => (
+                                <div className={`rounded-2xl border px-3 py-3 ${focusRuleId === rule.id ? "border-emerald-300 bg-emerald-50/60" : "border-stone-200 bg-white"}`} key={rule.id}>
                                   <p className="text-sm font-semibold text-stone-900">{ruleLabel(rule)}</p>
                                   <form action={deleteAvailabilityRuleAction} className="mt-3">
                                     <input name="ruleId" type="hidden" value={rule.id} />
@@ -742,8 +784,8 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                             <p className="text-sm text-stone-500">Aktuell sind keine Ausnahmen hinterlegt.</p>
                           ) : (
                             <div className="space-y-2">
-                              {ownerBlocks.slice(0, 4).map((block) => (
-                                <div className="rounded-2xl border border-stone-200 bg-white px-3 py-3" key={block.id}>
+                              {prioritizedBlocks.slice(0, 4).map((block) => (
+                                <div className={`rounded-2xl border px-3 py-3 ${focusBlockId === block.id ? "border-rose-300 bg-rose-50/60" : "border-stone-200 bg-white"}`} key={block.id}>
                                   <p className="text-sm font-semibold text-stone-900">{formatDateRange(block.start_at, block.end_at)}</p>
                                   <form action={deleteCalendarBlockAction} className="mt-3">
                                     <input name="blockId" type="hidden" value={block.id} />
