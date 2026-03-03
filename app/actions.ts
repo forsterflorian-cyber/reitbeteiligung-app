@@ -2396,11 +2396,17 @@ export async function requestBookingAction(formData: FormData) {
 
   const requestedStartIso = startAt.toISOString();
   const requestedEndIso = endAt.toISOString();
+  const ruleStart = new Date(rule.start_at);
+  const ruleEnd = new Date(rule.end_at);
 
-  if (requestedStartIso < rule.start_at || requestedEndIso > rule.end_at) {
-    redirectWithMessage(redirectPath, "error", "Der Termin muss komplett im Verfügbarkeitsfenster liegen.");
+  if (
+    Number.isNaN(ruleStart.getTime()) ||
+    Number.isNaN(ruleEnd.getTime()) ||
+    startAt.getTime() < ruleStart.getTime() ||
+    endAt.getTime() > ruleEnd.getTime()
+  ) {
+    redirectWithMessage(redirectPath, "error", "Der Termin muss komplett im Verf?gbarkeitsfenster liegen.");
   }
-
   const { error } = await supabase.from("booking_requests").insert({
     availability_rule_id: rule.id,
     horse_id: horseId,
@@ -2467,8 +2473,22 @@ export async function acceptBookingRequestAction(formData: FormData) {
     redirectWithMessage("/owner/anfragen", "error", "Nur freigeschaltete Reiter können gebucht werden.");
   }
 
-  if (!request.requested_start_at || !request.requested_end_at || request.requested_start_at < rule.start_at || request.requested_end_at > rule.end_at) {
-    redirectWithMessage("/owner/anfragen", "error", "Der erste Termin liegt nicht im Verfügbarkeitsfenster.");
+  const requestedStart = request.requested_start_at ? new Date(request.requested_start_at) : null;
+  const requestedEnd = request.requested_end_at ? new Date(request.requested_end_at) : null;
+  const ruleStart = new Date(rule.start_at);
+  const ruleEnd = new Date(rule.end_at);
+
+  if (
+    !requestedStart ||
+    !requestedEnd ||
+    Number.isNaN(requestedStart.getTime()) ||
+    Number.isNaN(requestedEnd.getTime()) ||
+    Number.isNaN(ruleStart.getTime()) ||
+    Number.isNaN(ruleEnd.getTime()) ||
+    requestedStart.getTime() < ruleStart.getTime() ||
+    requestedEnd.getTime() > ruleEnd.getTime()
+  ) {
+    redirectWithMessage("/owner/anfragen", "error", "Der erste Termin liegt nicht im Verf?gbarkeitsfenster.");
   }
 
   let bookingWindows: BookingWindow[];
