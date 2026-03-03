@@ -78,7 +78,8 @@ type SupabaseErrorLike = {
 };
 
 function redirectWithMessage(path: string, key: "error" | "message", message: string): never {
-  redirect(`${path}?${key}=${encodeURIComponent(message)}`);
+  const separator = path.includes("?") ? "&" : "?";
+  redirect(`${path}${separator}${key}=${encodeURIComponent(message)}`);
 }
 
 function logSupabaseError(context: string, error: SupabaseErrorLike) {
@@ -191,6 +192,33 @@ function buildAvailabilityWindows(days: number[], startTime: ParsedClockTime, en
   }
 
   return windows;
+}
+
+function buildSingleAvailabilityWindow(dayValue: string, startTime: ParsedClockTime, endTime: ParsedClockTime) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dayValue)) {
+    return null;
+  }
+
+  const [yearValue, monthValue, dayNumberValue] = dayValue.split("-");
+  const year = Number.parseInt(yearValue, 10);
+  const month = Number.parseInt(monthValue, 10);
+  const dayNumber = Number.parseInt(dayNumberValue, 10);
+
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(dayNumber)) {
+    return null;
+  }
+
+  const startAt = new Date(year, month - 1, dayNumber, startTime.hours, startTime.minutes, 0, 0);
+  const endAt = new Date(year, month - 1, dayNumber, endTime.hours, endTime.minutes, 0, 0);
+
+  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || endAt <= startAt || endAt <= new Date()) {
+    return null;
+  }
+
+  return {
+    endAt: endAt.toISOString(),
+    startAt: startAt.toISOString()
+  } satisfies BookingWindow;
 }
 
 function parseRruleDate(value: string) {
@@ -1171,6 +1199,98 @@ export async function deleteHorseImageAction(formData: FormData) {
   revalidatePath("/suchen");
   revalidatePath(`/pferde/${image.horse_id}`);
   redirectWithMessage(redirectPath, "message", "Das Bild wurde entfernt.");
+}
+export async function createAvailabilityDayAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const horseId = asString(formData.get("horseId"));
+
+  if (!horseId) {
+    redirectWithMessage("/owner/horses", "error", "Das Pferdeprofil konnte nicht gefunden werden.");
+  }
+
+  const horse = await getOwnedHorse(supabase, horseId, user.id);
+  const redirectPath = `/pferde/${horseId}/kalender`;
+
+  if (!horse) {
+    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verfügbarkeiten verwalten.");
+  }
+
+  const selectedDate = asString(formData.get("selectedDate"));
+  const startTime = parseClockTime(asString(formData.get("startTime")));
+  const endTime = parseClockTime(asString(formData.get("endTime")));
+
+  if (!startTime || !endTime) {
+    redirectWithMessage(redirectPath, "error", "Bitte gib eine gültige Uhrzeit an.");
+  }
+
+  const window = buildSingleAvailabilityWindow(selectedDate, startTime, endTime);
+
+  if (!window) {
+    redirectWithMessage(redirectPath, "error", "Für diesen Tag konnte kein gültiges Zeitfenster erstellt werden.");
+  }
+
+  const { data: existingRuleData, error: existingRuleError } = await supabase
+    .from("availability_rules")
+    .select("id")
+    .eq("horse_id", horseId)
+    .eq("start_at", window.startAt)
+    .eq("end_at", window.endAt)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (existingRuleError) {
+    logSupabaseError("Availability day lookup failed", existingRuleError);
+    redirectWithMessage(redirectPath, "error", "Die vorhandenen Verfügbarkeiten konnten nicht geladen werden.");
+  }
+
+  if (existingRuleData?.id) {
+    redirectWithMessage(redirectPath, "message", "Dieses Tagesfenster ist bereits hinterlegt.");
+  }
+
+  const { data: slotData, error: slotError } = await supabase
+    .from("availability_slots")
+    .insert({
+      active: true,
+      end_at: window.endAt,
+      horse_id: horseId,
+      start_at: window.startAt
+    })
+    .select("id")
+    .maybeSingle();
+
+  if (slotError || !slotData?.id) {
+    if (slotError) {
+      logSupabaseError("Availability day slot insert failed", slotError);
+    }
+
+    redirectWithMessage(redirectPath, "error", "Das Tagesfenster konnte nicht gespeichert werden.");
+  }
+
+  const { error } = await supabase.from("availability_rules").insert({
+    active: true,
+    end_at: window.endAt,
+    horse_id: horseId,
+    slot_id: slotData.id,
+    start_at: window.startAt
+  });
+
+  if (error) {
+    logSupabaseError("Availability day insert failed", error);
+
+    const { error: cleanupError } = await supabase.from("availability_slots").delete().eq("id", slotData.id).eq("horse_id", horseId);
+
+    if (cleanupError) {
+      logSupabaseError("Availability day cleanup failed", cleanupError);
+    }
+
+    redirectWithMessage(redirectPath, "error", "Das Tagesfenster konnte nicht gespeichert werden.");
+  }
+
+  revalidatePath(redirectPath);
+  revalidatePath(`/pferde/${horseId}`);
+  revalidatePath("/owner/anfragen");
+  revalidatePath("/anfragen");
+  redirectWithMessage(redirectPath, "message", "Das Tagesfenster wurde gespeichert.");
 }
 export async function createCalendarBlockAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");

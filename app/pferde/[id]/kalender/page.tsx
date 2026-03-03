@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import {
   acceptBookingRequestAction,
   createAvailabilityRuleAction,
+  createAvailabilityDayAction,
   createCalendarBlockAction,
   declineBookingRequestAction,
   deleteAvailabilityRuleAction,
@@ -12,6 +13,7 @@ import {
   requestBookingAction
 } from "@/app/actions";
 import { RequestCard } from "@/components/blocks/request-card";
+import { DayRangePicker } from "@/components/calendar/day-range-picker";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
 import { StatusBadge } from "@/components/status-badge";
@@ -58,9 +60,11 @@ type TimelineLane = {
 };
 
 type TimelineDayRow = {
+  dayKey: string;
   key: string;
   label: string;
   meta: string;
+  isSelected: boolean;
   isToday: boolean;
   lanes: TimelineLane[];
 };
@@ -192,13 +196,15 @@ function buildTimelineRows({
   rules,
   occupancy,
   pendingRequests,
-  includePendingLane
+  includePendingLane,
+  selectedDayKey
 }: {
   days: Date[];
   rules: AvailabilityRule[];
   occupancy: CalendarOccupancyRow[];
   pendingRequests: BookingRequest[];
   includePendingLane: boolean;
+  selectedDayKey: string;
 }) {
   const weekdayFormatter = new Intl.DateTimeFormat("de-DE", { weekday: "long" });
   const dateFormatter = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "long" });
@@ -230,11 +236,15 @@ function buildTimelineRows({
       lanes.push({ key: "pending", label: "Anfragen", tone: "pending", segments: pendingSegments });
     }
 
+    const dayKey = toDayKey(dayDate);
+
     return {
-      key: toDayKey(dayDate),
+      dayKey,
+      key: dayKey,
       label: weekdayFormatter.format(dayDate),
       meta: dateFormatter.format(dayDate),
-      isToday: toDayKey(dayDate) === todayKey,
+      isSelected: dayKey === selectedDayKey,
+      isToday: dayKey === todayKey,
       lanes
     } satisfies TimelineDayRow;
   });
@@ -310,13 +320,20 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const ruleMap = new Map(rules.map((rule) => [rule.id, rule]));
   const requestedOwnerBookingItems = ownerBookingRequests.filter((request) => request.status === "requested");
   const timelineHours = buildTimelineHours();
+  const upcomingDays = buildUpcomingDays(CALENDAR_TIMELINE_DAY_COUNT);
+  const fallbackDay = upcomingDays[0] ?? new Date();
+  const dayParam = readSearchParam(searchParams, "day");
+  const selectedDayKey = upcomingDays.some((day) => toDayKey(day) === dayParam) ? (dayParam as string) : toDayKey(fallbackDay);
   const timelineRows = buildTimelineRows({
-    days: buildUpcomingDays(CALENDAR_TIMELINE_DAY_COUNT),
+    days: upcomingDays,
     includePendingLane: isOwner,
     occupancy,
     pendingRequests: requestedOwnerBookingItems,
-    rules
+    rules,
+    selectedDayKey
   });
+  const selectedTimelineRow = timelineRows.find((row) => row.dayKey === selectedDayKey) ?? timelineRows[0] ?? null;
+  const selectedDayLabel = selectedTimelineRow ? `${selectedTimelineRow.label}, ${selectedTimelineRow.meta}` : "heute";
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -366,6 +383,12 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
             {isOwner ? <Badge tone="pending">Offene Anfragen</Badge> : null}
           </div>
 
+          {isOwner ? (
+            <p className="text-sm text-stone-600">
+              Tipp: Klicke links auf einen Tag. Unten öffnet sich direkt der Tageseditor für genau dieses Datum.
+            </p>
+          ) : null}
+
           <div className="overflow-x-auto">
             <div className="min-w-[980px] rounded-2xl border border-stone-200 bg-white shadow-sm">
               <div className="grid grid-cols-[180px_minmax(0,1fr)] border-b border-stone-200 bg-stone-50/80">
@@ -383,13 +406,24 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
 
               <div className="divide-y divide-stone-200">
                 {timelineRows.map((row) => (
-                  <div className="grid grid-cols-[180px_minmax(0,1fr)]" key={row.key}>
-                    <div className="border-r border-stone-200 px-4 py-4">
-                      <div className="space-y-2">
-                        <p className="text-sm font-semibold capitalize text-stone-900">{row.label}</p>
-                        <p className="text-xs text-stone-500">{row.meta}</p>
-                        {row.isToday ? <Badge tone="info">Heute</Badge> : null}
-                      </div>
+                  <div className={`grid grid-cols-[180px_minmax(0,1fr)] ${row.isSelected ? "bg-sand/20" : ""}`} key={row.key}>
+                    <div className={`border-r border-stone-200 px-4 py-4 ${row.isSelected ? "bg-sand/40" : ""}`}>
+                      {isOwner ? (
+                        <a className="block space-y-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-700/30" href={`/pferde/${horse.id}/kalender?day=${row.dayKey}#tagesfenster`}>
+                          <p className="text-sm font-semibold capitalize text-stone-900">{row.label}</p>
+                          <p className="text-xs text-stone-500">{row.meta}</p>
+                          <div className="flex flex-wrap gap-2">
+                            {row.isToday ? <Badge tone="info">Heute</Badge> : null}
+                            {row.isSelected ? <Badge tone="approved">Ausgewählt</Badge> : <Badge tone="neutral">Tag wählen</Badge>}
+                          </div>
+                        </a>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-sm font-semibold capitalize text-stone-900">{row.label}</p>
+                          <p className="text-xs text-stone-500">{row.meta}</p>
+                          {row.isToday ? <Badge tone="info">Heute</Badge> : null}
+                        </div>
+                      )}
                     </div>
 
                     <div className="divide-y divide-stone-200/80">
@@ -441,6 +475,26 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
               subtitle="Pflege hier dein Wochenmuster und einzelne Ausnahmen. Das Raster oben zeigt dir sofort, wie sich die Einträge auswirken."
               title="Kalender bearbeiten"
             >
+              <Card className="p-5 sm:p-6" id="tagesfenster">
+                <form action={createAvailabilityDayAction} className="space-y-4">
+                  <input name="horseId" type="hidden" value={horse.id} />
+                  <input name="selectedDate" type="hidden" value={selectedDayKey} />
+                  <div className="ui-subpanel">
+                    <p className="ui-eyebrow">Schnell für einen Tag</p>
+                    <p className="mt-2 ui-inline-meta">
+                      Ausgewählt: {selectedDayLabel}. Klicke links im Raster auf einen Tag und ziehe unten direkt den Zeitraum für dieses Datum auf.
+                    </p>
+                  </div>
+                  <DayRangePicker dayLabel={selectedDayLabel} endHour={CALENDAR_TIMELINE_END_HOUR} startHour={CALENDAR_TIMELINE_START_HOUR} />
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <SubmitButton className={buttonVariants("primary", "w-full sm:w-auto px-5 py-3 text-base")} idleLabel="Tagesfenster speichern" pendingLabel="Wird gespeichert..." />
+                    <a className={buttonVariants("secondary", "w-full sm:w-auto")} href={`/pferde/${horse.id}/kalender`}>
+                      Auswahl zurücksetzen
+                    </a>
+                  </div>
+                </form>
+              </Card>
+
               <Card className="p-5 sm:p-6">
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <div className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-4">
