@@ -1,4 +1,4 @@
-﻿create table if not exists public.rider_booking_limits (
+create table if not exists public.rider_booking_limits (
   horse_id uuid not null references public.horses(id) on delete cascade,
   rider_id uuid not null references public.profiles(id) on delete cascade,
   weekly_hours_limit integer not null check (weekly_hours_limit between 1 and 40),
