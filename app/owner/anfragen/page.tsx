@@ -25,6 +25,14 @@ type OwnerBookingRequestItem = BookingRequest & {
   horse?: Horse | null;
 };
 
+type ActiveRelationshipItem = {
+  approval: Approval;
+  conversation: Conversation | null;
+  horse: Horse | null;
+  latestTrial: OwnerRequestItem | null;
+  riderBookingLimit: RiderBookingLimit | null;
+};
+
 type ContactInfoRecord = {
   partner_name: string | null;
 };
@@ -155,8 +163,36 @@ export default async function OwnerAnfragenPage({
     ...request,
     horse: horseMap.get(request.horse_id) ?? null
   }));
-  const openTrialCount = items.filter((request) => request.status === "requested").length;
-  const approvedCount = approvals.filter((approval) => approval.status === "approved").length;
+  const latestTrialByPair = new Map<string, OwnerRequestItem>();
+
+  // The newest trial per rider+horse keeps the later management actions anchored
+  // to one relationship instead of mixing historical trial rows into active lists.
+  items.forEach((item) => {
+    const key = `${item.horse_id}:${item.rider_id}`;
+
+    if (!latestTrialByPair.has(key)) {
+      latestTrialByPair.set(key, item);
+    }
+  });
+
+  const activeRelationships: ActiveRelationshipItem[] = approvals
+    .filter((approval) => approval.status === "approved")
+    .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))
+    .map((approval) => {
+      const key = `${approval.horse_id}:${approval.rider_id}`;
+
+      return {
+        approval,
+        conversation: conversationMap.get(key) ?? null,
+        horse: horseMap.get(approval.horse_id) ?? null,
+        latestTrial: latestTrialByPair.get(key) ?? null,
+        riderBookingLimit: riderBookingLimitMap.get(key) ?? null
+      };
+    });
+
+  const trialPipelineItems = items.filter((item) => approvalMap.get(`${item.horse_id}:${item.rider_id}`)?.status !== "approved");
+  const trialPipelineCount = trialPipelineItems.length;
+  const approvedCount = activeRelationships.length;
 
   return (
     <AppPageShell>
@@ -171,14 +207,14 @@ export default async function OwnerAnfragenPage({
       <Notice text={message} tone="success" />
       <div className="grid gap-4 sm:grid-cols-3">
         <Card className="p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Offene Probetermine</p>
-          <p className="mt-2 text-2xl font-semibold text-stone-900">{openTrialCount}</p>
-          <p className="mt-1 text-sm text-stone-600">Diese Anfragen warten noch auf deine Antwort.</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Probetermine</p>
+          <p className="mt-2 text-2xl font-semibold text-stone-900">{trialPipelineCount}</p>
+          <p className="mt-1 text-sm text-stone-600">{"Von Anfrage bis zur Entscheidung über die Aufnahme."}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Freigeschaltet</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Reitbeteiligungen</p>
           <p className="mt-2 text-2xl font-semibold text-stone-900">{approvedCount}</p>
-          <p className="mt-1 text-sm text-stone-600">Aktive Reitbeteiligungen in deinen Pferdeprofilen.</p>
+          <p className="mt-1 text-sm text-stone-600">{"Aktive Reitbeteiligungen, die offene Zeiten buchen dürfen."}</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Buchungsanfragen</p>
@@ -187,22 +223,135 @@ export default async function OwnerAnfragenPage({
         </Card>
       </div>
       <SectionCard
-        subtitle="Nimm Probetermine an, lehne sie ab oder schalte eine Reitbeteiligung nach dem Termin frei."
+        subtitle="Aktive Reitbeteiligungen verwaltest du hier separat von der eigentlichen Probetermin-Phase."
+        title="Aktive Reitbeteiligungen"
+      >
+        {activeRelationships.length === 0 ? (
+          <EmptyState
+            description="Sobald du einen Reiter nach dem Probetermin aufnimmst, erscheint die Reitbeteiligung hier mit Kontingent, Chat und Verwaltungsaktionen."
+            title="Noch keine aktive Reitbeteiligung"
+          />
+        ) : (
+          <div className="space-y-3">
+            {activeRelationships.map((item) => {
+              const { approval, conversation, horse, latestTrial, riderBookingLimit } = item;
+              const contact = conversation ? (conversationInfo.get(conversation.id) ?? null) : null;
+              const riderName = contact?.partner_name?.trim() || "Reiter";
+              const hasUnread = hasUnreadMessage(conversation, conversation ? (latestMessages.get(conversation.id) ?? null) : null, user.id);
+
+              return (
+                <Card className="p-5" key={`${approval.horse_id}:${approval.rider_id}`}>
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Aktive Reitbeteiligung</p>
+                      <p className="font-semibold text-ink">{horse?.title ?? "Pferdeprofil nicht gefunden"}</p>
+                      <p className="text-sm text-stone-600">Reiter: {riderName}</p>
+                    </div>
+                    <p className="text-sm font-semibold text-ink">{`Freigeschaltet seit ${formatDateTime(approval.created_at)}`}</p>
+                    {latestTrial?.requested_start_at && latestTrial?.requested_end_at ? (
+                      <p className="text-sm text-stone-600">{`Durchgeführter Probetermin: ${formatDateRange(latestTrial.requested_start_at, latestTrial.requested_end_at)}`}</p>
+                    ) : null}
+                    <div className="flex flex-wrap gap-2">
+                      <Badge tone="approved">Aktive Reitbeteiligung</Badge>
+                      {hasUnread ? <Badge tone="info">Neue Nachricht</Badge> : null}
+                    </div>
+                    <Notice text="Diese Reitbeteiligung kann jetzt in offenen Zeitfenstern konkrete Termine anfragen." tone="success" />
+                    <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-4">
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold text-stone-900">Wochenkontingent</p>
+                          <p className="text-sm text-stone-600">
+                            Lege fest, wie viele Stunden diese Reitbeteiligung pro Woche selbstständig buchen darf.
+                          </p>
+                        </div>
+                        <form action={saveRiderBookingLimitAction} className="space-y-3">
+                          <input name="horseId" type="hidden" value={approval.horse_id} />
+                          <input name="riderId" type="hidden" value={approval.rider_id} />
+                          <div>
+                            <label htmlFor={`weeklyHoursLimit-active-${approval.horse_id}-${approval.rider_id}`}>Stunden pro Woche</label>
+                            <input
+                              defaultValue={riderBookingLimit?.weekly_hours_limit ?? ""}
+                              id={`weeklyHoursLimit-active-${approval.horse_id}-${approval.rider_id}`}
+                              max={40}
+                              min={1}
+                              name="weeklyHoursLimit"
+                              placeholder="z. B. 4"
+                              type="number"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-xs text-stone-500">
+                              {riderBookingLimit
+                                ? `Aktuell: ${formatWeeklyHoursLimit(riderBookingLimit.weekly_hours_limit)}`
+                                : "Aktuell ist kein festes Wochenkontingent hinterlegt."}
+                            </p>
+                            <Button className="w-full sm:w-auto" type="submit" variant="secondary">
+                              Kontingent speichern
+                            </Button>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {latestTrial ? (
+                        <form action={updateApprovalAction}>
+                          <input name="requestId" type="hidden" value={latestTrial.id} />
+                          <input name="status" type="hidden" value="revoked" />
+                          <Button className="w-full" type="submit" variant="secondary">
+                            Freischaltung entziehen
+                          </Button>
+                        </form>
+                      ) : null}
+                      <form action={deleteRiderRelationshipAction}>
+                        <input name="horseId" type="hidden" value={approval.horse_id} />
+                        <input name="riderId" type="hidden" value={approval.rider_id} />
+                        <ConfirmSubmitButton
+                          confirmMessage={"Möchtest du diese Reitbeteiligung wirklich löschen? Das Wochenkontingent wird ebenfalls entfernt."}
+                          idleLabel={"Reitbeteiligung löschen"}
+                          pendingLabel={"Wird gelöscht..."}
+                        />
+                      </form>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+                      <Link className={inlineLinkClassName} href={`/pferde/${approval.horse_id}/kalender` as Route}>
+                        Offene Zeiten verwalten
+                      </Link>
+                      <Link className={inlineLinkClassName} href={`/pferde/${approval.horse_id}` as Route}>
+                        Pferdeprofil ansehen
+                      </Link>
+                      <Link className={inlineLinkClassName} href={`/owner/reiter/${approval.rider_id}` as Route}>
+                        Reiterprofil ansehen
+                      </Link>
+                      {conversation ? (
+                        <Link className={inlineLinkClassName} href={`/chat/${conversation.id}` as Route}>
+                          Zum Chat
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </SectionCard>
+      <SectionCard
+        subtitle={"Nimm Probetermine an, lehne sie ab oder entscheide nach dem Termin über eine neue Reitbeteiligung."}
         title="Probetermine"
       >
-        {items.length === 0 ? (
+        {trialPipelineItems.length === 0 ? (
           <EmptyState
             description="Sobald Reiter Probetermine für deine Pferdeprofile anfragen, erscheinen sie hier gesammelt."
             title="Noch keine Probetermin-Anfragen"
           />
         ) : (
           <div className="space-y-3">
-            {items.map((request) => {
+            {trialPipelineItems.map((request) => {
               const approval = approvalMap.get(`${request.horse_id}:${request.rider_id}`) ?? null;
               const conversation = conversationMap.get(`${request.horse_id}:${request.rider_id}`) ?? null;
-              const contact = conversation ? conversationInfo.get(conversation.id) ?? null : null;
+              const contact = conversation ? (conversationInfo.get(conversation.id) ?? null) : null;
               const riderName = contact?.partner_name?.trim() || "Reiter";
-              const hasUnread = hasUnreadMessage(conversation, conversation ? latestMessages.get(conversation.id) ?? null : null, user.id);
+              const hasUnread = hasUnreadMessage(conversation, conversation ? (latestMessages.get(conversation.id) ?? null) : null, user.id);
               const riderBookingLimit = riderBookingLimitMap.get(`${request.horse_id}:${request.rider_id}`) ?? null;
 
               return (
@@ -216,7 +365,7 @@ export default async function OwnerAnfragenPage({
                     {request.requested_start_at && request.requested_end_at ? (
                       <p className="text-sm font-semibold text-ink">{formatDateRange(request.requested_start_at, request.requested_end_at)}</p>
                     ) : null}
-                    <p className="text-sm leading-6 text-stone-600">{request.message ?? "Keine Nachricht hinterlegt."}</p>
+                    <p className="text-sm leading-6 text-stone-600">{request.message?.trim() || "Keine Nachricht hinterlegt."}</p>
                     <div className="flex flex-wrap gap-2">
                       <StatusBadge status={request.status} />
                       {approval ? <StatusBadge status={approval.status} /> : null}
@@ -224,44 +373,6 @@ export default async function OwnerAnfragenPage({
                     </div>
                     {approval?.status === "approved" && conversation ? (
                       <Notice text="Kontaktdaten sind jetzt im Chat sichtbar." tone="success" />
-                    ) : null}
-                    {approval?.status === "approved" ? (
-                      <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-4">
-                        <div className="space-y-3">
-                          <div className="space-y-1">
-                            <p className="text-sm font-semibold text-stone-900">Wochenkontingent</p>
-                            <p className="text-sm text-stone-600">
-                              Lege fest, wie viele Stunden diese Reitbeteiligung pro Woche selbstständig buchen darf.
-                            </p>
-                          </div>
-                          <form action={saveRiderBookingLimitAction} className="space-y-3">
-                            <input name="horseId" type="hidden" value={request.horse_id} />
-                            <input name="riderId" type="hidden" value={request.rider_id} />
-                            <div>
-                              <label htmlFor={`weeklyHoursLimit-${request.id}`}>Stunden pro Woche</label>
-                              <input
-                                defaultValue={riderBookingLimit?.weekly_hours_limit ?? ""}
-                                id={`weeklyHoursLimit-${request.id}`}
-                                max={40}
-                                min={1}
-                                name="weeklyHoursLimit"
-                                placeholder="z. B. 4"
-                                type="number"
-                              />
-                            </div>
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                              <p className="text-xs text-stone-500">
-                                {riderBookingLimit
-                                  ? `Aktuell: ${formatWeeklyHoursLimit(riderBookingLimit.weekly_hours_limit)}`
-                                  : "Aktuell ist kein festes Wochenkontingent hinterlegt."}
-                              </p>
-                              <Button className="w-full sm:w-auto" type="submit" variant="secondary">
-                                Kontingent speichern
-                              </Button>
-                            </div>
-                          </form>
-                        </div>
-                      </div>
                     ) : null}
                     <div className="space-y-2">
                       {request.status === "requested" ? (
@@ -294,25 +405,10 @@ export default async function OwnerAnfragenPage({
                       {request.status === "completed" ? (
                         <form action={updateApprovalAction}>
                           <input name="requestId" type="hidden" value={request.id} />
-                          <input name="status" type="hidden" value={approval?.status === "approved" ? "revoked" : "approved"} />
-                          <Button
-                            className={approval?.status === "approved" ? "w-full" : "w-full"}
-                            type="submit"
-                            variant={approval?.status === "approved" ? "secondary" : "primary"}
-                          >
-                            {approval?.status === "approved" ? "Freischaltung entziehen" : "Reitbeteiligung freischalten"}
+                          <input name="status" type="hidden" value="approved" />
+                          <Button className="w-full" type="submit" variant="primary">
+                            Als Reitbeteiligung aufnehmen
                           </Button>
-                        </form>
-                      ) : null}
-                      {approval ? (
-                        <form action={deleteRiderRelationshipAction}>
-                          <input name="horseId" type="hidden" value={request.horse_id} />
-                          <input name="riderId" type="hidden" value={request.rider_id} />
-                          <ConfirmSubmitButton
-                            confirmMessage="Möchtest du diese Reitbeteiligung wirklich löschen? Das Wochenkontingent wird ebenfalls entfernt."
-                            idleLabel="Reitbeteiligung löschen"
-                            pendingLabel="Wird gelöscht..."
-                          />
                         </form>
                       ) : null}
                     </div>
@@ -349,9 +445,9 @@ export default async function OwnerAnfragenPage({
           <div className="space-y-3">
             {bookingItems.map((request) => {
               const conversation = conversationMap.get(`${request.horse_id}:${request.rider_id}`) ?? null;
-              const contact = conversation ? conversationInfo.get(conversation.id) ?? null : null;
+              const contact = conversation ? (conversationInfo.get(conversation.id) ?? null) : null;
               const riderName = contact?.partner_name?.trim() || "Reiter";
-              const hasUnread = hasUnreadMessage(conversation, conversation ? latestMessages.get(conversation.id) ?? null : null, user.id);
+              const hasUnread = hasUnreadMessage(conversation, conversation ? (latestMessages.get(conversation.id) ?? null) : null, user.id);
               const riderBookingLimit = riderBookingLimitMap.get(`${request.horse_id}:${request.rider_id}`) ?? null;
 
               return (

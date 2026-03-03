@@ -23,6 +23,14 @@ type BookingRequestListItem = BookingRequest & {
   horse?: Horse | null;
 };
 
+type ActiveRelationshipItem = {
+  approval: Approval;
+  conversation: Conversation | null;
+  horse: Horse | null;
+  latestTrial: TrialRequestListItem | null;
+  riderBookingLimit: RiderBookingLimit | null;
+};
+
 type ContactInfoRecord = {
   partner_name: string | null;
 };
@@ -147,7 +155,33 @@ export default async function AnfragenPage({
     ...request,
     horse: horses.get(request.horse_id) ?? null
   }));
-  const approvedCount = Array.from(approvals.values()).filter((approval) => approval.status === "approved").length;
+  const latestTrialByHorseId = new Map<string, TrialRequestListItem>();
+
+  // We keep the newest trial per horse so active relationships can still show
+  // context from the last Probetermin without mixing them back into the trial list.
+  items.forEach((item) => {
+    if (!latestTrialByHorseId.has(item.horse_id)) {
+      latestTrialByHorseId.set(item.horse_id, item);
+    }
+  });
+
+  const activeRelationships: ActiveRelationshipItem[] = Array.from(approvals.values())
+    .filter((approval) => approval.status === "approved")
+    .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))
+    .map((approval) => {
+      const key = `${approval.horse_id}:${approval.rider_id}`;
+
+      return {
+        approval,
+        conversation: conversations.get(key) ?? null,
+        horse: horses.get(approval.horse_id) ?? null,
+        latestTrial: latestTrialByHorseId.get(approval.horse_id) ?? null,
+        riderBookingLimit: riderBookingLimits.get(key) ?? null
+      };
+    });
+
+  const openTrialItems = items.filter((item) => approvals.get(`${item.horse_id}:${item.rider_id}`)?.status !== "approved");
+  const activeRelationshipCount = activeRelationships.length;
 
   return (
     <AppPageShell>
@@ -163,13 +197,13 @@ export default async function AnfragenPage({
       <div className="grid gap-4 sm:grid-cols-3">
         <Card className="p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Probetermine</p>
-          <p className="mt-2 text-2xl font-semibold text-stone-900">{items.length}</p>
-          <p className="mt-1 text-sm text-stone-600">Alle aktiven und vergangenen Probetermine.</p>
+          <p className="mt-2 text-2xl font-semibold text-stone-900">{openTrialItems.length}</p>
+          <p className="mt-1 text-sm text-stone-600">Alle Anfragen bis zur Freischaltung.</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Freigeschaltet</p>
-          <p className="mt-2 text-2xl font-semibold text-stone-900">{approvedCount}</p>
-          <p className="mt-1 text-sm text-stone-600">Diese Reitbeteiligungen sind bereits freigegeben.</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Reitbeteiligungen</p>
+          <p className="mt-2 text-2xl font-semibold text-stone-900">{activeRelationshipCount}</p>
+          <p className="mt-1 text-sm text-stone-600">Aktive Reitbeteiligungen mit offenen Buchungen.</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Terminanfragen</p>
@@ -178,22 +212,77 @@ export default async function AnfragenPage({
         </Card>
       </div>
       <SectionCard
-        subtitle="Hier siehst du den Status deiner Probetermin-Anfragen und ob du bereits freigeschaltet wurdest."
+        subtitle="Nach der Freischaltung verwaltest du hier deine aktiven Reitbeteiligungen und buchst freie Zeitfenster."
+        title="Meine Reitbeteiligungen"
+      >
+        {activeRelationships.length === 0 ? (
+          <EmptyState
+            description="Sobald dich ein Pferdehalter freischaltet, erscheint die Reitbeteiligung hier mit Chat, Kontingent und direktem Buchungszugang."
+            title="Noch keine aktive Reitbeteiligung"
+          />
+        ) : (
+          <div className="space-y-3">
+            {activeRelationships.map((item) => {
+              const { approval, conversation, horse, latestTrial, riderBookingLimit } = item;
+              const contact = conversation ? (conversationInfo.get(conversation.id) ?? null) : null;
+              const hasUnread = hasUnreadMessage(conversation, conversation ? (latestMessages.get(conversation.id) ?? null) : null, user.id);
+              const ownerName = contact?.partner_name?.trim() || "Pferdehalter";
+
+              return (
+                <Card className="p-5" key={`${approval.horse_id}:${approval.rider_id}`}>
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Aktive Reitbeteiligung</p>
+                      <p className="font-semibold text-ink">{horse?.title ?? "Pferdeprofil nicht gefunden"}</p>
+                      <p className="text-sm text-stone-600">{horse ? `Pferdehalter: ${ownerName}` : "Pferdeprofil nicht mehr verfügbar"}</p>
+                    </div>
+                    <p className="text-sm font-semibold text-ink">{`Freigeschaltet seit ${formatDateTime(approval.created_at)}`}</p>
+                    {latestTrial?.requested_start_at && latestTrial?.requested_end_at ? (
+                      <p className="text-sm text-stone-600">{`Letzter Probetermin: ${formatDateRange(latestTrial.requested_start_at, latestTrial.requested_end_at)}`}</p>
+                    ) : null}
+                    <div className="flex flex-wrap gap-2">
+                      <Badge tone="approved">Aktive Reitbeteiligung</Badge>
+                      {riderBookingLimit ? <Badge tone="neutral">{formatWeeklyHoursLimit(riderBookingLimit.weekly_hours_limit)}</Badge> : null}
+                      {hasUnread ? <Badge tone="info">Neue Nachricht</Badge> : null}
+                    </div>
+                    <Notice text="Du kannst jetzt in offenen Zeitfenstern direkt buchen." tone="success" />
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+                      <Link className={inlineLinkClassName} href={`/pferde/${approval.horse_id}/kalender` as Route}>
+                        Offene Zeiten buchen
+                      </Link>
+                      <Link className={inlineLinkClassName} href={`/pferde/${approval.horse_id}` as Route}>
+                        Pferdeprofil ansehen
+                      </Link>
+                      {conversation ? (
+                        <Link className={inlineLinkClassName} href={`/chat/${conversation.id}` as Route}>
+                          Zum Chat
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </SectionCard>
+      <SectionCard
+        subtitle={"Hier siehst du den Status deiner Probetermin-Anfragen bis zur Entscheidung über eine neue Reitbeteiligung."}
         title="Meine Probetermine"
       >
-        {items.length === 0 ? (
+        {openTrialItems.length === 0 ? (
           <EmptyState
-            description="Sobald du einen Probetermin anfragst, erscheint er hier mit Status, Chat und Freischaltung."
+            description="Sobald du einen Probetermin anfragst, erscheint er hier bis zur Annahme, Ablehnung oder Freischaltung."
             title="Noch keine Probetermin-Anfragen"
           />
         ) : (
           <div className="space-y-3">
-            {items.map((request) => {
+            {openTrialItems.map((request) => {
               const approval = approvals.get(`${request.horse_id}:${request.rider_id}`) ?? null;
               const horse = request.horse;
               const conversation = conversations.get(`${request.horse_id}:${request.rider_id}`) ?? null;
-              const contact = conversation ? conversationInfo.get(conversation.id) ?? null : null;
-              const hasUnread = hasUnreadMessage(conversation, conversation ? latestMessages.get(conversation.id) ?? null : null, user.id);
+              const contact = conversation ? (conversationInfo.get(conversation.id) ?? null) : null;
+              const hasUnread = hasUnreadMessage(conversation, conversation ? (latestMessages.get(conversation.id) ?? null) : null, user.id);
               const ownerName = contact?.partner_name?.trim() || "Pferdehalter";
               const riderBookingLimit = riderBookingLimits.get(`${request.horse_id}:${request.rider_id}`) ?? null;
 
@@ -208,7 +297,7 @@ export default async function AnfragenPage({
                     {request.requested_start_at && request.requested_end_at ? (
                       <p className="text-sm font-semibold text-ink">{formatDateRange(request.requested_start_at, request.requested_end_at)}</p>
                     ) : null}
-                    <p className="text-sm leading-6 text-stone-600">{request.message ?? "Keine Nachricht hinterlegt."}</p>
+                    <p className="text-sm leading-6 text-stone-600">{request.message?.trim() || "Keine Nachricht hinterlegt."}</p>
                     <div className="flex flex-wrap gap-2">
                       <StatusBadge status={request.status} />
                       {approval ? <StatusBadge status={approval.status} /> : null}
@@ -240,7 +329,7 @@ export default async function AnfragenPage({
         )}
       </SectionCard>
       <SectionCard
-        subtitle="Nur freigeschaltete Reiter können innerhalb eines Verfügbarkeitsfensters einen Termin anfragen."
+        subtitle={"Nur aktive Reitbeteiligungen k\u00f6nnen innerhalb offener Zeitfenster konkrete Termine anfragen."}
         title="Meine Terminanfragen"
       >
         {bookingItems.length === 0 ? (
@@ -252,8 +341,8 @@ export default async function AnfragenPage({
           <div className="space-y-3">
             {bookingItems.map((request) => {
               const conversation = conversations.get(`${request.horse_id}:${request.rider_id}`) ?? null;
-              const contact = conversation ? conversationInfo.get(conversation.id) ?? null : null;
-              const hasUnread = hasUnreadMessage(conversation, conversation ? latestMessages.get(conversation.id) ?? null : null, user.id);
+              const contact = conversation ? (conversationInfo.get(conversation.id) ?? null) : null;
+              const hasUnread = hasUnreadMessage(conversation, conversation ? (latestMessages.get(conversation.id) ?? null) : null, user.id);
               const ownerName = contact?.partner_name?.trim() || "Pferdehalter";
               const riderBookingLimit = riderBookingLimits.get(`${request.horse_id}:${request.rider_id}`) ?? null;
 

@@ -146,9 +146,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       ...pendingTrialRequests.map((request) => ({
         ctaLabel: "Details",
         description:
-        formatDateTimeRange(request.requested_start_at, request.requested_end_at) ??
-        request.message?.trim() ??
-        "Keine Nachricht hinterlegt.",
+          formatDateTimeRange(request.requested_start_at, request.requested_end_at) ??
+          request.message?.trim() ??
+          "Keine Nachricht hinterlegt.",
         eyebrow: "Probetermin",
         href: ownerRequestsHref,
         meta: formatDate(request.created_at),
@@ -304,18 +304,24 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const riderProfileHref = "/rider/profile" as Route;
   const riderSearchHref = "/suchen" as Route;
 
-  const [{ data: riderProfileData }, { data: trialRequestsData }] = await Promise.all([
+  const [{ data: riderProfileData }, { data: trialRequestsData }, { data: riderApprovalsData }] = await Promise.all([
     supabase.from("rider_profiles").select("user_id").eq("user_id", user.id).maybeSingle(),
     supabase
       .from("trial_requests")
       .select("id, horse_id, rider_id, status, message, availability_rule_id, requested_start_at, requested_end_at, created_at")
       .eq("rider_id", user.id)
       .order("created_at", { ascending: false })
-      .limit(5)
+      .limit(5),
+    supabase
+      .from("approvals")
+      .select("horse_id, rider_id, status, created_at")
+      .eq("rider_id", user.id)
+      .eq("status", "approved")
   ]);
 
   const riderProfile = (riderProfileData as Pick<RiderProfile, "user_id"> | null) ?? null;
   const trials = (trialRequestsData as TrialRequest[] | null) ?? [];
+  const activeApprovals = (riderApprovalsData as Approval[] | null) ?? [];
   const riderHorseIds = [...new Set(trials.map((trial) => trial.horse_id))];
   let riderHorseMap = new Map<string, Pick<Horse, "id" | "title" | "plz">>();
 
@@ -326,7 +332,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     );
   }
 
-  const openTrialCount = trials.filter((trial) => trial.status === "requested" || trial.status === "accepted").length;
+  const activeRelationshipKeys = new Set(activeApprovals.map((approval) => `${approval.horse_id}:${approval.rider_id}`));
+  const openTrialCount = trials.filter((trial) => (trial.status === "requested" || trial.status === "accepted") && !activeRelationshipKeys.has(`${trial.horse_id}:${trial.rider_id}`)).length;
+  const activeRelationshipCount = activeApprovals.length;
   const riderStats: StatItem[] = [
     {
       label: "Profilstatus",
@@ -339,13 +347,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       value: openTrialCount,
       helper: "Anfragen mit Status Ausstehend oder Angenommen."
     },
-    {
-      label: "Nächster Schritt",
-      value: riderProfile ? "Pferde suchen" : "Profil ausf\u00fcllen",
-      valueClassName: "text-xl",
-      helper: riderProfile
-        ? "Suche passende Pferde und frage einen Probetermin an."
-        : "Ergänze dein Profil, damit Pferdehalter dich besser einschätzen können."
+        {
+      label: "Reitbeteiligungen",
+      value: activeRelationshipCount,
+      helper:
+        activeRelationshipCount > 0
+          ? "Diese Reitbeteiligungen können jetzt offene Zeitfenster buchen."
+          : "Nach der Freischaltung erscheinen aktive Reitbeteiligungen hier."
     }
   ];
 
@@ -399,7 +407,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               return (
                 <RequestCard
                   ctaLabel="Details"
-                  description={formatDateTimeRange(trial.requested_start_at, trial.requested_end_at) ?? trial.message?.trim() ?? "Keine Nachricht hinterlegt."}
+                  description={
+                    formatDateTimeRange(trial.requested_start_at, trial.requested_end_at) ??
+                    trial.message?.trim() ??
+                    "Keine Nachricht hinterlegt."
+                  }
                   eyebrow={horse?.plz ? `PLZ ${horse.plz}` : "Pferdeprofil"}
                   href={riderRequestsHref}
                   key={trial.id}
