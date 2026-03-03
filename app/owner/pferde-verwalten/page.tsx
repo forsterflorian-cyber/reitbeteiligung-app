@@ -1,13 +1,13 @@
 import type { Route } from "next";
 import Link from "next/link";
 
-import { deleteHorseAction, deleteHorseImageAction, saveHorseAction, uploadHorseImagesAction } from "@/app/actions";
+import { deleteHorseAction, deleteHorseImageAction, saveHorseAction, startOwnerTrialAction, uploadHorseImagesAction } from "@/app/actions";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
 import { Backdrop } from "@/components/ui/backdrop";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireProfile } from "@/lib/auth";
 import {
@@ -19,7 +19,7 @@ import {
   getHorseImageUrl,
   sortHorseImages
 } from "@/lib/horses";
-import { PAID_PLAN_CONTACT_EMAIL, getOwnerPlan, getOwnerPlanUsage, getOwnerPlanUsageSummary } from "@/lib/plans";
+import { PAID_PLAN_CONTACT_EMAIL, canStartOwnerTrial, getOwnerPlan, getOwnerPlanUsage, getOwnerPlanUsageSummary } from "@/lib/plans";
 import { readSearchParam } from "@/lib/search-params";
 import type { BookingRequest, Horse, HorseImage, TrialRequest } from "@/types/database";
 
@@ -51,7 +51,7 @@ export default async function OwnerManageHorsesPage({
   const ownerPlanUsage = await getOwnerPlanUsage(supabase, user.id);
   const ownerPlan = getOwnerPlan(profile, ownerPlanUsage);
   const ownerPlanUsageSummary = getOwnerPlanUsageSummary(ownerPlan, ownerPlanUsage);
-  const startTrialHref = `mailto:${PAID_PLAN_CONTACT_EMAIL}?subject=${encodeURIComponent("Start Trial")}`;
+  const showStartTrial = canStartOwnerTrial(profile);
   const upgradeHref = `mailto:${PAID_PLAN_CONTACT_EMAIL}?subject=${encodeURIComponent("Bezahlten Tarif anfragen")}`;
   const { data: horsesData, error: horsesError } = await supabase
     .from("horses")
@@ -134,7 +134,8 @@ export default async function OwnerManageHorsesPage({
 
   return (
     <div className="relative isolate space-y-6">
-      <Backdrop className="top-16 h-[420px]" variant="section" />
+      <Backdrop className="!inset-x-0 !top-0 !bottom-auto !h-[340px]" variant="hero" />
+      <Backdrop className="top-12 h-[520px]" variant="section" />
       <div className="relative z-10 space-y-6">
         <PageHeader
           actions={
@@ -163,19 +164,22 @@ export default async function OwnerManageHorsesPage({
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Tarif & Kontingent</p>
               <div className="flex flex-wrap gap-2">
                 <Badge tone={ownerPlan.key === "paid" ? "approved" : ownerPlan.key === "trial" ? "pending" : "neutral"}>{ownerPlan.label}</Badge>
-                {ownerPlan.key === "free" ? <Badge tone="info">Start Trial verfuegbar</Badge> : null}
+                {showStartTrial ? <Badge tone="info">Start Trial verfügbar</Badge> : null}
               </div>
               <p className="text-sm text-stone-600">{ownerPlan.summary}</p>
               {ownerPlan.key !== "paid" ? <p className="text-sm text-stone-600">{ownerPlanUsageSummary}</p> : null}
             </div>
             <div className="flex flex-col gap-2 sm:min-w-[220px]">
-              {ownerPlan.key === "free" ? (
-                <a className={buttonVariants("secondary", "w-full")} href={startTrialHref}>
-                  Start Trial
-                </a>
+              {showStartTrial ? (
+                <form action={startOwnerTrialAction}>
+                  <input name="redirectTo" type="hidden" value="/owner/pferde-verwalten" />
+                  <Button className="w-full" type="submit" variant="secondary">
+                    Start Trial
+                  </Button>
+                </form>
               ) : null}
               {ownerPlan.key !== "paid" ? (
-                <a className={buttonVariants(ownerPlan.key === "free" ? "ghost" : "secondary", "w-full")} href={upgradeHref}>
+                <a className={buttonVariants(showStartTrial ? "ghost" : "secondary", "w-full")} href={upgradeHref}>
                   Bezahlten Tarif anfragen
                 </a>
               ) : null}
@@ -206,7 +210,7 @@ export default async function OwnerManageHorsesPage({
       </div>
       {horsesError ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
-          Die Pferdeprofile konnten derzeit nicht geladen werden. Bitte pruefe spaeter erneut oder oeffne /diagnose.
+          Die Pferdeprofile konnten derzeit nicht geladen werden. Bitte prüfe später erneut oder öffne /diagnose.
         </div>
       ) : horses.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-5 text-sm text-stone-600">
@@ -252,7 +256,7 @@ export default async function OwnerManageHorsesPage({
                     </div>
                     <div className="grid gap-2 text-sm text-stone-600 sm:grid-cols-2 xl:grid-cols-3">
                       <div>{horse.breed ? `Rasse: ${horse.breed}` : "Rasse: offen"}</div>
-                      <div>{horse.height_cm ? `Stockmass: ${horse.height_cm} cm` : "Stockmass: offen"}</div>
+                      <div>{horse.height_cm ? `Stockmaß: ${horse.height_cm} cm` : "Stockmaß: offen"}</div>
                       <div>{horse.color ? `Farbe: ${horse.color}` : "Farbe: offen"}</div>
                       <div>{horse.sex ? `Geschlecht: ${horse.sex}` : "Geschlecht: offen"}</div>
                       <div>{age !== null ? `Alter: ${age} Jahre` : "Alter: offen"}</div>
@@ -268,18 +272,18 @@ export default async function OwnerManageHorsesPage({
                   <div className="space-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Aktionen</p>
                     <div className="rounded-xl border border-stone-200 bg-white px-3 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">Naechster Schritt</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">N?chster Schritt</p>
                       <p className="mt-2 text-sm font-semibold text-stone-900">
                         {trialCount > 0
-                          ? `${trialCount} Probetermine pruefen`
+                          ? `${trialCount} Probetermine prüfen`
                           : bookingCount > 0
-                            ? `${bookingCount} Terminanfragen pruefen`
+                            ? `${bookingCount} Terminanfragen prüfen`
                             : "Kalender aktuell halten"}
                       </p>
                       <p className="mt-1 text-xs leading-5 text-stone-600">
                         {trialCount > 0 || bookingCount > 0
                           ? "Gehe direkt in die Anfragen, damit nichts liegen bleibt."
-                          : "Halte Verfuegbarkeiten, Bilder und Sichtbarkeit dieses Pferdes aktuell."}
+                          : "Halte Verfügbarkeiten, Bilder und Sichtbarkeit dieses Pferdes aktuell."}
                       </p>
                     </div>
                     <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-forest px-4 py-2 text-sm font-semibold text-white hover:bg-forest/90" href={`/pferde/${horse.id}` as Route}>
@@ -303,7 +307,7 @@ export default async function OwnerManageHorsesPage({
                       <ConfirmSubmitButton
                         className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:border-rose-400 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-70"
                         confirmMessage={deletePrompt}
-                        idleLabel="Pferd loeschen"
+                        idleLabel="Pferd l?schen"
                         pendingLabel="Wird gelöscht..."
                       />
                     </form>
@@ -340,7 +344,7 @@ export default async function OwnerManageHorsesPage({
                           </div>
                           <div className="grid gap-4 sm:grid-cols-2">
                             <div>
-                              <label htmlFor={`heightCm-${horse.id}`}>Stockmass (cm)</label>
+                              <label htmlFor={`heightCm-${horse.id}`}>Stockmaß (cm)</label>
                               <input defaultValue={horse.height_cm ?? ""} id={`heightCm-${horse.id}`} max={220} min={50} name="heightCm" type="number" />
                             </div>
                             <div>
@@ -356,7 +360,7 @@ export default async function OwnerManageHorsesPage({
                             <div>
                               <label htmlFor={`sex-${horse.id}`}>Geschlecht</label>
                               <select defaultValue={horse.sex ?? ""} id={`sex-${horse.id}`} name="sex">
-                                <option value="">Bitte waehlen</option>
+                                <option value="">Bitte wählen</option>
                                 {HORSE_GESCHLECHTER.map((geschlecht) => (
                                   <option key={geschlecht} value={geschlecht}>
                                     {geschlecht.charAt(0).toUpperCase() + geschlecht.slice(1)}
@@ -375,7 +379,7 @@ export default async function OwnerManageHorsesPage({
                           </div>
                           <label className="flex min-h-[44px] items-center gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-900">
                             <input className="h-4 w-4 rounded border-stone-300" defaultChecked={horse.active} name="active" type="checkbox" />
-                            Pferdeprofil veroeffentlichen
+                            Pferdeprofil veröffentlichen
                           </label>
                           <SubmitButton idleLabel="Änderungen speichern" pendingLabel="Wird aktualisiert..." />
                         </form>

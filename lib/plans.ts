@@ -42,8 +42,8 @@ const PAID_PLAN: OwnerPlan = {
   summary: "Mehrere Pferde und mehrere Reitbeteiligungen sind für dich freigeschaltet."
 };
 
-function getRemainingTrialDays(createdAt: string) {
-  const startedAt = Date.parse(createdAt);
+function getRemainingTrialDays(anchor: string) {
+  const startedAt = Date.parse(anchor);
 
   if (Number.isNaN(startedAt)) {
     return 0;
@@ -54,12 +54,16 @@ function getRemainingTrialDays(createdAt: string) {
   return Math.max(0, TRIAL_PLAN_DAYS - elapsedDays);
 }
 
-function isTrialPlan(profile: Pick<Profile, "created_at" | "is_premium" | "role"> | null | undefined) {
+function getTrialAnchor(profile: Pick<Profile, "created_at" | "trial_started_at">) {
+  return profile.trial_started_at ?? profile.created_at;
+}
+
+function isTrialPlan(profile: Pick<Profile, "created_at" | "is_premium" | "role" | "trial_started_at"> | null | undefined) {
   if (!profile || profile.role !== "owner" || profile.is_premium) {
     return false;
   }
 
-  return getRemainingTrialDays(profile.created_at) > 0;
+  return getRemainingTrialDays(getTrialAnchor(profile)) > 0;
 }
 
 function buildLimitedPlan({
@@ -95,8 +99,8 @@ const getFreePlan = buildLimitedPlan({
   summary: "1 Pferd und 1 Reitbeteiligung sind vollständig kostenlos enthalten."
 });
 
-function getTrialPlan(profile: Pick<Profile, "created_at">, usage: OwnerPlanUsage) {
-  const remainingTrialDays = getRemainingTrialDays(profile.created_at);
+function getTrialPlan(profile: Pick<Profile, "created_at" | "trial_started_at">, usage: OwnerPlanUsage) {
+  const remainingTrialDays = getRemainingTrialDays(getTrialAnchor(profile));
   const basePlan = buildLimitedPlan({
     key: "trial",
     label: "Testphase",
@@ -135,7 +139,7 @@ export async function getOwnerPlanUsage(supabase: SupabaseClient, ownerId: strin
 }
 
 export function getOwnerPlan(
-  profile: Pick<Profile, "role" | "is_premium" | "created_at"> | null | undefined,
+  profile: Pick<Profile, "role" | "is_premium" | "created_at" | "trial_started_at"> | null | undefined,
   usage: OwnerPlanUsage = EMPTY_USAGE
 ): OwnerPlan {
   if (!profile || profile.role !== "owner") {
@@ -153,9 +157,21 @@ export function getOwnerPlan(
   return getFreePlan(usage);
 }
 
+export function canStartOwnerTrial(profile: Pick<Profile, "role" | "is_premium" | "created_at" | "trial_started_at"> | null | undefined) {
+  if (!profile || profile.role !== "owner" || profile.is_premium) {
+    return false;
+  }
+
+  if (profile.trial_started_at) {
+    return false;
+  }
+
+  return getRemainingTrialDays(profile.created_at) === 0;
+}
+
 export function getOwnerPlanUsageSummary(plan: OwnerPlan, usage: OwnerPlanUsage) {
   if (plan.maxHorses === null || plan.maxApprovedRiders === null) {
-    return "Mehrere Pferdeprofile und mehrere Reitbeteiligungen sind in deinem Tarif verf\u00fcgbar.";
+    return "Mehrere Pferdeprofile und mehrere Reitbeteiligungen sind in deinem Tarif verfügbar.";
   }
 
   const horseLabel = plan.maxHorses === 1 ? "Pferdeprofil" : "Pferdeprofile";
@@ -165,7 +181,7 @@ export function getOwnerPlanUsageSummary(plan: OwnerPlan, usage: OwnerPlanUsage)
 }
 
 export function canCreateHorseProfile(
-  profile: Pick<Profile, "role" | "is_premium" | "created_at"> | null | undefined,
+  profile: Pick<Profile, "role" | "is_premium" | "created_at" | "trial_started_at"> | null | undefined,
   usage: OwnerPlanUsage = EMPTY_USAGE
 ) {
   if (!profile || profile.role !== "owner") {
@@ -177,7 +193,7 @@ export function canCreateHorseProfile(
 }
 
 export function canApproveRider(
-  profile: Pick<Profile, "role" | "is_premium" | "created_at"> | null | undefined,
+  profile: Pick<Profile, "role" | "is_premium" | "created_at" | "trial_started_at"> | null | undefined,
   usage: OwnerPlanUsage = EMPTY_USAGE,
   currentStatus: Approval["status"] | null = null
 ) {
@@ -194,7 +210,7 @@ export function canApproveRider(
 }
 
 export function canUseBookingFeatures(
-  profile: Pick<Profile, "role" | "is_premium" | "created_at"> | null | undefined,
+  profile: Pick<Profile, "role" | "is_premium" | "created_at" | "trial_started_at"> | null | undefined,
   usage: OwnerPlanUsage = EMPTY_USAGE
 ) {
   return getOwnerPlan(profile, usage).bookingFeaturesEnabled;

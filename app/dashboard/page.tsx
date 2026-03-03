@@ -7,12 +7,13 @@ import { StatGrid, type StatItem } from "@/components/blocks/stat-grid";
 import { Notice } from "@/components/notice";
 import { AppPageShell } from "@/components/ui/app-page-shell";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
+import { startOwnerTrialAction } from "@/app/actions";
 import { requireProfile } from "@/lib/auth";
-import { PAID_PLAN_CONTACT_EMAIL, getOwnerPlan, getOwnerPlanUsageSummary } from "@/lib/plans";
+import { PAID_PLAN_CONTACT_EMAIL, canStartOwnerTrial, getOwnerPlan, getOwnerPlanUsageSummary } from "@/lib/plans";
 import { getProfileDisplayName } from "@/lib/profiles";
 import { readSearchParam } from "@/lib/search-params";
 import type { Approval, BookingRequest, Horse, RiderProfile, TrialRequest } from "@/types/database";
@@ -109,7 +110,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     };
     const ownerPlan = getOwnerPlan(profile, ownerPlanUsage);
     const ownerPlanUsageSummary = getOwnerPlanUsageSummary(ownerPlan, ownerPlanUsage);
-    const trialHref = `mailto:${PAID_PLAN_CONTACT_EMAIL}?subject=${encodeURIComponent("Start Trial")}`;
+    const showStartTrial = canStartOwnerTrial(profile);
     const upgradeHref = `mailto:${PAID_PLAN_CONTACT_EMAIL}?subject=${encodeURIComponent("Bezahlten Tarif anfragen")}`;
 
     const ownerStats: StatItem[] = [
@@ -194,10 +195,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <StatGrid items={ownerStats} />
         <SectionCard
           action={
-            ownerPlan.key !== "paid" ? (
-              <a className={buttonVariants("secondary")} href={upgradeHref}>
-                Bezahlten Tarif anfragen
-              </a>
+            ownerPlan.key !== "paid" || showStartTrial ? (
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                {showStartTrial ? (
+                  <form action={startOwnerTrialAction}>
+                    <input name="redirectTo" type="hidden" value="/dashboard" />
+                    <Button className="w-full sm:w-auto" type="submit" variant="secondary">
+                      Start Trial
+                    </Button>
+                  </form>
+                ) : null}
+                {ownerPlan.key !== "paid" ? (
+                  <a className={buttonVariants(showStartTrial ? "ghost" : "secondary")} href={upgradeHref}>
+                    Bezahlten Tarif anfragen
+                  </a>
+                ) : null}
+              </div>
             ) : undefined
           }
           subtitle="So viel ist aktuell enthalten und genutzt."
@@ -211,7 +224,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
             <p className="text-sm leading-6 text-stone-600">{ownerPlan.summary}</p>
             {ownerPlan.key !== "paid" ? <p className="text-sm leading-6 text-stone-600">{ownerPlanUsageSummary}</p> : null}
-            {ownerPlan.key === "free" ? <p className="text-sm leading-6 text-stone-600">Starte bei Bedarf eine 14-taegige Testphase mit bis zu zwei Reitbeteiligungen.</p> : null}
+            {showStartTrial ? <p className="text-sm leading-6 text-stone-600">Starte bei Bedarf eine 14-tägige Testphase mit bis zu zwei Reitbeteiligungen.</p> : null}
           </div>
         </SectionCard>
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">

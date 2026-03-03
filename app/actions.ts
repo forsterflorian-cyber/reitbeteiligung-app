@@ -21,8 +21,8 @@ import {
   isMutableTrialRequestStatus
 } from "@/lib/statuses";
 import { createClient } from "@/lib/supabase/server";
-import { MAX_WEEKLY_HOURS_LIMIT, MIN_WEEKLY_HOURS_LIMIT } from "@/lib/booking-limits";
-import { canApproveRider, canCreateHorseProfile, getOwnerPlan, getOwnerPlanUsage } from "@/lib/plans";
+import { MAX_WEEKLY_HOURS_LIMIT, MIN_WEEKLY_HOURS_LIMIT, formatWeeklyHoursLimit } from "@/lib/booking-limits";
+import { canApproveRider, canCreateHorseProfile, canStartOwnerTrial, getOwnerPlan, getOwnerPlanUsage } from "@/lib/plans";
 import { isTrialRuleBlocked } from "@/lib/trial-slots";
 import type { Approval, AvailabilityRule, Booking, BookingRequest, CalendarBlock, Horse, HorseImage, RiderBookingLimit, TrialRequest } from "@/types/database";
 
@@ -263,6 +263,51 @@ function shiftRangeBoundary(
     endAt: endAt.toISOString(),
     startAt: startAt.toISOString()
   } satisfies BookingWindow;
+}
+
+function startOfLocalWeek(value: Date) {
+  const date = new Date(value.getTime());
+  const day = date.getDay();
+  const delta = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + delta);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function getWeekKeyForIso(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const weekStart = startOfLocalWeek(date);
+  const year = weekStart.getFullYear();
+  const month = String(weekStart.getMonth() + 1).padStart(2, "0");
+  const day = String(weekStart.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getDurationHours(startAt: string, endAt: string) {
+  const diff = Date.parse(endAt) - Date.parse(startAt);
+  return diff > 0 ? diff / 3600000 : 0;
+}
+
+function sumHoursByWeek(entries: Array<{ startAt: string; endAt: string }>) {
+  const totals = new Map<string, number>();
+
+  entries.forEach((entry) => {
+    const weekKey = getWeekKeyForIso(entry.startAt);
+    const hours = getDurationHours(entry.startAt, entry.endAt);
+
+    if (!weekKey || hours <= 0) {
+      return;
+    }
+
+    totals.set(weekKey, (totals.get(weekKey) ?? 0) + hours);
+  });
+
+  return totals;
 }
 
 function parseRruleDate(value: string) {
@@ -507,7 +552,7 @@ function getRecurrenceErrorMessage(error: Error) {
     case "UNSUPPORTED_RRULE":
       return "Aktuell werden nur einfache RRULEs mit FREQ=DAILY oder FREQ=WEEKLY unterstuetzt.";
     case "RECURRENCE_LIMIT":
-      return "Die Wiederholung ueberschreitet den maximalen Horizont von 12 Wochen.";
+      return "Die Wiederholung überschreitet den maximalen Horizont von 12 Wochen.";
     default:
       return "Die Wiederholung ist ungültig. Nutze zum Beispiel FREQ=WEEKLY;INTERVAL=1;COUNT=6.";
   }
@@ -587,7 +632,7 @@ async function getManagedBookingRequest(supabase: ReturnType<typeof createClient
 function getAcceptBookingErrorMessage(error: SupabaseErrorLike) {
   switch (error.message) {
     case "TIME_UNAVAILABLE":
-      return "Der angefragte Termin ist nicht mehr verfuegbar.";
+      return "Der angefragte Termin ist nicht mehr verfügbar.";
     case "NOT_APPROVED":
       return "Nur freigeschaltete Reiter können gebucht werden.";
     case "OUTSIDE_RULE":
@@ -721,7 +766,7 @@ export async function requestTrialAction(formData: FormData) {
   const horse = (horseData as HorseOwnerRecord | null) ?? null;
 
   if (!horse) {
-    redirectWithMessage("/suchen", "error", "Dieses Pferd ist aktuell nicht verfuegbar.");
+    redirectWithMessage("/suchen", "error", "Dieses Pferd ist aktuell nicht verfügbar.");
   }
 
   const riderId = user.id;
@@ -735,7 +780,7 @@ export async function requestTrialAction(formData: FormData) {
     .maybeSingle();
 
   if (existingOwnRequest) {
-    redirectWithMessage(redirectPath, "error", "Du hast fuer dieses Pferd bereits einen laufenden oder abgeschlossenen Probetermin.");
+    redirectWithMessage(redirectPath, "error", "Du hast für dieses Pferd bereits einen laufenden oder abgeschlossenen Probetermin.");
   }
 
   const nowIso = new Date().toISOString();
@@ -749,7 +794,7 @@ export async function requestTrialAction(formData: FormData) {
 
   if (activeTrialRulesError) {
     logSupabaseError("Trial request slot lookup failed", activeTrialRulesError);
-    redirectWithMessage(redirectPath, "error", "Die verfuegbaren Probetermine konnten nicht geladen werden.");
+    redirectWithMessage(redirectPath, "error", "Die verfügbaren Probetermine konnten nicht geladen werden.");
   }
 
   const activeTrialRules = (activeTrialRulesData as AvailabilityRuleRecord[] | null) ?? [];
@@ -760,7 +805,7 @@ export async function requestTrialAction(formData: FormData) {
     selectedRule = activeTrialRules.find((rule) => rule.id === availabilityRuleId) ?? null;
 
     if (!selectedRule) {
-      redirectWithMessage(redirectPath, "error", "Dieser Probetermin ist nicht mehr verfuegbar.");
+      redirectWithMessage(redirectPath, "error", "Dieser Probetermin ist nicht mehr verfügbar.");
     }
 
     const [{ data: occupancyData, error: occupancyError }, { data: reservedRequestData, error: reservedRequestError }] = await Promise.all([
@@ -776,22 +821,22 @@ export async function requestTrialAction(formData: FormData) {
 
     if (occupancyError) {
       logSupabaseError("Trial request occupancy lookup failed", occupancyError);
-      redirectWithMessage(redirectPath, "error", "Die verfuegbaren Probetermine konnten nicht geladen werden.");
+      redirectWithMessage(redirectPath, "error", "Die verfügbaren Probetermine konnten nicht geladen werden.");
     }
 
     if (reservedRequestError) {
       logSupabaseError("Trial request reservation lookup failed", reservedRequestError);
-      redirectWithMessage(redirectPath, "error", "Die verfuegbaren Probetermine konnten nicht geladen werden.");
+      redirectWithMessage(redirectPath, "error", "Die verfügbaren Probetermine konnten nicht geladen werden.");
     }
 
     const occupiedRanges = ((occupancyData as Array<{ start_at: string; end_at: string }> | null) ?? []);
     const reservedRequests = ((reservedRequestData as Array<Pick<TrialRequest, "availability_rule_id" | "requested_start_at" | "requested_end_at" | "status">> | null) ?? []);
 
     if (isTrialRuleBlocked(selectedRule, occupiedRanges, reservedRequests)) {
-      redirectWithMessage(redirectPath, "error", "Dieser Probetermin ist nicht mehr verfuegbar.");
+      redirectWithMessage(redirectPath, "error", "Dieser Probetermin ist nicht mehr verfügbar.");
     }
   } else if (hasExplicitTrialSlots) {
-    redirectWithMessage(redirectPath, "error", "Bitte waehle einen verfuegbaren Probetermin aus.");
+    redirectWithMessage(redirectPath, "error", "Bitte wähle einen verfügbaren Probetermin aus.");
   }
 
   const trialInsert = {
@@ -831,7 +876,7 @@ export async function requestTrialAction(formData: FormData) {
     revalidatePath("/owner/anfragen");
     redirect(
       `/pferde/${horseId}?message=${encodeURIComponent(
-        hasExplicitTrialSlots ? "Deine Anfrage fuer den Probetermin wurde gesendet." : "Deine allgemeine Probeanfrage wurde gesendet."
+        hasExplicitTrialSlots ? "Deine Anfrage für den Probetermin wurde gesendet." : "Deine allgemeine Probeanfrage wurde gesendet."
       )}&error=${encodeURIComponent("Chat konnte nicht erstellt werden.")}`
     );
   }
@@ -843,7 +888,7 @@ export async function requestTrialAction(formData: FormData) {
   redirectWithMessage(
     `/pferde/${horseId}`,
     "message",
-    hasExplicitTrialSlots ? "Deine Anfrage fuer den Probetermin wurde gesendet." : "Deine allgemeine Probeanfrage wurde gesendet."
+    hasExplicitTrialSlots ? "Deine Anfrage für den Probetermin wurde gesendet." : "Deine allgemeine Probeanfrage wurde gesendet."
   );
 }
 
@@ -1089,6 +1134,36 @@ export async function deleteRiderRelationshipAction(formData: FormData) {
   revalidatePath(`/owner/reiter/${riderId}`);
   redirectWithMessage("/owner/anfragen", "message", "Die Reitbeteiligung wurde gelöscht.");
 }
+export async function startOwnerTrialAction(formData: FormData) {
+  const { profile, supabase } = await requireProfile("owner");
+  const redirectTo = asString(formData.get("redirectTo"));
+  const redirectPath = redirectTo.startsWith("/") ? redirectTo : "/dashboard";
+
+  if (!canStartOwnerTrial(profile)) {
+    const message = profile.trial_started_at
+      ? "Deine Testphase wurde bereits genutzt."
+      : getOwnerPlan(profile).key === "trial"
+        ? "Deine Testphase läuft bereits."
+        : "Die Testphase kann aktuell nicht gestartet werden.";
+    redirectWithMessage(redirectPath, "error", message);
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ trial_started_at: new Date().toISOString() })
+    .eq("id", profile.id);
+
+  if (error) {
+    logSupabaseError("Owner trial start failed", error);
+    redirectWithMessage(redirectPath, "error", "Die Testphase konnte nicht gestartet werden.");
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/owner/horses");
+  revalidatePath("/owner/pferde-verwalten");
+  revalidatePath("/profil");
+  redirectWithMessage(redirectPath, "message", "Deine Testphase wurde gestartet.");
+}
 export async function logoutAction() {
   const supabase = createClient();
   await supabase.auth.signOut();
@@ -1194,7 +1269,7 @@ export async function saveHorseAction(formData: FormData) {
   }
 
   if (heightCm !== null && (heightCm < 50 || heightCm > 220)) {
-    redirectWithMessage(redirectPath, "error", "Das Stockmass muss zwischen 50 und 220 cm liegen.");
+    redirectWithMessage(redirectPath, "error", "Das Stockmaß muss zwischen 50 und 220 cm liegen.");
   }
 
   if (birthYear !== null && (birthYear < 1980 || birthYear > currentYear)) {
@@ -1526,7 +1601,7 @@ export async function updateAvailabilityDayAction(formData: FormData) {
   const rule = await getOwnedAvailabilityRule(supabase, ruleId, user.id);
 
   if (!rule) {
-    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verfuegbarkeiten bearbeiten.");
+    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verfügbarkeiten bearbeiten.");
   }
 
   const selectedDate = asString(formData.get("selectedDate")) || rule.start_at.slice(0, 10);
@@ -1557,7 +1632,7 @@ export async function updateAvailabilityDayAction(formData: FormData) {
 
   if (duplicateRuleError) {
     logSupabaseError("Availability day duplicate lookup failed", duplicateRuleError);
-    redirectWithMessage(redirectPath, "error", "Die vorhandenen Verfuegbarkeiten konnten nicht geladen werden.");
+    redirectWithMessage(redirectPath, "error", "Die vorhandenen Verfügbarkeiten konnten nicht geladen werden.");
   }
 
   if (duplicateRuleData?.id) {
@@ -1908,7 +1983,7 @@ export async function createAvailabilityRuleAction(formData: FormData) {
     redirectWithMessage(
       redirectPath,
       "error",
-      "Mit dieser Auswahl entstehen in den naechsten 8 Wochen keine zukuenftigen Zeitfenster."
+      "Mit dieser Auswahl entstehen in den nächsten 8 Wochen keine zukünftigen Zeitfenster."
     );
   }
 
@@ -2004,8 +2079,8 @@ export async function createAvailabilityRuleAction(formData: FormData) {
   if (skippedCount > 0) {
     messageParts.push(
       skippedCount === 1
-        ? "1 bereits vorhandenes Fenster wurde uebersprungen."
-        : `${skippedCount} bereits vorhandene Fenster wurden uebersprungen.`
+        ? "1 bereits vorhandenes Fenster wurde übersprungen."
+        : `${skippedCount} bereits vorhandene Fenster wurden übersprungen.`
     );
   }
 
@@ -2103,7 +2178,7 @@ export async function requestBookingAction(formData: FormData) {
   const rule = (ruleData as AvailabilityRuleRecord | null) ?? null;
 
   if (!rule || !rule.active) {
-    redirectWithMessage(redirectPath, "error", "Dieses Verfügbarkeitsfenster ist nicht mehr verfuegbar.");
+    redirectWithMessage(redirectPath, "error", "Dieses Verfügbarkeitsfenster ist nicht mehr verfügbar.");
   }
 
   const requestedStartIso = startAt.toISOString();
@@ -2195,13 +2270,17 @@ export async function acceptBookingRequestAction(formData: FormData) {
     redirectWithMessage("/owner/anfragen", "error", "Die Buchungsanfrage enthält einen ungültigen Zeitraum.");
   }
 
-  const [{ data: existingBookingsData }, { data: blocksData }] = await Promise.all([
+  const [{ data: existingBookingsData }, { data: blocksData }, { data: riderBookingsData }, { data: riderLimitData }] = await Promise.all([
     supabase.from("bookings").select("id, start_at, end_at").eq("horse_id", request.horse_id),
-    supabase.from("calendar_blocks").select("start_at, end_at").eq("horse_id", request.horse_id)
+    supabase.from("calendar_blocks").select("start_at, end_at").eq("horse_id", request.horse_id),
+    supabase.from("bookings").select("start_at, end_at").eq("horse_id", request.horse_id).eq("rider_id", request.rider_id),
+    supabase.from("rider_booking_limits").select("weekly_hours_limit").eq("horse_id", request.horse_id).eq("rider_id", request.rider_id).maybeSingle()
   ]);
 
   const existingBookings = (existingBookingsData as BookingRecord[] | null) ?? [];
   const existingBlocks = (blocksData as TimeRangeRecord[] | null) ?? [];
+  const riderBookings = (riderBookingsData as TimeRangeRecord[] | null) ?? [];
+  const riderLimit = (riderLimitData as Pick<RiderBookingLimit, "weekly_hours_limit"> | null) ?? null;
 
   if (hasWindowConflict(bookingWindows, existingBookings) || hasWindowConflict(bookingWindows, existingBlocks)) {
     redirectWithMessage(
@@ -2209,8 +2288,29 @@ export async function acceptBookingRequestAction(formData: FormData) {
       "error",
       request.recurrence_rrule
         ? "Mindestens ein Wiederholungstermin kollidiert mit einer bestehenden Buchung oder Sperre."
-        : "Der angefragte Termin ist nicht mehr verfuegbar."
+        : "Der angefragte Termin ist nicht mehr verfügbar."
     );
+  }
+  if (typeof riderLimit?.weekly_hours_limit === "number") {
+    const existingHoursByWeek = sumHoursByWeek(
+      riderBookings.map((booking) => ({
+        endAt: booking.end_at,
+        startAt: booking.start_at
+      }))
+    );
+    const requestedHoursByWeek = sumHoursByWeek(bookingWindows);
+
+    for (const [weekKey, requestedHours] of requestedHoursByWeek.entries()) {
+      const bookedHours = existingHoursByWeek.get(weekKey) ?? 0;
+
+      if (bookedHours + requestedHours > riderLimit.weekly_hours_limit) {
+        redirectWithMessage(
+          "/owner/anfragen",
+          "error",
+          `Das Wochenkontingent von ${formatWeeklyHoursLimit(riderLimit.weekly_hours_limit)} würde überschritten.`
+        );
+      }
+    }
   }
 
   const bookingRows = bookingWindows.map((window) => ({

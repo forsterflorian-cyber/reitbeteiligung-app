@@ -486,6 +486,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const nextWeekHref = `/pferde/${horse.id}/kalender?weekOffset=${weekOffset + 1}&monthOffset=${monthOffset}&day=${toDayKey(nextWeekStart)}` as Route;
   const previousMonthHref = `/pferde/${horse.id}/kalender?weekOffset=${weekOffset}&monthOffset=${monthOffset - 1}&day=${selectedDayKey}` as Route;
   const nextMonthHref = `/pferde/${horse.id}/kalender?weekOffset=${weekOffset}&monthOffset=${monthOffset + 1}&day=${selectedDayKey}` as Route;
+  const todayHref = `/pferde/${horse.id}/kalender?weekOffset=0&monthOffset=0&day=${toDayKey(new Date())}` as Route;
   const timelineRowsLabel = `${weekRangeFormatter.format(weekDays[0] ?? viewedWeekStart)} - ${weekRangeFormatter.format(weekDays[weekDays.length - 1] ?? viewedWeekStart)}`;
   const selectedTimelineRow = timelineRows.find((row) => row.dayKey === selectedDayKey) ?? timelineRows[0] ?? null;
   const selectedDayLabel = selectedTimelineRow ? `${selectedTimelineRow.label}, ${selectedTimelineRow.meta}` : "heute";
@@ -634,21 +635,24 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
       </div>
 
       <SectionCard
-        subtitle="Springe zwischen Wochen und nutze den Monatsueberblick, um direkt in die passende Detailwoche zu wechseln."
+        subtitle="Springe zwischen Wochen und nutze den Monatsüberblick, um direkt in die passende Detailwoche zu wechseln."
         title="Monats- und Wochennavigation"
       >
         <div className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-stone-900">{monthFormatter.format(viewedMonthStart)}</p>
-              <p className="text-sm text-stone-600">Jede Zeile steht fuer eine Woche. Ein Klick oeffnet direkt die Detailansicht dieser Woche.</p>
+              <p className="text-sm text-stone-600">Jede Zeile steht für eine Woche. Ein Klick öffnet direkt die Detailansicht dieser Woche.</p>
             </div>
             <div className="flex gap-2">
               <Link className={buttonVariants("secondary", "min-h-[40px] px-4 py-2 text-sm")} href={previousMonthHref}>
                 Vorheriger Monat
               </Link>
               <Link className={buttonVariants("secondary", "min-h-[40px] px-4 py-2 text-sm")} href={nextMonthHref}>
-                Naechster Monat
+                Nächster Monat
+              </Link>
+              <Link className={buttonVariants("ghost", "min-h-[40px] px-4 py-2 text-sm")} href={todayHref}>
+                Heute
               </Link>
             </div>
           </div>
@@ -694,12 +698,12 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
 
       <SectionCard
         subtitle={`Aktuelle Woche: ${timelineRowsLabel}. Tage links, Uhrzeiten oben und freie, belegte oder angefragte Zeiten direkt in einer Zeitleiste.`}
-        title={`Wochenplanung fuer ${horse.title}`}
+        title={`Wochenplanung für ${horse.title}`}
       >
         <div className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap gap-2">
-              <Badge tone="approved">Verfuegbare Zeiten</Badge>
+              <Badge tone="approved">Verfügbare Zeiten</Badge>
               <Badge tone="rejected">Belegte Zeiten</Badge>
               {isOwner ? <Badge tone="pending">Offene Anfragen</Badge> : null}
             </div>
@@ -708,14 +712,17 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                 Vorherige Woche
               </Link>
               <Link className={buttonVariants("secondary", "min-h-[40px] px-4 py-2 text-sm")} href={nextWeekHref}>
-                Naechste Woche
+                Nächste Woche
+              </Link>
+              <Link className={buttonVariants("ghost", "min-h-[40px] px-4 py-2 text-sm")} href={todayHref}>
+                Diese Woche
               </Link>
             </div>
           </div>
 
           {isOwner ? (
             <p className="text-sm text-stone-600">
-              Tipp: Klicke links auf einen Tag oder ziehe direkt ueber freie Stunden. Der Tageseditor wird sofort mit Datum und Uhrzeit vorbelegt.</p>
+              Tipp: Klicke links auf einen Tag oder ziehe direkt über freie Stunden. Der Tageseditor wird sofort mit Datum und Uhrzeit vorbelegt.</p>
           ) : null}
 
           <div className="overflow-x-auto">
@@ -774,7 +781,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                               ) : null}
                               {lane.segments.length === 0 ? (
                                 <div className="relative z-20 flex h-11 items-center text-xs text-stone-400">
-                                  {isOwner && lane.key === "available" ? "Freie Stunden ziehen oder anklicken" : "Keine Eintraege"}
+                                  {isOwner && lane.key === "available" ? "Freie Stunden ziehen oder anklicken" : "Keine Einträge"}
                                 </div>
                               ) : (
                                 lane.segments.map((segment) => {

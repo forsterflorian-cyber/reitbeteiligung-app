@@ -1,16 +1,16 @@
 import Link from "next/link";
 
-import { saveProfileDetailsAction } from "@/app/actions";
+import { saveProfileDetailsAction, startOwnerTrialAction } from "@/app/actions";
 import { LogoutForm } from "@/components/logout-form";
 import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
 import { AppPageShell } from "@/components/ui/app-page-shell";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { requireProfile } from "@/lib/auth";
-import { PAID_PLAN_CONTACT_EMAIL, getOwnerPlan, getOwnerPlanUsage, getOwnerPlanUsageSummary } from "@/lib/plans";
+import { PAID_PLAN_CONTACT_EMAIL, canStartOwnerTrial, getOwnerPlan, getOwnerPlanUsage, getOwnerPlanUsageSummary } from "@/lib/plans";
 import { getProfileDisplayName, getRoleLabel } from "@/lib/profiles";
 import { readSearchParam } from "@/lib/search-params";
 import type { RiderProfile } from "@/types/database";
@@ -40,6 +40,7 @@ export default async function ProfilPage({
   const ownerPlanUsage = profile.role === "owner" ? await getOwnerPlanUsage(supabase, user.id) : null;
   const ownerPlan = profile.role === "owner" ? getOwnerPlan(profile, ownerPlanUsage ?? undefined) : null;
   const ownerPlanUsageSummary = ownerPlan && ownerPlanUsage ? getOwnerPlanUsageSummary(ownerPlan, ownerPlanUsage) : null;
+  const showStartTrial = profile.role === "owner" ? canStartOwnerTrial(profile) : false;
   const upgradeHref = `mailto:${PAID_PLAN_CONTACT_EMAIL}?subject=${encodeURIComponent("Bezahlten Tarif anfragen")}`;
 
   return (
@@ -94,8 +95,16 @@ export default async function ProfilPage({
                   <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href="/owner/pferde-verwalten">
                     Zu den Pferdeprofilen
                   </Link>
+                  {showStartTrial ? (
+                    <form action={startOwnerTrialAction}>
+                      <input name="redirectTo" type="hidden" value="/profil" />
+                      <Button className="w-full sm:w-auto" type="submit" variant="secondary">
+                        Start Trial
+                      </Button>
+                    </form>
+                  ) : null}
                   {ownerPlan?.key !== "paid" ? (
-                    <a className={buttonVariants("ghost", "w-full sm:w-auto")} href={upgradeHref}>
+                    <a className={buttonVariants(showStartTrial ? "ghost" : "secondary", "w-full sm:w-auto")} href={upgradeHref}>
                       Bezahlten Tarif anfragen
                     </a>
                   ) : null}

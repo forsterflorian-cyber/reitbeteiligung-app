@@ -11,6 +11,7 @@ export type Profile = {
   display_name?: string | null;
   phone?: string | null;
   created_at: string;
+  trial_started_at?: string | null;
 };
 
 export type Horse = {
