@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { requireProfile } from "@/lib/auth";
-import { getOwnerPlan } from "@/lib/plans";
+import { PAID_PLAN_CONTACT_EMAIL, getOwnerPlan, getOwnerPlanUsageSummary } from "@/lib/plans";
 import { getProfileDisplayName } from "@/lib/profiles";
 import { readSearchParam } from "@/lib/search-params";
 import type { Approval, BookingRequest, Horse, RiderProfile, TrialRequest } from "@/types/database";
@@ -103,10 +103,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       pendingBookingRequests = (bookingData as BookingRequest[] | null) ?? [];
     }
 
-    const ownerPlan = getOwnerPlan(profile, {
+    const ownerPlanUsage = {
       approvedRiderCount: approvedApprovals.length,
       horseCount: ownerHorses.length
-    });
+    };
+    const ownerPlan = getOwnerPlan(profile, ownerPlanUsage);
+    const ownerPlanUsageSummary = getOwnerPlanUsageSummary(ownerPlan, ownerPlanUsage);
+    const upgradeHref = `mailto:${PAID_PLAN_CONTACT_EMAIL}?subject=${encodeURIComponent("Bezahlten Tarif anfragen")}`;
 
     const ownerStats: StatItem[] = [
       {
@@ -131,7 +134,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         helper:
           ownerPlan.key === "paid"
             ? ownerPlan.summary
-            : `${ownerPlan.summary} ${approvedApprovals.length} von ${ownerPlan.maxApprovedRiders} Reitbeteiligungen aktuell genutzt.`
+            : `${ownerPlan.summary} ${ownerPlanUsageSummary}`
       }
     ];
 
@@ -188,6 +191,27 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         />
         <Notice text={message} tone="success" />
         <StatGrid items={ownerStats} />
+        <SectionCard
+          action={
+            ownerPlan.key !== "paid" ? (
+              <a className={buttonVariants("secondary")} href={upgradeHref}>
+                Bezahlten Tarif anfragen
+              </a>
+            ) : undefined
+          }
+          subtitle="So viel ist aktuell enthalten und genutzt."
+          title="Tarif & Kontingent"
+        >
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <Badge tone={ownerPlan.key === "paid" ? "approved" : ownerPlan.key === "trial" ? "pending" : "neutral"}>
+                {ownerPlan.label}
+              </Badge>
+            </div>
+            <p className="text-sm leading-6 text-stone-600">{ownerPlan.summary}</p>
+            {ownerPlan.key !== "paid" ? <p className="text-sm leading-6 text-stone-600">{ownerPlanUsageSummary}</p> : null}
+          </div>
+        </SectionCard>
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
           <SectionCard
             action={
@@ -302,7 +326,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     },
     {
       label: "Nächster Schritt",
-      value: riderProfile ? "Pferde suchen" : "Profil ausfuellen",
+      value: riderProfile ? "Pferde suchen" : "Profil ausf\u00fcllen",
       valueClassName: "text-xl",
       helper: riderProfile
         ? "Suche passende Pferde und frage einen Probetermin an."
@@ -375,9 +399,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </div>
       </SectionCard>
       {!riderProfile ? (
-        <SectionCard subtitle="Ohne Profil sehen Pferdehalter nur sehr wenig von dir." title="Profil vervollstaendigen">
+        <SectionCard subtitle="Ohne Profil sehen Pferdehalter nur sehr wenig von dir." title={"Profil vervollständigen"}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm leading-6 text-stone-600">Ergaenze Erfahrung, Gewicht und Notizen, damit deine Anfragen besser einschaetzbar sind.</p>
+            <p className="text-sm leading-6 text-stone-600">{"Erg\u00e4nze Erfahrung, Gewicht und Notizen, damit deine Anfragen besser einsch\u00e4tzbar sind."}</p>
             <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href={riderProfileHref}>
               Jetzt bearbeiten
             </Link>

@@ -4,8 +4,13 @@ import { saveProfileDetailsAction } from "@/app/actions";
 import { LogoutForm } from "@/components/logout-form";
 import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
+import { AppPageShell } from "@/components/ui/app-page-shell";
+import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionCard } from "@/components/ui/section-card";
 import { requireProfile } from "@/lib/auth";
-import { getOwnerPlan, getOwnerPlanUsage } from "@/lib/plans";
+import { PAID_PLAN_CONTACT_EMAIL, getOwnerPlan, getOwnerPlanUsage, getOwnerPlanUsageSummary } from "@/lib/plans";
 import { getProfileDisplayName, getRoleLabel } from "@/lib/profiles";
 import { readSearchParam } from "@/lib/search-params";
 import type { RiderProfile } from "@/types/database";
@@ -32,69 +37,88 @@ export default async function ProfilPage({
 
   const displayName = getProfileDisplayName(profile, user.email);
   const roleLabel = getRoleLabel(profile.role);
-  const ownerPlan =
-    profile.role === "owner"
-      ? getOwnerPlan(profile, await getOwnerPlanUsage(supabase, user.id))
-      : null;
+  const ownerPlanUsage = profile.role === "owner" ? await getOwnerPlanUsage(supabase, user.id) : null;
+  const ownerPlan = profile.role === "owner" ? getOwnerPlan(profile, ownerPlanUsage ?? undefined) : null;
+  const ownerPlanUsageSummary = ownerPlan && ownerPlanUsage ? getOwnerPlanUsageSummary(ownerPlan, ownerPlanUsage) : null;
+  const upgradeHref = `mailto:${PAID_PLAN_CONTACT_EMAIL}?subject=${encodeURIComponent("Bezahlten Tarif anfragen")}`;
 
   return (
-    <div className="space-y-5">
-      <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-clay">Profil</p>
-        <h1 className="text-3xl font-semibold text-forest sm:text-4xl">Mein Profil</h1>
-        <p className="text-sm text-stone-600 sm:text-base">Hier pflegst du deinen sichtbaren Namen, deine Kontaktdaten und deine Rolle auf einen Blick.</p>
-      </div>
+    <AppPageShell>
+      <PageHeader
+        backdropVariant="hero"
+        subtitle={`Hallo ${displayName}. Hier pflegst du deine Kontaktdaten, deine Rolle und deinen aktuellen Tarif.`}
+        surface
+        title="Mein Profil"
+      />
       <Notice text={error} tone="error" />
       <Notice text={message} tone="success" />
-      <div className="space-y-3">
-        <div className="rounded-2xl border border-stone-200 bg-white p-5">
-          <p className="text-sm text-stone-500">Konto</p>
-          <p className="mt-2 text-base font-semibold text-ink">{user.email}</p>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
+        <div className="space-y-5">
+          <SectionCard subtitle="Deine sichtbaren Kontaktdaten verwenden wir in Chats, Anfragen und nach einer Freischaltung." title="Sichtbare Angaben">
+            <form action={saveProfileDetailsAction} className="space-y-4">
+              <div>
+                <label htmlFor="displayName">Name</label>
+                <input defaultValue={displayName} id="displayName" minLength={2} name="displayName" required type="text" />
+              </div>
+              <div>
+                <label htmlFor="phone">Telefon</label>
+                <input defaultValue={profile.phone ?? ""} id="phone" name="phone" placeholder="0170 1234567" type="tel" />
+              </div>
+              <SubmitButton idleLabel="Profil speichern" pendingLabel="Wird gespeichert..." />
+            </form>
+          </SectionCard>
+          <SectionCard subtitle="Das ist dein aktueller Zugang in der Plattform." title="Konto & Rolle">
+            <div className="space-y-4 text-sm leading-6 text-stone-600">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Konto</p>
+                <p className="mt-1 text-base font-semibold text-ink">{user.email}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">Rolle</p>
+                <p className="mt-1 text-base font-semibold text-ink">{roleLabel}</p>
+                <p className="mt-2">{profile.role === "owner" ? "Du verwaltest Pferdeprofile, Freischaltungen und Termine." : "Du pflegst dein Reiterprofil und beh\u00e4ltst Probetermine im Blick."}</p>
+              </div>
+            </div>
+          </SectionCard>
         </div>
-        <div className="rounded-2xl border border-stone-200 bg-white p-5">
-          <p className="text-sm text-stone-500">Rolle</p>
-          <p className="mt-2 text-base font-semibold text-ink">{roleLabel}</p>
-          <p className="mt-2 text-sm text-stone-600">{profile.role === "owner" ? "Verwalte deine Pferdeprofile, Chats und Freischaltungen." : "Pflege dein Reiterprofil und behalte Probetermine im Blick."}</p>
+        <div className="space-y-5">
+          {profile.role === "owner" ? (
+            <SectionCard subtitle="So viel ist in deinem aktuellen Tarif enthalten." title="Tarif & Kontingent">
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  <Badge tone={ownerPlan?.key === "paid" ? "approved" : ownerPlan?.key === "trial" ? "pending" : "neutral"}>{ownerPlan?.label}</Badge>
+                </div>
+                <p className="text-sm leading-6 text-stone-600">{ownerPlan?.summary}</p>
+                {ownerPlan?.key !== "paid" && ownerPlanUsageSummary ? <p className="text-sm leading-6 text-stone-600">{ownerPlanUsageSummary}</p> : null}
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href="/owner/pferde-verwalten">
+                    Zu den Pferdeprofilen
+                  </Link>
+                  {ownerPlan?.key !== "paid" ? (
+                    <a className={buttonVariants("ghost", "w-full sm:w-auto")} href={upgradeHref}>
+                      Bezahlten Tarif anfragen
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+            </SectionCard>
+          ) : (
+            <SectionCard subtitle={"Damit Pferdehalter dich besser einsch\u00e4tzen k\u00f6nnen, sollte dein Reiterprofil vollst\u00e4ndig sein."} title="Reiterprofil">
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  <Badge tone={riderProfile ? "approved" : "pending"}>{riderProfile ? "Bereit" : "Noch unvollst\u00e4ndig"}</Badge>
+                </div>
+                <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href="/rider/profile">
+                  Reiterprofil bearbeiten
+                </Link>
+              </div>
+            </SectionCard>
+          )}
+          <SectionCard title="Abmelden">
+            <LogoutForm />
+          </SectionCard>
         </div>
       </div>
-      <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-ink">Sichtbare Angaben</h2>
-          <p className="text-sm text-stone-600">Diese Angaben verwenden wir in Chats, Anfragen und freigeschalteten Kontaktdaten.</p>
-        </div>
-        <form action={saveProfileDetailsAction} className="mt-4 space-y-4">
-          <div>
-            <label htmlFor="displayName">Name</label>
-            <input defaultValue={displayName} id="displayName" minLength={2} name="displayName" required type="text" />
-          </div>
-          <div>
-            <label htmlFor="phone">Telefon</label>
-            <input defaultValue={profile.phone ?? ""} id="phone" name="phone" placeholder="0170 1234567" type="tel" />
-          </div>
-          <SubmitButton idleLabel="Profil speichern" pendingLabel="Wird gespeichert..." />
-        </form>
-      </section>
-      {profile.role === "owner" ? (
-        <div className="rounded-2xl border border-stone-200 bg-white p-5">
-          <p className="text-sm text-stone-500">Tarif</p>
-          <p className="mt-2 text-base font-semibold text-ink">{ownerPlan?.label}</p>
-          <p className="mt-2 text-sm text-stone-600">{ownerPlan?.summary}</p>
-          <Link className="mt-3 inline-flex text-sm font-semibold text-forest hover:text-clay" href="/owner/pferde-verwalten">
-            Zu den Pferdeprofilen
-          </Link>
-        </div>
-      ) : (
-        <div className="rounded-2xl border border-stone-200 bg-white p-5">
-          <p className="text-sm text-stone-500">Reiterprofil</p>
-          <p className="mt-2 text-base font-semibold text-ink">{riderProfile ? "Vorhanden" : "Noch unvollständig"}</p>
-          <Link className="mt-3 inline-flex text-sm font-semibold text-forest hover:text-clay" href="/rider/profile">
-            Reiterprofil bearbeiten
-          </Link>
-        </div>
-      )}
-      <div className="rounded-2xl border border-stone-200 bg-white p-5">
-        <LogoutForm />
-      </div>
-    </div>
+    </AppPageShell>
   );
 }

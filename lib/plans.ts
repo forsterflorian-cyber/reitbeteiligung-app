@@ -13,8 +13,9 @@ export const FREE_OWNER_APPROVAL_LIMIT = 1;
 export const TRIAL_OWNER_HORSE_LIMIT = 1;
 export const TRIAL_OWNER_APPROVAL_LIMIT = 2;
 export const TRIAL_PLAN_DAYS = 14;
+export const PAID_PLAN_CONTACT_EMAIL = "kontakt@reitbeteiligung.app";
 
-type OwnerPlan = {
+export type OwnerPlan = {
   bookingFeaturesEnabled: boolean;
   key: OwnerPlanKey;
   label: string;
@@ -150,6 +151,17 @@ export function getOwnerPlan(
   }
 
   return getFreePlan(usage);
+}
+
+export function getOwnerPlanUsageSummary(plan: OwnerPlan, usage: OwnerPlanUsage) {
+  if (plan.maxHorses === null || plan.maxApprovedRiders === null) {
+    return "Mehrere Pferdeprofile und mehrere Reitbeteiligungen sind in deinem Tarif verf\u00fcgbar.";
+  }
+
+  const horseLabel = plan.maxHorses === 1 ? "Pferdeprofil" : "Pferdeprofile";
+  const riderLabel = plan.maxApprovedRiders === 1 ? "Reitbeteiligung" : "Reitbeteiligungen";
+
+  return `${usage.horseCount} von ${plan.maxHorses} ${horseLabel} und ${usage.approvedRiderCount} von ${plan.maxApprovedRiders} ${riderLabel} aktuell genutzt.`;
 }
 
 export function canCreateHorseProfile(
