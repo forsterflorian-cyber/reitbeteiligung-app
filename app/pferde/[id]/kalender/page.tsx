@@ -35,7 +35,7 @@ import { formatWeeklyHoursLimit } from "@/lib/booking-limits";
 import { HORSE_SELECT_FIELDS } from "@/lib/horses";
 import { getOwnerPlan, getOwnerPlanUsage } from "@/lib/plans";
 import { readSearchParam } from "@/lib/search-params";
-import type { AvailabilityRule, BookingRequest, CalendarBlock, Horse, Profile, RiderBookingLimit } from "@/types/database";
+import type { AvailabilityRule, BookingRequest, CalendarBlock, Horse, Profile, RiderBookingLimit, TrialRequest } from "@/types/database";
 
 type PferdKalenderPageProps = {
   params: { id: string };
@@ -412,8 +412,9 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         .maybeSingle()
     : { data: null };
   const riderBookingLimit = (riderBookingLimitData as RiderBookingLimit | null) ?? null;
+  const nowIso = new Date().toISOString();
 
-  const [occupancyResult, rulesResult, ownerBlocksResult, ownerBookingRequestsResult, riderBookingRequestsResult] = await Promise.all([
+  const [occupancyResult, rulesResult, ownerBlocksResult, ownerBookingRequestsResult, riderBookingRequestsResult, ownerNextTrialResult] = await Promise.all([
     supabase.rpc("get_horse_calendar_occupancy", {
       p_horse_id: horse.id
     }),
@@ -445,7 +446,19 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           .eq("rider_id", user.id)
           .order("created_at", { ascending: false })
           .limit(12)
-      : Promise.resolve({ data: [] as BookingRequest[] | null })
+      : Promise.resolve({ data: [] as BookingRequest[] | null }),
+    isOwner
+      ? supabase
+          .from("trial_requests")
+          .select("id, horse_id, rider_id, status, message, availability_rule_id, requested_start_at, requested_end_at, created_at")
+          .eq("horse_id", horse.id)
+          .in("status", ["requested", "accepted"])
+          .not("requested_start_at", "is", null)
+          .gte("requested_start_at", nowIso)
+          .order("requested_start_at", { ascending: true })
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null as TrialRequest | null })
   ]);
 
   const occupancy = ((occupancyResult.data as CalendarOccupancyRow[] | null) ?? []).sort(
@@ -456,10 +469,15 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const ownerBlocks = (ownerBlocksResult.data as CalendarBlock[] | null) ?? [];
   const ownerBookingRequests = (ownerBookingRequestsResult.data as BookingRequest[] | null) ?? [];
   const riderBookingRequests = (riderBookingRequestsResult.data as BookingRequest[] | null) ?? [];
+  const nextTrialRequest = (ownerNextTrialResult.data as TrialRequest | null) ?? null;
   const quickRequestableRules = rules.slice(0, 6);
   const trialSlotCount = rules.filter((rule) => rule.is_trial_slot).length;
   const ruleMap = new Map(rules.map((rule) => [rule.id, rule]));
   const requestedOwnerBookingItems = ownerBookingRequests.filter((request) => request.status === "requested");
+  const { data: nextTrialRiderData } = isOwner && nextTrialRequest
+    ? await supabase.from("profiles").select("display_name").eq("id", nextTrialRequest.rider_id).maybeSingle()
+    : { data: null };
+  const nextTrialRiderName = (((nextTrialRiderData as Pick<Profile, "display_name"> | null) ?? null)?.display_name ?? null)?.trim() || null;
   const timelineHours = buildTimelineHours();
   const weekOffset = parseRelativeOffset(readSearchParam(searchParams, "weekOffset"));
   const monthOffset = parseRelativeOffset(readSearchParam(searchParams, "monthOffset"));
@@ -630,6 +648,28 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
               <Badge tone={horse.active ? "approved" : "neutral"}>{horse.active ? "Aktiv" : "Inaktiv"}</Badge>
               <Badge tone={ownerPlan.key === "paid" ? "approved" : ownerPlan.key === "trial" ? "pending" : "neutral"}>{ownerPlan.label}</Badge>
             </div>
+            {isOwner && nextTrialRequest ? (
+              <Card className="w-full max-w-sm border-stone-200 bg-white/90 p-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-stone-900">{"N\u00e4chstes Probereiten"}</p>
+                    <StatusBadge status={nextTrialRequest.status} />
+                  </div>
+                  <p className="text-sm font-medium text-stone-800">
+                    {formatDateRange(nextTrialRequest.requested_start_at as string, nextTrialRequest.requested_end_at as string)}
+                  </p>
+                  <p className="text-xs leading-5 text-stone-600">
+                    {nextTrialRiderName ? `Mit ${nextTrialRiderName}` : "Mit einem Reiter aus deinen offenen Probeterminen"}
+                  </p>
+                  <Link
+                    className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent")}
+                    href={"/owner/anfragen" as Route}
+                  >
+                    Zu den Probeterminen
+                  </Link>
+                </div>
+              </Card>
+            ) : null}
             <Link className={buttonVariants("secondary", "w-full lg:w-auto")} href={detailHref}>
               Pferdeprofil öffnen
             </Link>
@@ -700,8 +740,9 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
       </SectionCard>
 
       <SectionCard
+        id="wochenplanung"
         subtitle={`Aktuelle Woche: ${timelineRowsLabel}. Tage links, Uhrzeiten oben und freie, belegte oder angefragte Zeiten direkt in einer Zeitleiste.`}
-        title={`Wochenplanung für ${horse.title}`}
+        title={`Wochenplanung f\u00fcr ${horse.title}`}
       >
         <div className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -120,6 +120,8 @@ function getCalendarRedirectPath(
   const params = new URLSearchParams();
   const weekOffset = asString(formData.get("weekOffset"));
   const monthOffset = asString(formData.get("monthOffset"));
+  const mode = asString(formData.get("mode"));
+  const range = asString(formData.get("range"));
 
   if (/^-?\d{1,3}$/.test(weekOffset)) {
     params.set("weekOffset", weekOffset);
@@ -131,6 +133,14 @@ function getCalendarRedirectPath(
 
   if (selectedDate) {
     params.set("day", selectedDate);
+  }
+
+  if (mode === "edit") {
+    params.set("mode", mode);
+  }
+
+  if (/^(1|7|30)$/.test(range)) {
+    params.set("range", range);
   }
 
   if (options?.focusRuleId) {
@@ -934,7 +944,17 @@ export async function requestTrialAction(formData: FormData) {
     .maybeSingle();
 
   if (existingOwnRequest) {
-    redirectWithMessage(redirectPath, "error", "Du hast für dieses Pferd bereits einen laufenden oder abgeschlossenen Probetermin.");
+    const existingRequestStatus = (existingOwnRequest as Pick<TrialRequest, "id" | "status">).status;
+
+    if (existingRequestStatus === TRIAL_REQUEST_STATUS.requested || existingRequestStatus === TRIAL_REQUEST_STATUS.accepted) {
+      redirectWithMessage(
+        redirectPath,
+        "error",
+        "Du hast f\u00fcr dieses Pferd bereits eine offene Probeanfrage. Ziehe sie unter Proben & Planung zur\u00fcck, bevor du erneut anfragst."
+      );
+    }
+
+    redirectWithMessage(redirectPath, "error", "Du hast f\u00fcr dieses Pferd bereits einen laufenden oder abgeschlossenen Probetermin.");
   }
 
   const nowIso = new Date().toISOString();
@@ -1071,10 +1091,15 @@ export async function cancelTrialRequestAction(formData: FormData) {
     redirectWithMessage("/anfragen", "error", "Diese Probeanfrage kann nicht mehr zur\u00fcckgezogen werden.");
   }
 
-  const { error } = await supabase.from("trial_requests").delete().eq("id", request.id).eq("rider_id", user.id);
+  const { data: cancelSucceeded, error } = await supabase.rpc("cancel_rider_trial_request", {
+    p_request_id: request.id
+  });
 
-  if (error) {
-    logSupabaseError("Trial request cancel failed", error);
+  if (error || !cancelSucceeded) {
+    if (error) {
+      logSupabaseError("Trial request cancel failed", error);
+    }
+
     redirectWithMessage("/anfragen", "error", "Die Probeanfrage konnte nicht zur\u00fcckgezogen werden.");
   }
 
@@ -1769,7 +1794,7 @@ export async function createAvailabilityDayAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", "Das Tagesfenster konnte nicht gespeichert werden.");
   }
 
-  revalidatePath(redirectPath);
+  revalidatePath(`/pferde/${horseId}/kalender`);
   revalidatePath(`/pferde/${horseId}`);
   revalidatePath("/owner/anfragen");
   revalidatePath("/anfragen");
@@ -2039,7 +2064,8 @@ export async function createCalendarBlockAction(formData: FormData) {
   }
 
   const horse = await getOwnedHorse(supabase, horseId, user.id);
-  const redirectPath = `/pferde/${horseId}/kalender`;
+  const selectedDate = asString(formData.get("selectedDate")) || new Date().toISOString().slice(0, 10);
+  const redirectPath = getCalendarRedirectPath(formData, horseId, selectedDate, { anchor: "kalender-bearbeiten" });
 
   if (!horse) {
     redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Kalender-Sperren verwalten.");
@@ -2247,7 +2273,8 @@ export async function createAvailabilityRuleAction(formData: FormData) {
   }
 
   const horse = await getOwnedHorse(supabase, horseId, user.id);
-  const redirectPath = `/pferde/${horseId}/kalender`;
+  const selectedDate = asString(formData.get("selectedDate")) || new Date().toISOString().slice(0, 10);
+  const redirectPath = getCalendarRedirectPath(formData, horseId, selectedDate, { anchor: "kalender-bearbeiten" });
 
   if (!horse) {
     redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verfügbarkeiten verwalten.");
