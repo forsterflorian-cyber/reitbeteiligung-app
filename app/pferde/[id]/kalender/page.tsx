@@ -723,9 +723,16 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
 
       <SectionCard
         subtitle="Springe zwischen Wochen und nutze den Monatsüberblick, um direkt in die passende Detailwoche zu wechseln."
-        title="Monats- und Wochennavigation"
+        title="Kalender anzeigen"
       >
         <div className="space-y-4">
+          <div className="rounded-2xl border border-stone-200 bg-white/80 px-4 py-4">
+            <div className="grid gap-2 sm:grid-cols-3">
+              <a className={buttonVariants("secondary", "w-full justify-center text-sm")} href="#wochenplanung">N?chste 7 Tage</a>
+              <a className={buttonVariants("ghost", "w-full justify-center text-sm")} href="#kalender-bearbeiten">Kalender bearbeiten</a>
+              <a className={buttonVariants("ghost", "w-full justify-center text-sm")} href="#offene-terminanfragen">Offene Anfragen</a>
+            </div>
+          </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-stone-900">{monthFormatter.format(viewedMonthStart)}</p>
@@ -960,10 +967,33 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         {isOwner ? (
           <>
             <SectionCard
+              subtitle={"Pr?fe zuerst bestehende Standardzeiten und Ausnahmen. ?nderungen nimmst du erst im n?chsten Abschnitt vor."}
+              title="Kalender bearbeiten"
+            >
+              <div className="grid gap-4 lg:grid-cols-3">
+                <Card className="p-4">
+                  <p className="ui-eyebrow">Standardzeiten</p>
+                  <p className="mt-2 text-sm text-stone-600">Das Wochenmuster ist der wichtigste Hebel f?r den Alltag.</p>
+                  <a className={buttonVariants("ghost", "mt-4 w-full justify-center text-sm")} href="#serienfreigaben-form">Zu Standardzeiten</a>
+                </Card>
+                <Card className="p-4">
+                  <p className="ui-eyebrow">Ausnahmen</p>
+                  <p className="mt-2 text-sm text-stone-600">Kurzfristige Sperren bleiben getrennt vom Wochenmuster.</p>
+                  <a className={buttonVariants("ghost", "mt-4 w-full justify-center text-sm")} href="#ausnahmen-form">Zu Ausnahmen</a>
+                </Card>
+                <Card className="p-4">
+                  <p className="ui-eyebrow">Einzelner Tag</p>
+                  <p className="mt-2 text-sm text-stone-600">Wenn Regel und Ausnahme nicht reichen, nutzt du den Tageseditor.</p>
+                  <a className={buttonVariants("ghost", "mt-4 w-full justify-center text-sm")} href="#tagesfenster">Zum Tageseditor</a>
+                </Card>
+              </div>
+            </SectionCard>
+
+            <SectionCard
               bodyClassName="flex flex-col gap-5"
               id="kalender-bearbeiten"
-              subtitle="Pflege hier dein Wochenmuster und einzelne Ausnahmen. Das Raster oben zeigt dir sofort, wie sich die Eintr?ge auswirken."
-              title="Kalender bearbeiten"
+              subtitle="Pflege hier zuerst Standardzeiten, dann Ausnahmen und nur zuletzt einzelne Tage. Das Raster oben bleibt die Referenz."
+              title="Kalender pflegen"
             >
               <Card className="order-3 p-5 sm:p-6" id="tagesfenster">
                 <form action={dayEditorAction} className="space-y-4">
@@ -1053,7 +1083,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
               </Card>
 
               <div className="order-2 grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
-                <Card className="p-5 sm:p-6">
+                <Card className="p-5 sm:p-6" id="serienfreigaben-form">
                   <form action={createAvailabilityRuleAction} className="ui-form-stack">
                     <input name="horseId" type="hidden" value={horse.id} />
                     <div className="ui-subpanel">
@@ -1166,7 +1196,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                   </form>
                 </Card>
 
-                <Card className="p-5 sm:p-6">
+                <Card className="p-5 sm:p-6" id="ausnahmen-form">
                   <div className="space-y-5">
                     <form action={createCalendarBlockAction} className="ui-form-stack">
                       <input name="horseId" type="hidden" value={horse.id} />
