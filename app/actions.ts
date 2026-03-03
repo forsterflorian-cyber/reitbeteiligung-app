@@ -1669,7 +1669,8 @@ export async function updateAvailabilityDayAction(formData: FormData) {
   const redirectPath = `/pferde/${rule.horse_id}/kalender?day=${selectedDate}&focusRule=${rule.id}`;
   const startTime = parseClockTime(asString(formData.get("startTime")));
   const endTime = parseClockTime(asString(formData.get("endTime")));
-  const isTrialSlot = formData.get("isTrialSlot") === "on";
+  const isTrialSlotValue = formData.get("isTrialSlot");
+  const isTrialSlot = isTrialSlotValue === null ? Boolean(rule.is_trial_slot) : isTrialSlotValue === "on";
 
   if (!startTime || !endTime) {
     redirectWithMessage(redirectPath, "error", "Bitte gib eine gueltige Uhrzeit an.");
@@ -1972,7 +1973,8 @@ export async function updateCalendarBlockAction(formData: FormData) {
   const redirectPath = `/pferde/${block.horse_id}/kalender?day=${selectedDate}&focusBlock=${block.id}`;
   const startTime = parseClockTime(asString(formData.get("startTime")));
   const endTime = parseClockTime(asString(formData.get("endTime")));
-  const blockTitle = asOptionalString(formData.get("blockTitle"));
+  const blockTitleValue = formData.get("blockTitle");
+  const blockTitle = blockTitleValue === null ? block.title ?? null : asOptionalString(blockTitleValue);
 
   if (!startTime || !endTime) {
     redirectWithMessage(redirectPath, "error", "Bitte gib eine gueltige Uhrzeit an.");

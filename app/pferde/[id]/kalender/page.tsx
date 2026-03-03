@@ -10,16 +10,13 @@ import {
   declineBookingRequestAction,
   deleteAvailabilityRuleAction,
   deleteCalendarBlockAction,
-  moveAvailabilityRuleAction,
-  moveCalendarBlockAction,
   requestBookingAction,
-  resizeAvailabilityRuleAction,
-  resizeCalendarBlockAction,
   updateAvailabilityDayAction,
   updateCalendarBlockAction
 } from "@/app/actions";
 import { RequestCard } from "@/components/blocks/request-card";
 import { DayRangePicker } from "@/components/calendar/day-range-picker";
+import { DraggableTimelineSegment } from "@/components/calendar/draggable-timeline-segment";
 import { InteractiveTimelineLane } from "@/components/calendar/interactive-timeline-lane";
 import { RiderBookingWindowForm } from "@/components/calendar/rider-booking-window-form";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
@@ -789,46 +786,55 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                                 </div>
                               ) : (
                                 lane.segments.map((segment) => {
-                                  const segmentStartHour = segment.startAt ? getTimelineHourFromIso(segment.startAt) : null;
-                                  const segmentEndHour = segment.endAt ? getTimelineHourFromIso(segment.endAt, true) : null;
-                                  const minDurationReached =
-                                    typeof segmentStartHour === "number" &&
-                                    typeof segmentEndHour === "number" &&
-                                    segmentEndHour - segmentStartHour <= 1;
-                                  const isFocusedAvailability = lane.key === "available" && Boolean(segment.entityId) && segment.entityId === focusRuleId;
-                                  const isFocusedBlock = lane.key === "occupied" && Boolean(segment.entityId) && segment.entityId === focusBlockId;
-                                  const moveAction = isFocusedAvailability
-                                    ? moveAvailabilityRuleAction
-                                    : isFocusedBlock
-                                      ? moveCalendarBlockAction
-                                      : null;
-                                  const resizeAction = isFocusedAvailability
-                                    ? resizeAvailabilityRuleAction
-                                    : isFocusedBlock
-                                      ? resizeCalendarBlockAction
-                                      : null;
-                                  const targetFieldName = isFocusedAvailability ? "ruleId" : isFocusedBlock ? "blockId" : null;
-                                  const targetId = targetFieldName ? segment.entityId ?? null : null;
-                                  const resolvedMoveAction = moveAction ?? moveAvailabilityRuleAction;
-                                  const resolvedResizeAction = resizeAction ?? resizeAvailabilityRuleAction;
-                                  const resolvedTargetFieldName = targetFieldName ?? "ruleId";
-                                  const resolvedTargetId = targetId ?? "";
-                                  const moveControls = moveAction && targetFieldName && targetId
-                                    ? [
-                                        { direction: "earlier", disabled: !(typeof segmentStartHour === "number" && segmentStartHour > CALENDAR_TIMELINE_START_HOUR), label: "V-", title: "Eine Stunde früher verschieben" },
-                                        { direction: "later", disabled: !(typeof segmentEndHour === "number" && segmentEndHour < CALENDAR_TIMELINE_END_HOUR), label: "V+", title: "Eine Stunde später verschieben" }
-                                      ]
-                                    : [];
-                                  const resizeControls = resizeAction && targetFieldName && targetId
-                                    ? [
-                                        { direction: "start-earlier", disabled: !(typeof segmentStartHour === "number" && segmentStartHour > CALENDAR_TIMELINE_START_HOUR), label: "S-", title: "Beginn eine Stunde fr\u00fcher" },
-                                        { direction: "start-later", disabled: minDurationReached, label: "S+", title: "Beginn eine Stunde sp\u00e4ter" },
-                                        { direction: "end-earlier", disabled: minDurationReached, label: "E-", title: "Ende eine Stunde fr\u00fcher" },
-                                        { direction: "end-later", disabled: !(typeof segmentEndHour === "number" && segmentEndHour < CALENDAR_TIMELINE_END_HOUR), label: "E+", title: "Ende eine Stunde sp\u00e4ter" }
-                                      ]
-                                    : [];
-                                  const segmentClassName = `absolute top-1/2 z-20 h-11 -translate-y-1/2 overflow-visible rounded-xl border text-xs font-semibold shadow-sm ${timelineToneClassName(segment.tone)} ${moveControls.length > 0 || resizeControls.length > 0 ? "ring-2 ring-forest/20" : ""}`;
-                                  const segmentContentClassName = `flex h-full w-full items-center ${moveControls.length > 0 || resizeControls.length > 0 ? "px-2" : "px-3"}`;
+                                  const isEditableAvailability = lane.key === "available" && Boolean(segment.entityId);
+                                  const isEditableBlock = lane.key === "occupied" && Boolean(segment.entityId);
+                                  const isActiveSegment =
+                                    (isEditableAvailability && segment.entityId === focusRuleId) ||
+                                    (isEditableBlock && segment.entityId === focusBlockId);
+                                  const segmentClassName = `absolute top-1/2 z-20 h-11 -translate-y-1/2 overflow-visible rounded-xl border text-xs font-semibold shadow-sm ${timelineToneClassName(segment.tone)} ${isActiveSegment ? "ring-2 ring-forest/20" : ""}`;
+                                  const segmentContentClassName = "flex h-full w-full items-center px-3";
+
+                                  if (isEditableAvailability && segment.entityId && segment.href) {
+                                    return (
+                                      <DraggableTimelineSegment
+                                        dayKey={row.dayKey}
+                                        editHref={segment.href}
+                                        endAt={segment.endAt}
+                                        fieldName="ruleId"
+                                        id={segment.entityId}
+                                        isActive={Boolean(isActiveSegment)}
+                                        key={segment.key}
+                                        label={segment.title}
+                                        startAt={segment.startAt}
+                                        submitAction={updateAvailabilityDayAction}
+                                        timelineEndHour={CALENDAR_TIMELINE_END_HOUR}
+                                        timelineStartHour={CALENDAR_TIMELINE_START_HOUR}
+                                        title={segment.title}
+                                        toneClassName={timelineToneClassName(segment.tone)}
+                                      />
+                                    );
+                                  }
+
+                                  if (isEditableBlock && segment.entityId && segment.href) {
+                                    return (
+                                      <DraggableTimelineSegment
+                                        dayKey={row.dayKey}
+                                        editHref={segment.href}
+                                        endAt={segment.endAt}
+                                        fieldName="blockId"
+                                        id={segment.entityId}
+                                        isActive={Boolean(isActiveSegment)}
+                                        key={segment.key}
+                                        label={segment.title}
+                                        startAt={segment.startAt}
+                                        submitAction={updateCalendarBlockAction}
+                                        timelineEndHour={CALENDAR_TIMELINE_END_HOUR}
+                                        timelineStartHour={CALENDAR_TIMELINE_START_HOUR}
+                                        title={segment.title}
+                                        toneClassName={timelineToneClassName(segment.tone)}
+                                      />
+                                    );
+                                  }
 
                                   return (
                                     <div
@@ -837,38 +843,6 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                                       style={{ left: `${segment.left}%`, width: `${segment.width}%` }}
                                       title={segment.title}
                                     >
-                                      {moveControls.length > 0 || resizeControls.length > 0 ? (
-                                        <div className="absolute -top-8 left-1/2 z-30 flex -translate-x-1/2 gap-1 rounded-xl border border-stone-200 bg-white/95 p-1 shadow-sm">
-                                          {moveControls.map((control) => (
-                                            <form action={resolvedMoveAction} key={control.direction}>
-                                              <input name={resolvedTargetFieldName} type="hidden" value={resolvedTargetId} />
-                                              <input name="direction" type="hidden" value={control.direction} />
-                                              <button
-                                                className={`min-h-[28px] min-w-[34px] rounded-lg px-2 text-[11px] font-semibold transition ${control.disabled ? "cursor-not-allowed border border-stone-200 bg-stone-100 text-stone-400" : "border border-stone-200 bg-white text-stone-700 hover:border-forest/30 hover:bg-sand hover:text-stone-900"}`}
-                                                disabled={control.disabled}
-                                                title={control.title}
-                                                type="submit"
-                                              >
-                                                {control.label}
-                                              </button>
-                                            </form>
-                                          ))}
-                                          {resizeControls.map((control) => (
-                                            <form action={resolvedResizeAction} key={control.direction}>
-                                              <input name={resolvedTargetFieldName} type="hidden" value={resolvedTargetId} />
-                                              <input name="direction" type="hidden" value={control.direction} />
-                                              <button
-                                                className={`min-h-[28px] min-w-[34px] rounded-lg px-2 text-[11px] font-semibold transition ${control.disabled ? "cursor-not-allowed border border-stone-200 bg-stone-100 text-stone-400" : "border border-stone-200 bg-white text-stone-700 hover:border-forest/30 hover:bg-sand hover:text-stone-900"}`}
-                                                disabled={control.disabled}
-                                                title={control.title}
-                                                type="submit"
-                                              >
-                                                {control.label}
-                                              </button>
-                                            </form>
-                                          ))}
-                                        </div>
-                                      ) : null}
                                       {segment.href ? (
                                         <a className={segmentContentClassName} href={segment.href} title={segment.title}>
                                           <span className="truncate">{segment.title}</span>
