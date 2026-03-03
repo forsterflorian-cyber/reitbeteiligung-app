@@ -458,6 +458,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const ownerBlocks = (ownerBlocksResult.data as CalendarBlock[] | null) ?? [];
   const ownerBookingRequests = (ownerBookingRequestsResult.data as BookingRequest[] | null) ?? [];
   const riderBookingRequests = (riderBookingRequestsResult.data as BookingRequest[] | null) ?? [];
+  const quickRequestableRules = rules.slice(0, 6);
   const trialSlotCount = rules.filter((rule) => rule.is_trial_slot).length;
   const ruleMap = new Map(rules.map((rule) => [rule.id, rule]));
   const requestedOwnerBookingItems = ownerBookingRequests.filter((request) => request.status === "requested");
@@ -898,7 +899,8 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           <>
             <SectionCard
               bodyClassName="space-y-5"
-              subtitle="Pflege hier dein Wochenmuster und einzelne Ausnahmen. Das Raster oben zeigt dir sofort, wie sich die Einträge auswirken."
+              id="kalender-bearbeiten"
+              subtitle="Pflege hier dein Wochenmuster und einzelne Ausnahmen. Das Raster oben zeigt dir sofort, wie sich die Eintr?ge auswirken."
               title="Kalender bearbeiten"
             >
               <Card className="p-5 sm:p-6" id="tagesfenster">
@@ -1138,7 +1140,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                                     <input name="ruleId" type="hidden" value={rule.id} />
                                     <ConfirmSubmitButton
                                       className={buttonVariants("secondary", "w-full text-sm")}
-                                      confirmMessage="Möchtest du dieses Verfügbarkeitsfenster wirklich entfernen?"
+                                      confirmMessage="Möchtest du dieses Verf?gbarkeitsfenster wirklich entfernen?"
                                       idleLabel="Entfernen"
                                       pendingLabel="Wird entfernt..."
                                     />
@@ -1187,10 +1189,10 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
               </div>
             </SectionCard>
 
-            <SectionCard subtitle="Nimm angefragte Termine an oder lehne sie ab." title="Offene Terminanfragen">
+            <SectionCard id="offene-terminanfragen" subtitle="Nimm angefragte Termine an oder lehne sie ab." title="Offene Terminanfragen">
               <div className="space-y-4">
                 {requestedOwnerBookingItems.length === 0 ? (
-                  <EmptyState description="Für dieses Pferd liegen derzeit keine offenen Terminanfragen vor." title="Keine offenen Terminanfragen" />
+                  <EmptyState description="FüF?r dieses Pferd liegen derzeit keine offenen Terminanfragen vor." title="Keine offenen Terminanfragen" />
                 ) : (
                   requestedOwnerBookingItems.map((request) => {
                     const rule = request.availability_rule_id ? ruleMap.get(request.availability_rule_id) ?? null : null;
@@ -1203,7 +1205,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                               <p className="text-sm font-semibold text-stone-900">
                                 {request.requested_start_at && request.requested_end_at
                                   ? formatDateRange(request.requested_start_at, request.requested_end_at)
-                                  : "Zeitpunkt wird geprüft"}
+                                  : "Zeitpunkt wird gepr\u00fcft"}
                               </p>
                               <p className="text-sm text-stone-600">Reiter-ID {request.rider_id.slice(0, 8)}</p>
                               <p className="text-sm text-stone-600">{rule ? `Fenster: ${ruleLabel(rule)}` : "Kein Zeitfenster mehr vorhanden."}</p>
@@ -1241,58 +1243,98 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         {isRider ? (
           <SectionCard
             bodyClassName="space-y-5"
-            subtitle="Wähle ein verfügbares Zeitfenster aus dem Planer oben und fordere daraus einen konkreten Termin an."
-            title="Termin anfragen"
+            id="reiter-planung"
+            subtitle={"W\u00e4hle ein offenes Zeitfenster direkt aus oder passe darunter einen eigenen Zeitraum innerhalb eines offenen Fensters an."}
+            title="Reitbeteiligung planen"
           >
             {riderApproved ? (
               rules.length > 0 ? (
                 <>
                   {riderBookingLimit ? (
                     <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-4">
-                      <p className="text-sm font-semibold text-stone-900">Dein Wochenkontingent für dieses Pferd</p>
+                      <p className="text-sm font-semibold text-stone-900">{"Dein Wochenkontingent f\u00fcr dieses Pferd"}</p>
                       <p className="mt-1 text-sm text-stone-600">{formatWeeklyHoursLimit(riderBookingLimit.weekly_hours_limit)}</p>
                     </div>
                   ) : null}
-                  <form action={requestBookingAction} className="space-y-4">
-                  <input name="horseId" type="hidden" value={horse.id} />
-                  <div>
-                    <label htmlFor="ruleId">Verfügbarkeitsfenster</label>
-                    <select defaultValue="" id="ruleId" name="ruleId" required>
-                      <option value="">Bitte wählen</option>
-                      {rules.map((rule) => (
-                        <option key={rule.id} value={rule.id}>
-                          {ruleLabel(rule)}
-                        </option>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-stone-900">Offene Zeitfenster direkt anfragen</p>
+                      <p className="text-sm text-stone-600">{"F\u00fcr das Tagesgesch\u00e4ft kannst du freie Zeitfenster sofort \u00fcbernehmen. Nur wenn du davon abweichen willst, nutzt du das Formular darunter."}</p>
+                    </div>
+                    <div className="space-y-3">
+                      {quickRequestableRules.map((rule) => (
+                        <Card className="p-4" key={rule.id}>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-stone-900">{ruleLabel(rule)}</p>
+                              <p className="text-sm text-stone-600">{"Dieses offene Zeitfenster wird direkt als konkrete Terminanfrage \u00fcbernommen."}</p>
+                            </div>
+                            <form action={requestBookingAction} className="w-full sm:w-auto">
+                              <input name="horseId" type="hidden" value={horse.id} />
+                              <input name="ruleId" type="hidden" value={rule.id} />
+                              <input name="startAt" type="hidden" value={rule.start_at} />
+                              <input name="endAt" type="hidden" value={rule.end_at} />
+                              <input name="recurrenceRrule" type="hidden" value="" />
+                              <Button className="w-full sm:w-auto" type="submit" variant="primary">
+                                Dieses Zeitfenster anfragen
+                              </Button>
+                            </form>
+                          </div>
+                        </Card>
                       ))}
-                    </select>
-                  </div>
-                  <div className="ui-field-grid sm:grid-cols-2">
-                    <div>
-                      <label htmlFor="requestStartAt">Beginn</label>
-                      <input id="requestStartAt" name="startAt" required type="datetime-local" />
                     </div>
-                    <div>
-                      <label htmlFor="requestEndAt">Ende</label>
-                      <input id="requestEndAt" name="endAt" required type="datetime-local" />
+                    {rules.length > quickRequestableRules.length ? (
+                      <p className="text-sm text-stone-600">Weitere offene Zeitfenster siehst du weiterhin direkt im Wochenplan oben.</p>
+                    ) : null}
+                  </div>
+                  <Card className="p-5 sm:p-6">
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-stone-900">Eigenen Zeitraum innerhalb eines offenen Fensters anfragen</p>
+                        <p className="text-sm text-stone-600">{"Nutze das nur, wenn du nicht das komplette offene Zeitfenster \u00fcbernehmen willst."}</p>
+                      </div>
+                      <form action={requestBookingAction} className="space-y-4">
+                        <input name="horseId" type="hidden" value={horse.id} />
+                        <div>
+                          <label htmlFor="ruleId">Offenes Zeitfenster</label>
+                          <select defaultValue="" id="ruleId" name="ruleId" required>
+                            <option value="">{"Bitte w\u00e4hlen"}</option>
+                            {rules.map((rule) => (
+                              <option key={rule.id} value={rule.id}>
+                                {ruleLabel(rule)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="ui-field-grid sm:grid-cols-2">
+                          <div>
+                            <label htmlFor="requestStartAt">Beginn</label>
+                            <input id="requestStartAt" name="startAt" required type="datetime-local" />
+                          </div>
+                          <div>
+                            <label htmlFor="requestEndAt">Ende</label>
+                            <input id="requestEndAt" name="endAt" required type="datetime-local" />
+                          </div>
+                        </div>
+                        <div>
+                          <label htmlFor="recurrenceRrule">Wiederholung (optional)</label>
+                          <input id="recurrenceRrule" name="recurrenceRrule" placeholder="FREQ=WEEKLY;INTERVAL=1;COUNT=6" type="text" />
+                          <p className="mt-2 text-sm text-stone-600">{"Beispiel: jede Woche f\u00fcr sechs Termine."}</p>
+                        </div>
+                        <SubmitButton idleLabel="Termin anfragen" pendingLabel="Wird gesendet..." />
+                      </form>
                     </div>
-                  </div>
-                  <div>
-                    <label htmlFor="recurrenceRrule">Wiederholung (optional)</label>
-                    <input id="recurrenceRrule" name="recurrenceRrule" placeholder="FREQ=WEEKLY;INTERVAL=1;COUNT=6" type="text" />
-                    <p className="mt-2 text-sm text-stone-600">Beispiel: jede Woche für sechs Termine.</p>
-                  </div>
-                  <SubmitButton idleLabel="Termin anfragen" pendingLabel="Wird gesendet..." />
-                  </form>
+                  </Card>
                 </>
               ) : (
-                <EmptyState description="Aktuell gibt es keine offenen Verfügbarkeitsfenster für dieses Pferd." title="Kein Zeitfenster verfügbar" />
+                <EmptyState description={"Aktuell gibt es keine offenen Verf\u00fcgbarkeitsfenster f\u00fcr dieses Pferd."} title={"Kein Zeitfenster verf\u00fcgbar"} />
               )
             ) : (
               <EmptyState description="Erst nach deiner Freischaltung kannst du einen Termin anfragen." title="Noch nicht freigeschaltet" />
             )}
 
-            <div className="space-y-3 border-t border-stone-200 pt-5">
-              <h3 className="text-base font-semibold text-stone-900">Meine Terminanfragen für dieses Pferd</h3>
+            <div className="space-y-3 border-t border-stone-200 pt-5" id="meine-terminanfragen">
+              <h3 className="text-base font-semibold text-stone-900">{"Meine Terminanfragen f\u00fcr dieses Pferd"}</h3>
               {riderBookingRequests.length === 0 ? (
                 <EmptyState description="Sobald du eine Terminanfrage stellst, erscheint sie hier mit aktuellem Status." title="Noch keine Terminanfrage" />
               ) : (
@@ -1311,7 +1353,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                       eyebrow={
                         request.requested_start_at && request.requested_end_at
                           ? formatDateRange(request.requested_start_at, request.requested_end_at)
-                          : "Zeitpunkt wird geprüft"
+                          : "Zeitpunkt wird gepr\u00fcft"
                       }
                       key={request.id}
                       meta={formatDateTime(request.created_at)}
@@ -1327,7 +1369,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         ) : null}
 
         {!profile ? (
-          <SectionCard subtitle="Melde dich an, um Verfügbarkeiten, Anfragen und deinen eigenen Status zu sehen." title="Kalender nutzen">
+          <SectionCard subtitle={"Melde dich an, um Verf?gbarkeiten, Anfragen und deinen eigenen Status zu sehen."} title="Kalender nutzen">
             <Link className={buttonVariants("primary", "w-full sm:w-auto")} href="/login">
               Anmelden, um den Kalender zu nutzen
             </Link>

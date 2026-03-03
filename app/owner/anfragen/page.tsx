@@ -197,6 +197,19 @@ export default async function OwnerAnfragenPage({
   return (
     <AppPageShell>
       <PageHeader
+        actions={
+          <>
+            <Link className={buttonVariants("primary", "w-full sm:w-auto")} href="/owner/horses">
+              Pferde anlegen
+            </Link>
+            <a className={buttonVariants("secondary", "w-full sm:w-auto")} href="#probetermine">
+              Probetermine
+            </a>
+            <a className={buttonVariants("ghost", "w-full sm:w-auto")} href="#aktive-reitbeteiligungen">
+              Reitbeteiligungen
+            </a>
+          </>
+        }
         backdropVariant="hero"
         eyebrow="Pferdehalter"
         subtitle="Bearbeite Probetermine, Freischaltungen und konkrete Terminanfragen deiner Reiter."
@@ -223,6 +236,7 @@ export default async function OwnerAnfragenPage({
         </Card>
       </div>
       <SectionCard
+        id="aktive-reitbeteiligungen"
         subtitle="Aktive Reitbeteiligungen verwaltest du hier separat von der eigentlichen Probetermin-Phase."
         title="Aktive Reitbeteiligungen"
       >
@@ -336,6 +350,7 @@ export default async function OwnerAnfragenPage({
         )}
       </SectionCard>
       <SectionCard
+        id="probetermine"
         subtitle={"Nimm Probetermine an, lehne sie ab oder entscheide nach dem Termin über eine neue Reitbeteiligung."}
         title="Probetermine"
       >
@@ -433,6 +448,7 @@ export default async function OwnerAnfragenPage({
         )}
       </SectionCard>
       <SectionCard
+        id="buchungsanfragen"
         subtitle="Hier bearbeitest du konkrete Buchungsanfragen innerhalb deiner Verfügbarkeitsfenster."
         title="Terminanfragen"
       >

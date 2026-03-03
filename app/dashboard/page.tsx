@@ -176,18 +176,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           actions={
             <>
               <Link className={buttonVariants("primary", "w-full sm:w-auto")} href={ownerCreateHref}>
-                Neues Pferd anlegen
+                Pferde anlegen
               </Link>
               <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href={ownerRequestsHref}>
-                Anfragen ansehen
+                Probetermine verwalten
               </Link>
               <Link className={buttonVariants("ghost", "w-full sm:w-auto")} href={ownerManageHref}>
-                Pferde verwalten
+                Reitbeteiligungen verwalten
               </Link>
             </>
           }
           backdropVariant="hero"
-          subtitle={`Hallo ${displayName}. Hier siehst du, was heute Aufmerksamkeit braucht.`}
+          subtitle={`Hallo ${displayName}. Von hier springst du direkt in Pferde anlegen, Probetermine und die operative Verwaltung.`}
           surface
           title="Übersicht"
         />
@@ -363,13 +363,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         actions={
           <>
             <Link className={buttonVariants("primary", "w-full sm:w-auto")} href={riderSearchHref}>
-              Pferde suchen
+              Pferde finden
             </Link>
-            <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href={riderProfileHref}>
-              Profil bearbeiten
+            <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href={riderSearchHref}>
+              Probetraining anfragen
             </Link>
             <Link className={buttonVariants("ghost", "w-full sm:w-auto")} href={riderRequestsHref}>
-              Anfragen
+              Reitbeteiligung planen
             </Link>
           </>
         }

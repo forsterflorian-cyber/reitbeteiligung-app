@@ -17,6 +17,7 @@ Stand: 2026-03-03
 - Pferdeprofile mit Bildern, Galerie und erweiterten Stammdaten
 - Probetermin-Flow mit klarer Trennung: Probeterminphase bis zur Entscheidung, danach aktive Reitbeteiligung
 - Aktive Reitbeteiligungen erscheinen getrennt unter `Meine Reitbeteiligungen` bzw. `Aktive Reitbeteiligungen`
+- Hauptsichten sind st?rker auf Tagesgesch?ft ausgerichtet: Pferde anlegen, Probetermine, operative Reitbeteiligungs-Planung
 - Interner Chat vor der Freischaltung
 - Kalender mit Verf?gbarkeiten, Sperren und Terminanfragen
 - Direkte Kalenderauswahl im Raster f?r Tagesfenster plus Fokus-Spr?nge in die Direktbearbeitung
@@ -24,6 +25,7 @@ Stand: 2026-03-03
 - Markierte Balken lassen sich direkt im Planer stundenweise verl?ngern, verk?rzen und verschieben
 - Pferdehalter k?nnen pro freigeschalteter Reitbeteiligung ein Wochenkontingent hinterlegen
 - FCFS-Probetermin-Slots mit Fallback auf generische Anfragen, wenn kein expliziter Probetermin gepflegt ist
+- Aktive Reitbeteiligungen springen jetzt direkter in offene Zeitfenster; im Kalender gibt es eine Schnellbuchung f?r komplette offene Zeitfenster
 - Gemeinsamer UI-Layer mit mobile-first Layout
 - Owner-Tarifstatus mit sichtbaren Start-Trial- und Upgrade-CTAs
 - Anfragen-Seiten mit kompakten Kennzahlen f?r schnellen ?berblick

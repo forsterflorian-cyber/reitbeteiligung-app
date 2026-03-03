@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 
 import { cx } from "@/lib/cx";
 
@@ -11,11 +11,12 @@ type SectionCardProps = {
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
+  id?: string;
 };
 
-export function SectionCard({ action, bodyClassName, children, className, subtitle, title }: SectionCardProps) {
+export function SectionCard({ action, bodyClassName, children, className, id, subtitle, title }: SectionCardProps) {
   return (
-    <Card className={className}>
+    <Card className={className} id={id}>
       <div className="section-card-header">
         <div>
           <h2 className="text-xl font-semibold text-stone-900">{title}</h2>

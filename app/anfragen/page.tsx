@@ -186,11 +186,24 @@ export default async function AnfragenPage({
   return (
     <AppPageShell>
       <PageHeader
+        actions={
+          <>
+            <Link className={buttonVariants("primary", "w-full sm:w-auto")} href="/suchen">
+              Pferde finden
+            </Link>
+            <a className={buttonVariants("secondary", "w-full sm:w-auto")} href="#meine-probetermine">
+              Probetermine
+            </a>
+            <a className={buttonVariants("ghost", "w-full sm:w-auto")} href="#aktive-reitbeteiligungen">
+              Reitbeteiligung planen
+            </a>
+          </>
+        }
         backdropVariant="hero"
         eyebrow="Reiter"
-        subtitle="Hier siehst du deine Probetermine, Freischaltungen und konkrete Terminanfragen."
+        subtitle="Hier steuerst du Probetermine, aktive Reitbeteiligungen und konkrete Buchungen pro Pferd."
         surface
-        title="Meine Anfragen"
+        title="Proben & Planung"
       />
       <Notice text={error} tone="error" />
       <Notice text={message} tone="success" />
@@ -212,7 +225,13 @@ export default async function AnfragenPage({
         </Card>
       </div>
       <SectionCard
-        subtitle="Nach der Freischaltung verwaltest du hier deine aktiven Reitbeteiligungen und buchst freie Zeitfenster."
+        action={
+          <Link className={buttonVariants("secondary")} href="/suchen">
+            Neue Probe anfragen
+          </Link>
+        }
+        id="aktive-reitbeteiligungen"
+        subtitle="Nach der Freischaltung steuerst du hier deine laufenden Reitbeteiligungen und springst direkt in freie Zeitfenster."
         title="Meine Reitbeteiligungen"
       >
         {activeRelationships.length === 0 ? (
@@ -245,19 +264,28 @@ export default async function AnfragenPage({
                       {riderBookingLimit ? <Badge tone="neutral">{formatWeeklyHoursLimit(riderBookingLimit.weekly_hours_limit)}</Badge> : null}
                       {hasUnread ? <Badge tone="info">Neue Nachricht</Badge> : null}
                     </div>
-                    <Notice text="Du kannst jetzt in offenen Zeitfenstern direkt buchen." tone="success" />
+                    <Notice text="Nächster Schritt: Öffne die Planung dieses Pferdes und fordere direkt ein offenes Zeitfenster an." tone="success" />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <a className={buttonVariants("primary", "w-full justify-center")} href={`/pferde/${approval.horse_id}/kalender#reiter-planung`}>
+                        Reitbeteiligung planen
+                      </a>
+                      {conversation ? (
+                        <Link className={buttonVariants("secondary", "w-full justify-center")} href={`/chat/${conversation.id}` as Route}>
+                          Zum Chat
+                        </Link>
+                      ) : (
+                        <Link className={buttonVariants("secondary", "w-full justify-center")} href={`/pferde/${approval.horse_id}` as Route}>
+                          {"Pferdeprofil \u00f6ffnen"}
+                        </Link>
+                      )}
+                    </div>
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
-                      <Link className={inlineLinkClassName} href={`/pferde/${approval.horse_id}/kalender` as Route}>
-                        Offene Zeiten buchen
-                      </Link>
                       <Link className={inlineLinkClassName} href={`/pferde/${approval.horse_id}` as Route}>
                         Pferdeprofil ansehen
                       </Link>
-                      {conversation ? (
-                        <Link className={inlineLinkClassName} href={`/chat/${conversation.id}` as Route}>
-                          Zum Chat
-                        </Link>
-                      ) : null}
+                      <a className={inlineLinkClassName} href={`/pferde/${approval.horse_id}/kalender#meine-terminanfragen`}>
+                        Eigene Terminanfragen ansehen
+                      </a>
                     </div>
                   </div>
                 </Card>
@@ -267,6 +295,7 @@ export default async function AnfragenPage({
         )}
       </SectionCard>
       <SectionCard
+        id="meine-probetermine"
         subtitle={"Hier siehst du den Status deiner Probetermin-Anfragen bis zur Entscheidung über eine neue Reitbeteiligung."}
         title="Meine Probetermine"
       >
@@ -329,7 +358,8 @@ export default async function AnfragenPage({
         )}
       </SectionCard>
       <SectionCard
-        subtitle={"Nur aktive Reitbeteiligungen k\u00f6nnen innerhalb offener Zeitfenster konkrete Termine anfragen."}
+        id="meine-terminanfragen"
+        subtitle={"Nur aktive Reitbeteiligungen können innerhalb offener Zeitfenster konkrete Termine anfragen."}
         title="Meine Terminanfragen"
       >
         {bookingItems.length === 0 ? (

@@ -1,4 +1,4 @@
-import type { Route } from "next";
+﻿import type { Route } from "next";
 
 import type { Profile } from "@/types/database";
 
@@ -11,19 +11,16 @@ export type AppNavItem = {
 
 const riderNav = [
   {
-    href: "/dashboard" as Route,
-    label: "Uebersicht",
-    match: ["/dashboard"]
-  },
-  {
     href: "/suchen" as Route,
-    label: "Suchen",
-    match: ["/suchen", "/pferde"]
+    label: "Pferde finden",
+    match: ["/suchen", "/pferde"],
+    mobileLabel: "Finden"
   },
   {
     href: "/anfragen" as Route,
-    label: "Anfragen",
-    match: ["/anfragen", "/chat"]
+    label: "Proben & Planung",
+    match: ["/anfragen", "/chat"],
+    mobileLabel: "Planen"
   },
   {
     href: "/profil" as Route,
@@ -34,25 +31,22 @@ const riderNav = [
 
 const ownerNav = [
   {
-    href: "/dashboard" as Route,
-    label: "Uebersicht",
-    match: ["/dashboard"]
-  },
-  {
     href: "/owner/horses" as Route,
-    label: "Neues Pferd",
+    label: "Pferde anlegen",
     match: ["/owner/horses"],
     mobileLabel: "Neu"
   },
   {
-    href: "/owner/pferde-verwalten" as Route,
-    label: "Pferde",
-    match: ["/owner/pferde-verwalten"]
+    href: "/owner/anfragen" as Route,
+    label: "Probetermine",
+    match: ["/owner/anfragen", "/chat"],
+    mobileLabel: "Proben"
   },
   {
-    href: "/owner/anfragen" as Route,
-    label: "Anfragen",
-    match: ["/owner/anfragen", "/chat"]
+    href: "/owner/pferde-verwalten" as Route,
+    label: "Reitbeteiligungen",
+    match: ["/owner/pferde-verwalten"],
+    mobileLabel: "Verwalten"
   },
   {
     href: "/profil" as Route,
