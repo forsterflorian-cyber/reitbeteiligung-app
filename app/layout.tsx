@@ -20,6 +20,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="de">
       <body className={isAuthed ? "bg-stone-50" : undefined}>
         {isAuthed ? <Backdrop className="fixed inset-0 z-0" variant="pattern" /> : null}
+        {isAuthed ? (
+          <div className="pointer-events-none fixed inset-0 z-0">
+            <Backdrop className="!inset-x-0 !top-0 !bottom-0" variant="section" />
+          </div>
+        ) : null}
         <div className="relative z-10">
           <NavShell email={user?.email} profile={profile} unreadMessages={unreadMessages} />
           <main>

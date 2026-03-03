@@ -58,9 +58,10 @@ export function Backdrop({ className, variant, ...props }: BackdropProps) {
 
   if (variant === "section") {
     return (
-      <div aria-hidden="true" className={cx("pointer-events-none absolute inset-0 hidden overflow-hidden md:block", className)} {...props}>
-        <div className="absolute inset-0 opacity-[0.14]" style={baseImageStyle} />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.06),transparent_32%),radial-gradient(circle_at_80%_12%,rgba(6,78,59,0.08),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.22),rgba(250,250,249,0.92))]" />
+      <div aria-hidden="true" className={cx("pointer-events-none absolute inset-0 overflow-hidden", className)} {...props}>
+        <div className="absolute inset-0 opacity-[0.18] sm:opacity-[0.16] lg:opacity-[0.14]" style={baseImageStyle} />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.08),transparent_34%),radial-gradient(circle_at_82%_10%,rgba(6,78,59,0.1),transparent_32%),linear-gradient(180deg,rgba(250,250,249,0.24),rgba(250,250,249,0.84)_40%,rgba(250,250,249,0.96))]" />
+        <div className="absolute inset-y-0 left-0 w-2/3 bg-gradient-to-r from-stone-50/72 via-stone-50/36 to-transparent" />
       </div>
     );
   }
