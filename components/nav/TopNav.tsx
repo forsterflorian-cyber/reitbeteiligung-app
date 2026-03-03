@@ -13,14 +13,15 @@ import { getProfileDisplayName, getRoleLabel } from "@/lib/profiles";
 type TopNavProps = {
   email?: string | null;
   profile?: Profile | null;
+  unreadMessages?: number;
 };
 
-export function TopNav({ email, profile }: TopNavProps) {
+export function TopNav({ email, profile, unreadMessages = 0 }: TopNavProps) {
   if (!profile) {
     return <LandingNav />;
   }
 
-  const items = getNavItems(profile);
+  const items = getNavItems(profile, { unreadMessages });
   const displayName = getProfileDisplayName(profile, email);
   const roleLabel = getRoleLabel(profile.role);
 

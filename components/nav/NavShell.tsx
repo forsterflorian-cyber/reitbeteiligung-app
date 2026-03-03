@@ -6,14 +6,14 @@ import { TopNav } from "@/components/nav/TopNav";
 type NavShellProps = {
   email?: string | null;
   profile?: Profile | null;
+  unreadMessages?: number;
 };
 
-// NavShell keeps the responsive switch in one place so layouts only mount one component.
-export function NavShell({ email, profile }: NavShellProps) {
+export function NavShell({ email, profile, unreadMessages = 0 }: NavShellProps) {
   return (
     <>
-      <TopNav email={email} profile={profile} />
-      <BottomNav profile={profile} />
+      <TopNav email={email} profile={profile} unreadMessages={unreadMessages} />
+      <BottomNav profile={profile} unreadMessages={unreadMessages} />
     </>
   );
 }

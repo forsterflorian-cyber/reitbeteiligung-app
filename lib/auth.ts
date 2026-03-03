@@ -8,7 +8,7 @@ import type { Profile, UserRole } from "@/types/database";
 export async function getProfileByUserId(supabase: SupabaseClient, userId: string) {
   const { data } = await supabase
     .from("profiles")
-    .select("id, role, is_premium, created_at")
+    .select("id, role, is_premium, display_name, phone, created_at, trial_started_at")
     .eq("id", userId)
     .maybeSingle();
 

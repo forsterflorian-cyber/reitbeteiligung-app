@@ -144,7 +144,10 @@ export default async function OwnerManageHorsesPage({
                 Neues Pferd anlegen
               </Link>
               <Link className={buttonVariants("secondary")} href="/owner/anfragen">
-                Reitbeteiligungen ansehen
+                Probetermine
+              </Link>
+              <Link className={buttonVariants("ghost")} href="/owner/reitbeteiligungen">
+                Reitbeteiligungen
               </Link>
             </>
           }
@@ -158,34 +161,6 @@ export default async function OwnerManageHorsesPage({
         <Notice text={horsesLoadErrorMessage} tone="error" />
         <Notice text={horseImagesErrorMessage} tone="error" />
         <Notice text={message} tone="success" />
-        <div className="rounded-2xl border border-stone-200 bg-white p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Tarif & Kontingent</p>
-              <div className="flex flex-wrap gap-2">
-                <Badge tone={ownerPlan.key === "paid" ? "approved" : ownerPlan.key === "trial" ? "pending" : "neutral"}>{ownerPlan.label}</Badge>
-                {showStartTrial ? <Badge tone="info">Start Trial verfügbar</Badge> : null}
-              </div>
-              <p className="text-sm text-stone-600">{ownerPlan.summary}</p>
-              {ownerPlan.key !== "paid" ? <p className="text-sm text-stone-600">{ownerPlanUsageSummary}</p> : null}
-            </div>
-            <div className="flex flex-col gap-2 sm:min-w-[220px]">
-              {showStartTrial ? (
-                <form action={startOwnerTrialAction}>
-                  <input name="redirectTo" type="hidden" value="/owner/pferde-verwalten" />
-                  <Button className="w-full" type="submit" variant="secondary">
-                    Start Trial
-                  </Button>
-                </form>
-              ) : null}
-              {ownerPlan.key !== "paid" ? (
-                <a className={buttonVariants(showStartTrial ? "ghost" : "secondary", "w-full")} href={upgradeHref}>
-                  Bezahlten Tarif anfragen
-                </a>
-              ) : null}
-            </div>
-          </div>
-        </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-sm font-semibold text-stone-500">Pferdeprofile</p>
@@ -272,7 +247,7 @@ export default async function OwnerManageHorsesPage({
                   <div className="space-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Aktionen</p>
                     <div className="rounded-xl border border-stone-200 bg-white px-3 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">N?chster Schritt</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">N\u00e4chster Schritt</p>
                       <p className="mt-2 text-sm font-semibold text-stone-900">
                         {trialCount > 0
                           ? `${trialCount} Probetermine prüfen`
@@ -295,8 +270,8 @@ export default async function OwnerManageHorsesPage({
                     >
                       Pferd editieren
                     </Link>
-                    <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 hover:border-forest hover:text-forest" href="/owner/anfragen">
-                      Reitbeteiligungen ansehen
+                    <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 hover:border-forest hover:text-forest" href="/owner/reitbeteiligungen">
+                      Reitbeteiligungen
                     </Link>
                     <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 hover:border-forest hover:text-forest" href={`/pferde/${horse.id}/kalender` as Route}>
                       Kalender
@@ -307,7 +282,7 @@ export default async function OwnerManageHorsesPage({
                       <ConfirmSubmitButton
                         className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:border-rose-400 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-70"
                         confirmMessage={deletePrompt}
-                        idleLabel="Pferd l?schen"
+                        idleLabel="Pferd l\u00f6schen"
                         pendingLabel="Wird gelöscht..."
                       />
                     </form>
@@ -432,6 +407,34 @@ export default async function OwnerManageHorsesPage({
           })}
         </div>
       )}
+        <div className="rounded-2xl border border-stone-200 bg-white p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Tarif & Kontingent</p>
+              <div className="flex flex-wrap gap-2">
+                <Badge tone={ownerPlan.key === "paid" ? "approved" : ownerPlan.key === "trial" ? "pending" : "neutral"}>{ownerPlan.label}</Badge>
+                {showStartTrial ? <Badge tone="info">Start Trial verf\u00fcgbar</Badge> : null}
+              </div>
+              <p className="text-sm text-stone-600">{ownerPlan.summary}</p>
+              {ownerPlan.key !== "paid" ? <p className="text-sm text-stone-600">{ownerPlanUsageSummary}</p> : null}
+            </div>
+            <div className="flex flex-col gap-2 sm:min-w-[220px]">
+              {showStartTrial ? (
+                <form action={startOwnerTrialAction}>
+                  <input name="redirectTo" type="hidden" value="/owner/pferde-verwalten" />
+                  <Button className="w-full" type="submit" variant="secondary">
+                    Start Trial
+                  </Button>
+                </form>
+              ) : null}
+              {ownerPlan.key !== "paid" ? (
+                <a className={buttonVariants(showStartTrial ? "ghost" : "secondary", "w-full")} href={upgradeHref}>
+                  Bezahlten Tarif anfragen
+                </a>
+              ) : null}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

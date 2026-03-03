@@ -1,8 +1,9 @@
-﻿import type { Route } from "next";
+import type { Route } from "next";
 
 import type { Profile } from "@/types/database";
 
 export type AppNavItem = {
+  badgeCount?: number;
   href: Route;
   label: string;
   match: readonly string[];
@@ -10,6 +11,12 @@ export type AppNavItem = {
 };
 
 const riderNav = [
+  {
+    href: "/dashboard" as Route,
+    label: "\u00dcbersicht",
+    match: ["/dashboard"],
+    mobileLabel: "Start"
+  },
   {
     href: "/suchen" as Route,
     label: "Pferde finden",
@@ -31,22 +38,28 @@ const riderNav = [
 
 const ownerNav = [
   {
-    href: "/owner/horses" as Route,
-    label: "Pferde anlegen",
-    match: ["/owner/horses"],
-    mobileLabel: "Neu"
+    href: "/owner/pferde-verwalten" as Route,
+    label: "Pferde verwalten",
+    match: ["/owner/pferde-verwalten", "/owner/horses"],
+    mobileLabel: "Pferde"
   },
   {
     href: "/owner/anfragen" as Route,
     label: "Probetermine",
-    match: ["/owner/anfragen", "/chat"],
+    match: ["/owner/anfragen"],
     mobileLabel: "Proben"
   },
   {
-    href: "/owner/pferde-verwalten" as Route,
+    href: "/owner/reitbeteiligungen" as Route,
     label: "Reitbeteiligungen",
-    match: ["/owner/pferde-verwalten"],
-    mobileLabel: "Verwalten"
+    match: ["/owner/reitbeteiligungen"],
+    mobileLabel: "Reiter"
+  },
+  {
+    href: "/owner/nachrichten" as Route,
+    label: "Nachrichten",
+    match: ["/owner/nachrichten", "/chat"],
+    mobileLabel: "Chat"
   },
   {
     href: "/profil" as Route,
@@ -55,16 +68,27 @@ const ownerNav = [
   }
 ] as const satisfies readonly AppNavItem[];
 
-export function getNavItems(profile?: Pick<Profile, "role"> | null) {
+export function getNavItems(profile?: Pick<Profile, "role"> | null, options?: { unreadMessages?: number }) {
   if (!profile) {
-    return [] as const;
+    return [] as AppNavItem[];
   }
 
-  return profile.role === "owner" ? ownerNav : riderNav;
+  if (profile.role !== "owner") {
+    return [...riderNav];
+  }
+
+  return ownerNav.map((item) => {
+    if (item.href === "/owner/nachrichten" && options?.unreadMessages) {
+      return {
+        ...item,
+        badgeCount: options.unreadMessages
+      };
+    }
+
+    return { ...item };
+  });
 }
 
-// Prefix matching keeps active states stable for detail pages without scattering
-// custom pathname checks across the nav components.
 export function isNavItemActive(item: AppNavItem, pathname: string) {
   return item.match.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
