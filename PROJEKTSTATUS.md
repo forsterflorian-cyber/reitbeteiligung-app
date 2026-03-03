@@ -54,3 +54,8 @@ Das operative Tagesgesch?ft nach der Freischaltung ist die eigentliche Kernfunkt
 1. Testplan aus `docs/testplan.md` Punkt f?r Punkt manuell durchgehen.
 2. Die ersten harten Fehler nur noch gegen die dokumentierten Kernworkflows beheben.
 3. Danach gezielt kleine Techniktests f?r Zeitfenster, Konflikte und Kontingente einziehen.
+## Kalender-UX TODO f?r den n?chsten gr??eren Umbau
+
+- In der aktuellen Wochenansicht r?ckwirkende Tage nicht mehr als normale Bearbeitungsziele behandeln.
+- `Kalender anzeigen` und `Kalender bearbeiten` als klar getrennte Modi aufbauen.
+
