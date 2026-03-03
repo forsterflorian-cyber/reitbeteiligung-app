@@ -29,6 +29,9 @@ Stand: 2026-03-03
 - Markierte Balken lassen sich direkt im Planer stundenweise verlängern, verkürzen und verschieben
 - Pferdehalter können pro freigeschalteter Reitbeteiligung ein Wochenkontingent hinterlegen
 - FCFS-Probetermin-Slots mit Fallback auf generische Anfragen, wenn kein expliziter Probetermin gepflegt ist
+- Reiter buchen operative Termine jetzt ?ber ein 15-Minuten-Raster innerhalb offener Zeitfenster
+- Verf?gbarkeiten verhindern jetzt ?berlappende Zeitfenster serverseitig
+- Kalender-Sperren unterst?tzen einen optionalen Titel
 - Gemeinsamer UI-Layer mit mobile-first Layout
 - Tarifinfos im Dashboard und in `Pferde verwalten` bewusst weiter nach unten gezogen
 - Brand-Backdrops ziehen sich stärker durch den Innenbereich, inklusive Übersicht, Verwaltung und Anfragen

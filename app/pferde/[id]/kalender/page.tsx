@@ -21,6 +21,7 @@ import {
 import { RequestCard } from "@/components/blocks/request-card";
 import { DayRangePicker } from "@/components/calendar/day-range-picker";
 import { InteractiveTimelineLane } from "@/components/calendar/interactive-timeline-lane";
+import { RiderBookingWindowForm } from "@/components/calendar/rider-booking-window-form";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
 import { StatusBadge } from "@/components/status-badge";
@@ -427,7 +428,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     isOwner
       ? supabase
           .from("calendar_blocks")
-          .select("id, horse_id, start_at, end_at, created_at")
+          .select("id, horse_id, title, start_at, end_at, created_at")
           .eq("horse_id", horse.id)
           .order("start_at", { ascending: true })
       : Promise.resolve({ data: [] as CalendarBlock[] | null }),
@@ -552,7 +553,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const focusedEntrySummary = focusedRule
     ? ruleLabel(focusedRule)
     : focusedBlock
-      ? formatDateRange(focusedBlock.start_at, focusedBlock.end_at)
+      ? [focusedBlock.title, formatDateRange(focusedBlock.start_at, focusedBlock.end_at)].filter(Boolean).join(" ? ")
       : null;
   const dayEditorDescription = focusedRule
     ? `Markiert: ${focusedEntrySummary}. Passe Beginn und Ende direkt im Tageseditor an.`
@@ -927,6 +928,12 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                     key={`${selectedDayKey}-${focusedRule?.id ?? focusedBlock?.id ?? selectedSlotLabel ?? "default"}`}
                     startHour={CALENDAR_TIMELINE_START_HOUR}
                   />
+                  {focusedBlock ? (
+                    <div>
+                      <label htmlFor="blockTitle">Titel der Sperre (optional)</label>
+                      <input defaultValue={focusedBlock.title ?? ""} id="blockTitle" name="blockTitle" placeholder="z. B. Hufschmied oder Stallruhe" type="text" />
+                    </div>
+                  ) : null}
                   {!focusedBlock ? (
                     <label className="flex min-h-[44px] items-center gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-900">
                       <input
@@ -1080,11 +1087,11 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                     <div className="ui-field-grid sm:grid-cols-2">
                       <div>
                         <label htmlFor="availabilityStartTime">Von</label>
-                        <input defaultValue="17:00" id="availabilityStartTime" name="startTime" required type="time" />
+                        <input defaultValue="17:00" id="availabilityStartTime" name="startTime" required step={900} type="time" />
                       </div>
                       <div>
                         <label htmlFor="availabilityEndTime">Bis</label>
-                        <input defaultValue="19:00" id="availabilityEndTime" name="endTime" required type="time" />
+                        <input defaultValue="19:00" id="availabilityEndTime" name="endTime" required step={900} type="time" />
                       </div>
                     </div>
                     <label className="flex min-h-[44px] items-center gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-900">
@@ -1104,12 +1111,16 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                         <p className="mt-2 ui-inline-meta">Nutze Sperren nur dann, wenn das Pferd trotz Wochenmuster kurzfristig nicht verfügbar ist.</p>
                       </div>
                       <div>
+                        <label htmlFor="blockTitleNew">Titel der Sperre (optional)</label>
+                        <input id="blockTitleNew" name="blockTitle" placeholder="z. B. Hufschmied oder Stallruhe" type="text" />
+                      </div>
+                      <div>
                         <label htmlFor="blockStartAt">Beginn</label>
-                        <input id="blockStartAt" name="startAt" required type="datetime-local" />
+                        <input id="blockStartAt" name="startAt" required step={900} type="datetime-local" />
                       </div>
                       <div>
                         <label htmlFor="blockEndAt">Ende</label>
-                        <input id="blockEndAt" name="endAt" required type="datetime-local" />
+                        <input id="blockEndAt" name="endAt" required step={900} type="datetime-local" />
                       </div>
                       <SubmitButton idleLabel="Ausnahme speichern" pendingLabel="Wird gespeichert..." />
                     </form>
@@ -1140,7 +1151,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                                     <input name="ruleId" type="hidden" value={rule.id} />
                                     <ConfirmSubmitButton
                                       className={buttonVariants("secondary", "w-full text-sm")}
-                                      confirmMessage="Möchtest du dieses Verf?gbarkeitsfenster wirklich entfernen?"
+                                      confirmMessage="Möchtest du dieses Verfügbarkeitsfenster wirklich entfernen?"
                                       idleLabel="Entfernen"
                                       pendingLabel="Wird entfernt..."
                                     />
@@ -1163,7 +1174,8 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                             <div className="space-y-2">
                               {prioritizedBlocks.slice(0, 4).map((block) => (
                                 <div className={`rounded-2xl border px-3 py-3 ${focusBlockId === block.id ? "border-rose-300 bg-rose-50/60" : "border-stone-200 bg-white"}`} key={block.id}>
-                                  <p className="text-sm font-semibold text-stone-900">{formatDateRange(block.start_at, block.end_at)}</p>
+                                  <p className="text-sm font-semibold text-stone-900">{block.title?.trim() || "Sperre"}</p>
+                                  <p className="mt-1 text-sm text-stone-600">{formatDateRange(block.start_at, block.end_at)}</p>
                                   <a className={buttonVariants("ghost", "mt-3 w-full justify-center text-sm")} href={`/pferde/${horse.id}/kalender?${currentViewQuery}&day=${block.start_at.slice(0, 10)}&focusBlock=${block.id}#tagesfenster`}>
                                     {"Im Editor \u00f6ffnen"}
                                   </a>
@@ -1192,7 +1204,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
             <SectionCard id="offene-terminanfragen" subtitle="Nimm angefragte Termine an oder lehne sie ab." title="Offene Terminanfragen">
               <div className="space-y-4">
                 {requestedOwnerBookingItems.length === 0 ? (
-                  <EmptyState description="FüF?r dieses Pferd liegen derzeit keine offenen Terminanfragen vor." title="Keine offenen Terminanfragen" />
+                  <EmptyState description="Für dieses Pferd liegen derzeit keine offenen Terminanfragen vor." title="Keine offenen Terminanfragen" />
                 ) : (
                   requestedOwnerBookingItems.map((request) => {
                     const rule = request.availability_rule_id ? ruleMap.get(request.availability_rule_id) ?? null : null;
@@ -1295,32 +1307,14 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                       </div>
                       <form action={requestBookingAction} className="space-y-4">
                         <input name="horseId" type="hidden" value={horse.id} />
-                        <div>
-                          <label htmlFor="ruleId">Offenes Zeitfenster</label>
-                          <select defaultValue="" id="ruleId" name="ruleId" required>
-                            <option value="">{"Bitte w\u00e4hlen"}</option>
-                            {rules.map((rule) => (
-                              <option key={rule.id} value={rule.id}>
-                                {ruleLabel(rule)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="ui-field-grid sm:grid-cols-2">
-                          <div>
-                            <label htmlFor="requestStartAt">Beginn</label>
-                            <input id="requestStartAt" name="startAt" required type="datetime-local" />
-                          </div>
-                          <div>
-                            <label htmlFor="requestEndAt">Ende</label>
-                            <input id="requestEndAt" name="endAt" required type="datetime-local" />
-                          </div>
-                        </div>
-                        <div>
-                          <label htmlFor="recurrenceRrule">Wiederholung (optional)</label>
-                          <input id="recurrenceRrule" name="recurrenceRrule" placeholder="FREQ=WEEKLY;INTERVAL=1;COUNT=6" type="text" />
-                          <p className="mt-2 text-sm text-stone-600">{"Beispiel: jede Woche f\u00fcr sechs Termine."}</p>
-                        </div>
+                        <RiderBookingWindowForm
+                          rules={rules.map((rule) => ({
+                            endAt: rule.end_at,
+                            id: rule.id,
+                            label: ruleLabel(rule),
+                            startAt: rule.start_at
+                          }))}
+                        />
                         <SubmitButton idleLabel="Termin anfragen" pendingLabel="Wird gesendet..." />
                       </form>
                     </div>
@@ -1369,7 +1363,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         ) : null}
 
         {!profile ? (
-          <SectionCard subtitle={"Melde dich an, um Verf?gbarkeiten, Anfragen und deinen eigenen Status zu sehen."} title="Kalender nutzen">
+          <SectionCard subtitle={"Melde dich an, um Verfügbarkeiten, Anfragen und deinen eigenen Status zu sehen."} title="Kalender nutzen">
             <Link className={buttonVariants("primary", "w-full sm:w-auto")} href="/login">
               Anmelden, um den Kalender zu nutzen
             </Link>

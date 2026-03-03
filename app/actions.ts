@@ -30,6 +30,8 @@ const PASSWORD_RESET_REDIRECT_URL = "https://reitbeteiligung.app/passwort-zuruec
 const RECURRENCE_HORIZON_WEEKS = 12;
 const MAX_RECURRENCE_OCCURRENCES = 100;
 const AVAILABILITY_GENERATION_WEEKS = 8;
+const CALENDAR_STEP_MINUTES = 15;
+const CALENDAR_STEP_MS = CALENDAR_STEP_MINUTES * 60 * 1000;
 const AVAILABILITY_PRESET_DAYS = {
   custom: [] as number[],
   daily: [0, 1, 2, 3, 4, 5, 6],
@@ -49,8 +51,9 @@ const RRULE_WEEKDAYS: Record<string, number> = {
 type OwnerRequestRecord = Pick<TrialRequest, "id" | "horse_id" | "rider_id" | "status">;
 type HorseOwnerRecord = Pick<Horse, "id" | "owner_id">;
 type HorseImageRecord = Pick<HorseImage, "id" | "horse_id" | "path" | "storage_path" | "position" | "created_at">;
-type CalendarBlockRecord = Pick<CalendarBlock, "id" | "horse_id" | "start_at" | "end_at" | "created_at">;
+type CalendarBlockRecord = Pick<CalendarBlock, "id" | "horse_id" | "title" | "start_at" | "end_at" | "created_at">;
 type AvailabilityRuleRecord = Pick<AvailabilityRule, "id" | "horse_id" | "slot_id" | "start_at" | "end_at" | "active" | "is_trial_slot" | "created_at">;
+type AvailabilityRangeRecord = Pick<AvailabilityRule, "id" | "start_at" | "end_at">;
 type BookingRequestRecord = Pick<BookingRequest, "id" | "slot_id" | "availability_rule_id" | "horse_id" | "rider_id" | "status" | "requested_start_at" | "requested_end_at" | "recurrence_rrule" | "created_at">;
 type ApprovalRecord = Pick<Approval, "horse_id" | "rider_id" | "status">;
 type RiderBookingLimitRecord = Pick<RiderBookingLimit, "horse_id" | "rider_id" | "weekly_hours_limit" | "created_at" | "updated_at">;
@@ -121,7 +124,15 @@ function parseClockTime(value: string) {
   const hours = Number.parseInt(hoursValue, 10);
   const minutes = Number.parseInt(minutesValue, 10);
 
-  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+  if (
+    !Number.isInteger(hours) ||
+    !Number.isInteger(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59 ||
+    minutes % CALENDAR_STEP_MINUTES !== 0
+  ) {
     return null;
   }
 
@@ -223,6 +234,16 @@ function buildSingleAvailabilityWindow(dayValue: string, startTime: ParsedClockT
   } satisfies BookingWindow;
 }
 
+function isQuarterHourAligned(value: Date) {
+  return value.getMinutes() % CALENDAR_STEP_MINUTES === 0 && value.getSeconds() === 0 && value.getMilliseconds() === 0;
+}
+
+function shiftDateByCalendarStep(value: Date, direction: "earlier" | "later") {
+  const next = new Date(value.getTime());
+  next.setMinutes(next.getMinutes() + (direction === "earlier" ? -CALENDAR_STEP_MINUTES : CALENDAR_STEP_MINUTES), 0, 0);
+  return next;
+}
+
 function isResizeDirection(value: string): value is "start-earlier" | "start-later" | "end-earlier" | "end-later" {
   return value === "start-earlier" || value === "start-later" || value === "end-earlier" || value === "end-later";
 }
@@ -244,19 +265,19 @@ function shiftRangeBoundary(
   }
 
   if (direction === "start-earlier") {
-    startAt.setHours(startAt.getHours() - 1);
+    startAt.setMinutes(startAt.getMinutes() - CALENDAR_STEP_MINUTES, 0, 0);
   }
 
   if (direction === "start-later") {
-    startAt.setHours(startAt.getHours() + 1);
+    startAt.setMinutes(startAt.getMinutes() + CALENDAR_STEP_MINUTES, 0, 0);
   }
 
   if (direction === "end-earlier") {
-    endAt.setHours(endAt.getHours() - 1);
+    endAt.setMinutes(endAt.getMinutes() - CALENDAR_STEP_MINUTES, 0, 0);
   }
 
   if (direction === "end-later") {
-    endAt.setHours(endAt.getHours() + 1);
+    endAt.setMinutes(endAt.getMinutes() + CALENDAR_STEP_MINUTES, 0, 0);
   }
 
   if (endAt <= startAt) {
@@ -277,9 +298,8 @@ function shiftWholeRange(startAtValue: string, endAtValue: string, direction: "e
     return null;
   }
 
-  const deltaHours = direction === "earlier" ? -1 : 1;
-  startAt.setHours(startAt.getHours() + deltaHours);
-  endAt.setHours(endAt.getHours() + deltaHours);
+  startAt.setMinutes(startAt.getMinutes() + (direction === "earlier" ? -CALENDAR_STEP_MINUTES : CALENDAR_STEP_MINUTES), 0, 0);
+  endAt.setMinutes(endAt.getMinutes() + (direction === "earlier" ? -CALENDAR_STEP_MINUTES : CALENDAR_STEP_MINUTES), 0, 0);
 
   if (endAt <= startAt) {
     return null;
@@ -573,6 +593,28 @@ function hasWindowConflict(windows: BookingWindow[], existingRanges: TimeRangeRe
   );
 }
 
+async function getActiveAvailabilityRanges(
+  supabase: ReturnType<typeof createClient>,
+  horseId: string,
+  excludeRuleId?: string
+) {
+  let query = supabase.from("availability_rules").select("id, start_at, end_at").eq("horse_id", horseId).eq("active", true);
+
+  if (excludeRuleId) {
+    query = query.neq("id", excludeRuleId);
+  }
+
+  const { data, error } = await query;
+
+  return {
+    error,
+    ranges: ((data as AvailabilityRangeRecord[] | null) ?? []).map((range) => ({
+      end_at: range.end_at,
+      start_at: range.start_at
+    }))
+  };
+}
+
 function getRecurrenceErrorMessage(error: Error) {
   switch (error.message) {
     case "UNSUPPORTED_RRULE":
@@ -593,7 +635,7 @@ async function getOwnedHorse(supabase: ReturnType<typeof createClient>, horseId:
 async function getOwnedCalendarBlock(supabase: ReturnType<typeof createClient>, blockId: string, ownerId: string) {
   const { data } = await supabase
     .from("calendar_blocks")
-    .select("id, horse_id, start_at, end_at, created_at")
+    .select("id, horse_id, title, start_at, end_at, created_at")
     .eq("id", blockId)
     .maybeSingle();
 
@@ -1552,22 +1594,15 @@ export async function createAvailabilityDayAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", "Für diesen Tag konnte kein gültiges Zeitfenster erstellt werden.");
   }
 
-  const { data: existingRuleData, error: existingRuleError } = await supabase
-    .from("availability_rules")
-    .select("id")
-    .eq("horse_id", horseId)
-    .eq("start_at", window.startAt)
-    .eq("end_at", window.endAt)
-    .eq("active", true)
-    .maybeSingle();
+  const { ranges: existingRanges, error: existingRuleError } = await getActiveAvailabilityRanges(supabase, horseId);
 
   if (existingRuleError) {
     logSupabaseError("Availability day lookup failed", existingRuleError);
     redirectWithMessage(redirectPath, "error", "Die vorhandenen Verfügbarkeiten konnten nicht geladen werden.");
   }
 
-  if (existingRuleData?.id) {
-    redirectWithMessage(redirectPath, "message", "Dieses Tagesfenster ist bereits hinterlegt.");
+  if (hasWindowConflict([window], existingRanges)) {
+    redirectWithMessage(redirectPath, "error", "Dieses Zeitfenster überschneidet sich mit einer bestehenden Verfügbarkeit.");
   }
 
   const { data: slotData, error: slotError } = await supabase
@@ -1646,23 +1681,15 @@ export async function updateAvailabilityDayAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", "Fuer dieses Zeitfenster konnte kein gueltiger Zeitraum erstellt werden.");
   }
 
-  const { data: duplicateRuleData, error: duplicateRuleError } = await supabase
-    .from("availability_rules")
-    .select("id")
-    .eq("horse_id", rule.horse_id)
-    .eq("start_at", window.startAt)
-    .eq("end_at", window.endAt)
-    .eq("active", true)
-    .neq("id", rule.id)
-    .maybeSingle();
+  const { ranges: existingRanges, error: duplicateRuleError } = await getActiveAvailabilityRanges(supabase, rule.horse_id, rule.id);
 
   if (duplicateRuleError) {
     logSupabaseError("Availability day duplicate lookup failed", duplicateRuleError);
     redirectWithMessage(redirectPath, "error", "Die vorhandenen Verfügbarkeiten konnten nicht geladen werden.");
   }
 
-  if (duplicateRuleData?.id) {
-    redirectWithMessage(redirectPath, "error", "Ein anderes Zeitfenster liegt bereits auf diesem Zeitraum.");
+  if (hasWindowConflict([window], existingRanges)) {
+    redirectWithMessage(redirectPath, "error", "Ein anderes Zeitfenster überschneidet sich bereits mit diesem Zeitraum.");
   }
 
   const { error: slotError } = await supabase
@@ -1736,23 +1763,15 @@ export async function resizeAvailabilityRuleAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", "Im Planer l\u00e4sst sich das Zeitfenster nur innerhalb dieses Tages anpassen.");
   }
 
-  const { data: duplicateRuleData, error: duplicateRuleError } = await supabase
-    .from("availability_rules")
-    .select("id")
-    .eq("horse_id", rule.horse_id)
-    .eq("start_at", resizedWindow.startAt)
-    .eq("end_at", resizedWindow.endAt)
-    .eq("active", true)
-    .neq("id", rule.id)
-    .maybeSingle();
+  const { ranges: existingRanges, error: duplicateRuleError } = await getActiveAvailabilityRanges(supabase, rule.horse_id, rule.id);
 
   if (duplicateRuleError) {
     logSupabaseError("Availability planner resize lookup failed", duplicateRuleError);
-    redirectWithMessage(redirectPath, "error", "Die vorhandenen Verf\u00fcgbarkeiten konnten nicht geladen werden.");
+    redirectWithMessage(redirectPath, "error", "Die vorhandenen Verfügbarkeiten konnten nicht geladen werden.");
   }
 
-  if (duplicateRuleData?.id) {
-    redirectWithMessage(redirectPath, "error", "Ein anderes Zeitfenster liegt bereits auf diesem Zeitraum.");
+  if (hasWindowConflict([resizedWindow], existingRanges)) {
+    redirectWithMessage(redirectPath, "error", "Ein anderes Zeitfenster überschneidet sich bereits mit diesem Zeitraum.");
   }
 
   const { error: slotError } = await supabase
@@ -1826,23 +1845,15 @@ export async function moveAvailabilityRuleAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", "Im Planer lässt sich das Zeitfenster nur innerhalb dieses Tages verschieben.");
   }
 
-  const { data: duplicateRuleData, error: duplicateRuleError } = await supabase
-    .from("availability_rules")
-    .select("id")
-    .eq("horse_id", rule.horse_id)
-    .eq("start_at", shiftedWindow.startAt)
-    .eq("end_at", shiftedWindow.endAt)
-    .eq("active", true)
-    .neq("id", rule.id)
-    .maybeSingle();
+  const { ranges: existingRanges, error: duplicateRuleError } = await getActiveAvailabilityRanges(supabase, rule.horse_id, rule.id);
 
   if (duplicateRuleError) {
     logSupabaseError("Availability planner move lookup failed", duplicateRuleError);
     redirectWithMessage(redirectPath, "error", "Die vorhandenen Verfügbarkeiten konnten nicht geladen werden.");
   }
 
-  if (duplicateRuleData?.id) {
-    redirectWithMessage(redirectPath, "error", "Ein anderes Zeitfenster liegt bereits auf diesem Zeitraum.");
+  if (hasWindowConflict([shiftedWindow], existingRanges)) {
+    redirectWithMessage(redirectPath, "error", "Ein anderes Zeitfenster überschneidet sich bereits mit diesem Zeitraum.");
   }
 
   const { error: slotError } = await supabase
@@ -1910,6 +1921,7 @@ export async function createCalendarBlockAction(formData: FormData) {
 
   const startAtValue = asString(formData.get("startAt"));
   const endAtValue = asString(formData.get("endAt"));
+  const blockTitle = asOptionalString(formData.get("blockTitle"));
   const startAt = new Date(startAtValue);
   const endAt = new Date(endAtValue);
 
@@ -1921,8 +1933,13 @@ export async function createCalendarBlockAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", "Das Ende muss nach dem Beginn liegen.");
   }
 
+  if (!isQuarterHourAligned(startAt) || !isQuarterHourAligned(endAt)) {
+    redirectWithMessage(redirectPath, "error", "Bitte nutze für Sperren ein 15-Minuten-Raster.");
+  }
+
   const { error } = await supabase.from("calendar_blocks").insert({
     horse_id: horseId,
+    title: blockTitle,
     start_at: startAt.toISOString(),
     end_at: endAt.toISOString()
   });
@@ -1955,6 +1972,7 @@ export async function updateCalendarBlockAction(formData: FormData) {
   const redirectPath = `/pferde/${block.horse_id}/kalender?day=${selectedDate}&focusBlock=${block.id}`;
   const startTime = parseClockTime(asString(formData.get("startTime")));
   const endTime = parseClockTime(asString(formData.get("endTime")));
+  const blockTitle = asOptionalString(formData.get("blockTitle"));
 
   if (!startTime || !endTime) {
     redirectWithMessage(redirectPath, "error", "Bitte gib eine gueltige Uhrzeit an.");
@@ -1970,7 +1988,8 @@ export async function updateCalendarBlockAction(formData: FormData) {
     .from("calendar_blocks")
     .update({
       end_at: window.endAt,
-      start_at: window.startAt
+      start_at: window.startAt,
+      title: blockTitle
     })
     .eq("id", block.id);
 
@@ -2156,15 +2175,38 @@ export async function createAvailabilityRuleAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", "Die vorhandenen Verfügbarkeiten konnten nicht geladen werden.");
   }
 
-  const existingRuleKeys = new Set(
-    (((existingRulesData as Array<{ end_at: string; start_at: string }> | null) ?? [])).map(
-      (rule) => `${rule.start_at}|${rule.end_at}`
-    )
-  );
-  const windowsToCreate = candidateWindows.filter((window) => !existingRuleKeys.has(`${window.startAt}|${window.endAt}`));
-  const skippedCount = candidateWindows.length - windowsToCreate.length;
+  const existingRanges = ((existingRulesData as Array<{ end_at: string; start_at: string }> | null) ?? []).map((rule) => ({
+    end_at: rule.end_at,
+    start_at: rule.start_at
+  }));
+  const existingRuleKeys = new Set(existingRanges.map((rule) => `${rule.start_at}|${rule.end_at}`));
+  const windowsToCreate: BookingWindow[] = [];
+  let skippedCount = 0;
+  let overlapSkippedCount = 0;
+
+  for (const window of candidateWindows) {
+    if (existingRuleKeys.has(`${window.startAt}|${window.endAt}`)) {
+      skippedCount += 1;
+      continue;
+    }
+
+    if (hasWindowConflict([window], existingRanges)) {
+      overlapSkippedCount += 1;
+      continue;
+    }
+
+    windowsToCreate.push(window);
+    existingRanges.push({
+      end_at: window.endAt,
+      start_at: window.startAt
+    });
+  }
 
   if (windowsToCreate.length === 0) {
+    if (overlapSkippedCount > 0) {
+      redirectWithMessage(redirectPath, "error", "Die neuen Standardzeiten überschneiden sich mit bestehenden Verfügbarkeiten.");
+    }
+
     redirectWithMessage(redirectPath, "message", "Diese Standardzeiten sind bereits hinterlegt.");
   }
 
@@ -2241,6 +2283,14 @@ export async function createAvailabilityRuleAction(formData: FormData) {
     );
   }
 
+  if (overlapSkippedCount > 0) {
+    messageParts.push(
+      overlapSkippedCount === 1
+        ? "1 überlappendes Fenster wurde übersprungen."
+        : `${overlapSkippedCount} überlappende Fenster wurden übersprungen.`
+    );
+  }
+
   if (failedCount > 0) {
     messageParts.push(
       failedCount === 1
@@ -2298,6 +2348,10 @@ export async function requestBookingAction(formData: FormData) {
 
   if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
     redirectWithMessage(redirectPath, "error", "Bitte gib einen gültigen Termin an.");
+  }
+
+  if (!isQuarterHourAligned(startAt) || !isQuarterHourAligned(endAt)) {
+    redirectWithMessage(redirectPath, "error", "Bitte wähle Beginn und Ende im 15-Minuten-Raster.");
   }
 
   if (endAt <= startAt) {

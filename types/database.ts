@@ -121,6 +121,7 @@ export type BookingRequest = {
 export type CalendarBlock = {
   id: string;
   horse_id: string;
+  title?: string | null;
   start_at: string;
   end_at: string;
   created_at: string;
