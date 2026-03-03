@@ -33,6 +33,8 @@ F?r konsistente Tests brauchen wir mindestens:
 
 ### HP1: Pferd anlegen und sichtbar machen
 
+Referenzlauf: siehe `docs/manual-tests/hp1-pdca.md`
+
 1. Pferdehalter legt ein neues Pferdeprofil an.
 2. Pferd erscheint unter `Pferde verwalten`.
 3. Pferd erscheint in der Reitersuche.
