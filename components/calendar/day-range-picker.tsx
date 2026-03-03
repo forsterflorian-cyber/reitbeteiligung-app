@@ -7,9 +7,11 @@ import { cx } from "@/lib/cx";
 type DayRangePickerProps = {
   dayLabel: string;
   endHour?: number;
+  endName?: string;
+  initialEndHour?: number;
+  initialStartHour?: number;
   startHour?: number;
   startName?: string;
-  endName?: string;
 };
 
 type HourRange = {
@@ -25,14 +27,20 @@ export function DayRangePicker({
   dayLabel,
   endHour = 22,
   endName = "endTime",
+  initialEndHour,
+  initialStartHour,
   startHour = 8,
   startName = "startTime"
 }: DayRangePickerProps) {
   const hourCount = endHour - startHour;
   const hours = Array.from({ length: hourCount }, (_, index) => startHour + index);
+  const resolvedStartHour =
+    typeof initialStartHour === "number" && initialStartHour >= startHour && initialStartHour < endHour ? initialStartHour : 17;
+  const resolvedEndHour =
+    typeof initialEndHour === "number" && initialEndHour > resolvedStartHour && initialEndHour <= endHour ? initialEndHour : 19;
   const defaultRange = {
-    endIndexExclusive: Math.min(hourCount, Math.max(2, 19 - startHour)),
-    startIndex: Math.max(0, 17 - startHour)
+    endIndexExclusive: Math.min(hourCount, Math.max(1, resolvedEndHour - startHour)),
+    startIndex: Math.max(0, resolvedStartHour - startHour)
   } satisfies HourRange;
   const [dragStartIndex, setDragStartIndex] = useState<number | null>(null);
   const [range, setRange] = useState<HourRange>(defaultRange);

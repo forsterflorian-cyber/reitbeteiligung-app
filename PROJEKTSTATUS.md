@@ -20,6 +20,7 @@ Stand: 2026-03-03
 - Kalender mit Verfuegbarkeiten, Sperren und Terminanfragen
 - FCFS-Probetermin-Slots auf Basis freier Verfuegbarkeiten
 - Gemeinsamer UI-Layer mit mobile-first Layout
+- Owner-Tarifstatus mit sichtbaren Start-Trial- und Upgrade-CTAs
 
 ## Tarifmodell
 
@@ -46,6 +47,6 @@ Die Limits werden serverseitig beim Anlegen neuer Pferdeprofile und beim Freisch
 
 ## Naechste sinnvolle Schritte
 
-1. Upgrade-Fluss fuer den bezahlten Tarif finalisieren.
-2. Kalender-Interaktion weiter in Richtung direktes Bearbeiten im Raster ausbauen.
-3. Verwaltungsansichten fuer Pferdehalter weiter verdichten.
+1. Kalender-Interaktion weiter in Richtung direktes Bearbeiten im Raster und spaeter Drag/Resize ausbauen.
+2. Verwaltungsansichten fuer Pferdehalter weiter als Desktop-Cockpit verdichten.
+3. Upgrade-Fluss fuer den bezahlten Tarif finalisieren.

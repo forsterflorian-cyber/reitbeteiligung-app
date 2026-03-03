@@ -109,6 +109,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     };
     const ownerPlan = getOwnerPlan(profile, ownerPlanUsage);
     const ownerPlanUsageSummary = getOwnerPlanUsageSummary(ownerPlan, ownerPlanUsage);
+    const trialHref = `mailto:${PAID_PLAN_CONTACT_EMAIL}?subject=${encodeURIComponent("Start Trial")}`;
     const upgradeHref = `mailto:${PAID_PLAN_CONTACT_EMAIL}?subject=${encodeURIComponent("Bezahlten Tarif anfragen")}`;
 
     const ownerStats: StatItem[] = [
@@ -210,6 +211,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
             <p className="text-sm leading-6 text-stone-600">{ownerPlan.summary}</p>
             {ownerPlan.key !== "paid" ? <p className="text-sm leading-6 text-stone-600">{ownerPlanUsageSummary}</p> : null}
+            {ownerPlan.key === "free" ? <p className="text-sm leading-6 text-stone-600">Starte bei Bedarf eine 14-taegige Testphase mit bis zu zwei Reitbeteiligungen.</p> : null}
           </div>
         </SectionCard>
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">

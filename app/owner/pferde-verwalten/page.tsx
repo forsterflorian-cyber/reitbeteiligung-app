@@ -6,6 +6,7 @@ import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
 import { Backdrop } from "@/components/ui/backdrop";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireProfile } from "@/lib/auth";
@@ -18,6 +19,7 @@ import {
   getHorseImageUrl,
   sortHorseImages
 } from "@/lib/horses";
+import { PAID_PLAN_CONTACT_EMAIL, getOwnerPlan, getOwnerPlanUsage, getOwnerPlanUsageSummary } from "@/lib/plans";
 import { readSearchParam } from "@/lib/search-params";
 import type { BookingRequest, Horse, HorseImage, TrialRequest } from "@/types/database";
 
@@ -39,13 +41,18 @@ export default async function OwnerManageHorsesPage({
 }: {
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  const { supabase, user } = await requireProfile("owner");
+  const { profile, supabase, user } = await requireProfile("owner");
   const managePath = "/owner/pferde-verwalten";
   const createPath = "/owner/horses" as Route;
   const error = readSearchParam(searchParams, "error");
   const message = readSearchParam(searchParams, "message");
   const editTarget = readSearchParam(searchParams, "edit");
   const currentYear = new Date().getFullYear();
+  const ownerPlanUsage = await getOwnerPlanUsage(supabase, user.id);
+  const ownerPlan = getOwnerPlan(profile, ownerPlanUsage);
+  const ownerPlanUsageSummary = getOwnerPlanUsageSummary(ownerPlan, ownerPlanUsage);
+  const startTrialHref = `mailto:${PAID_PLAN_CONTACT_EMAIL}?subject=${encodeURIComponent("Start Trial")}`;
+  const upgradeHref = `mailto:${PAID_PLAN_CONTACT_EMAIL}?subject=${encodeURIComponent("Bezahlten Tarif anfragen")}`;
   const { data: horsesData, error: horsesError } = await supabase
     .from("horses")
     .select(HORSE_SELECT_FIELDS)
@@ -150,6 +157,31 @@ export default async function OwnerManageHorsesPage({
         <Notice text={horsesLoadErrorMessage} tone="error" />
         <Notice text={horseImagesErrorMessage} tone="error" />
         <Notice text={message} tone="success" />
+        <div className="rounded-2xl border border-stone-200 bg-white p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Tarif & Kontingent</p>
+              <div className="flex flex-wrap gap-2">
+                <Badge tone={ownerPlan.key === "paid" ? "approved" : ownerPlan.key === "trial" ? "pending" : "neutral"}>{ownerPlan.label}</Badge>
+                {ownerPlan.key === "free" ? <Badge tone="info">Start Trial verfuegbar</Badge> : null}
+              </div>
+              <p className="text-sm text-stone-600">{ownerPlan.summary}</p>
+              {ownerPlan.key !== "paid" ? <p className="text-sm text-stone-600">{ownerPlanUsageSummary}</p> : null}
+            </div>
+            <div className="flex flex-col gap-2 sm:min-w-[220px]">
+              {ownerPlan.key === "free" ? (
+                <a className={buttonVariants("secondary", "w-full")} href={startTrialHref}>
+                  Start Trial
+                </a>
+              ) : null}
+              {ownerPlan.key !== "paid" ? (
+                <a className={buttonVariants(ownerPlan.key === "free" ? "ghost" : "secondary", "w-full")} href={upgradeHref}>
+                  Bezahlten Tarif anfragen
+                </a>
+              ) : null}
+            </div>
+          </div>
+        </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-sm font-semibold text-stone-500">Pferdeprofile</p>
@@ -230,8 +262,23 @@ export default async function OwnerManageHorsesPage({
                       <span className="inline-flex rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-700">{bookingCount} offene Terminanfragen</span>
                     </div>
                   </div>
-                  <div className="space-y-2 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                  <div className="space-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Aktionen</p>
+                    <div className="rounded-xl border border-stone-200 bg-white px-3 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">Naechster Schritt</p>
+                      <p className="mt-2 text-sm font-semibold text-stone-900">
+                        {trialCount > 0
+                          ? `${trialCount} Probetermine pruefen`
+                          : bookingCount > 0
+                            ? `${bookingCount} Terminanfragen pruefen`
+                            : "Kalender aktuell halten"}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-stone-600">
+                        {trialCount > 0 || bookingCount > 0
+                          ? "Gehe direkt in die Anfragen, damit nichts liegen bleibt."
+                          : "Halte Verfuegbarkeiten, Bilder und Sichtbarkeit dieses Pferdes aktuell."}
+                      </p>
+                    </div>
                     <Link className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-forest px-4 py-2 text-sm font-semibold text-white hover:bg-forest/90" href={`/pferde/${horse.id}` as Route}>
                       Pferdeprofil ansehen
                     </Link>

@@ -94,6 +94,15 @@ function formatTime(value: string) {
   }).format(new Date(value));
 }
 
+function parseTimelineHourParam(value: string | null) {
+  if (!value || !/^\d{2}:00$/.test(value)) {
+    return null;
+  }
+
+  const hour = Number.parseInt(value.slice(0, 2), 10);
+  return Number.isInteger(hour) ? hour : null;
+}
+
 function formatDateRange(startAt: string, endAt: string) {
   return `${formatDateTime(startAt)} bis ${formatDateTime(endAt)}`;
 }
@@ -334,6 +343,20 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   });
   const selectedTimelineRow = timelineRows.find((row) => row.dayKey === selectedDayKey) ?? timelineRows[0] ?? null;
   const selectedDayLabel = selectedTimelineRow ? `${selectedTimelineRow.label}, ${selectedTimelineRow.meta}` : "heute";
+  const slotStartParam = parseTimelineHourParam(readSearchParam(searchParams, "slotStart"));
+  const slotEndParam = parseTimelineHourParam(readSearchParam(searchParams, "slotEnd"));
+  const selectedSlotStartHour =
+    typeof slotStartParam === "number" && slotStartParam >= CALENDAR_TIMELINE_START_HOUR && slotStartParam < CALENDAR_TIMELINE_END_HOUR
+      ? slotStartParam
+      : null;
+  const selectedSlotEndHour =
+    typeof slotEndParam === "number" && slotEndParam > CALENDAR_TIMELINE_START_HOUR && slotEndParam <= CALENDAR_TIMELINE_END_HOUR
+      ? slotEndParam
+      : null;
+  const selectedSlotLabel =
+    selectedSlotStartHour !== null && selectedSlotEndHour !== null && selectedSlotEndHour > selectedSlotStartHour
+      ? `${String(selectedSlotStartHour).padStart(2, "0")}:00 - ${String(selectedSlotEndHour).padStart(2, "0")}:00`
+      : null;
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -440,12 +463,31 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                                 ))}
                               </div>
 
+                              {isOwner && lane.key === "available" ? (
+                                <div className="absolute inset-0 z-10 grid" style={{ gridTemplateColumns: `repeat(${timelineHours.length}, minmax(0, 1fr))` }}>
+                                  {timelineHours.map((hour) => {
+                                    const slotStart = `${String(hour).padStart(2, "0")}:00`;
+                                    const slotEnd = `${String(hour + 1).padStart(2, "0")}:00`;
+
+                                    return (
+                                      <a
+                                        aria-label={`${row.label} ${row.meta}: ${slotStart} bis ${slotEnd} als verf?gbar markieren`}
+                                        className="block h-11 border-r border-transparent transition hover:bg-emerald-50/80 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 last:border-r-0"
+                                        href={`/pferde/${horse.id}/kalender?day=${row.dayKey}&slotStart=${encodeURIComponent(slotStart)}&slotEnd=${encodeURIComponent(slotEnd)}#tagesfenster`}
+                                        key={`${row.key}-${lane.key}-slot-${hour}`}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              ) : null}
                               {lane.segments.length === 0 ? (
-                                <div className="relative z-10 flex h-11 items-center text-xs text-stone-400">Keine Einträge</div>
+                                <div className="relative z-20 flex h-11 items-center text-xs text-stone-400">
+                                  {isOwner && lane.key === "available" ? "Freie Stunde anklicken" : "Keine Eintr?ge"}
+                                </div>
                               ) : (
                                 lane.segments.map((segment) => (
                                   <div
-                                    className={`absolute top-1/2 z-10 flex h-11 -translate-y-1/2 items-center overflow-hidden rounded-xl border px-3 text-xs font-semibold shadow-sm ${timelineToneClassName(segment.tone)}`}
+                                    className={`absolute top-1/2 z-20 flex h-11 -translate-y-1/2 items-center overflow-hidden rounded-xl border px-3 text-xs font-semibold shadow-sm ${timelineToneClassName(segment.tone)}`}
                                     key={segment.key}
                                     style={{ left: `${segment.left}%`, width: `${segment.width}%` }}
                                     title={segment.title}
@@ -485,7 +527,14 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                       Ausgewählt: {selectedDayLabel}. Klicke links im Raster auf einen Tag und ziehe unten direkt den Zeitraum für dieses Datum auf.
                     </p>
                   </div>
-                  <DayRangePicker dayLabel={selectedDayLabel} endHour={CALENDAR_TIMELINE_END_HOUR} startHour={CALENDAR_TIMELINE_START_HOUR} />
+                  <DayRangePicker
+                    dayLabel={selectedDayLabel}
+                    endHour={CALENDAR_TIMELINE_END_HOUR}
+                    initialEndHour={selectedSlotEndHour ?? undefined}
+                    initialStartHour={selectedSlotStartHour ?? undefined}
+                    key={`${selectedDayKey}-${selectedSlotLabel ?? "default"}`}
+                    startHour={CALENDAR_TIMELINE_START_HOUR}
+                  />
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <SubmitButton className={buttonVariants("primary", "w-full sm:w-auto px-5 py-3 text-base")} idleLabel="Tagesfenster speichern" pendingLabel="Wird gespeichert..." />
                     <a className={buttonVariants("secondary", "w-full sm:w-auto")} href={`/pferde/${horse.id}/kalender`}>
