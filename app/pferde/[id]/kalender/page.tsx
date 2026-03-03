@@ -206,6 +206,18 @@ function parseRelativeOffset(value: string | null) {
   return Number.isInteger(parsed) ? parsed : 0;
 }
 
+function parseCalendarRange(value: string | null) {
+  if (value === "1") {
+    return 1;
+  }
+
+  if (value === "30") {
+    return 30;
+  }
+
+  return 7;
+}
+
 function buildWeekDays(startDate: Date, count: number) {
   const days: Date[] = [];
 
@@ -482,9 +494,10 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const timelineHours = buildTimelineHours();
   const weekOffset = parseRelativeOffset(readSearchParam(searchParams, "weekOffset"));
   const monthOffset = parseRelativeOffset(readSearchParam(searchParams, "monthOffset"));
-  const viewedWeekStart = addDays(startOfWeek(new Date()), weekOffset * 7);
+  const selectedRange = parseCalendarRange(readSearchParam(searchParams, "range"));
+  const viewedWeekStart = addDays(startOfWeek(new Date()), weekOffset * selectedRange);
   const viewedMonthStart = startOfMonth(addMonths(new Date(), monthOffset));
-  const weekDays = buildWeekDays(viewedWeekStart, CALENDAR_TIMELINE_DAY_COUNT);
+  const weekDays = buildWeekDays(viewedWeekStart, selectedRange);
   const fallbackDay = weekDays[0] ?? viewedWeekStart;
   const dayParam = readSearchParam(searchParams, "day");
   const todayDayKey = toDayKey(new Date());
@@ -501,14 +514,17 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const monthOverview = buildMonthOverviewWeeks(viewedMonthStart, selectedDayKey);
   const monthFormatter = new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" });
   const weekRangeFormatter = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "short" });
-  const currentViewQuery = `weekOffset=${weekOffset}&monthOffset=${monthOffset}`;
-  const prevWeekStart = addDays(viewedWeekStart, -7);
-  const nextWeekStart = addDays(viewedWeekStart, 7);
-  const previousWeekHref = `/pferde/${horse.id}/kalender?weekOffset=${weekOffset - 1}&monthOffset=${monthOffset}&day=${toDayKey(prevWeekStart)}` as Route;
-  const nextWeekHref = `/pferde/${horse.id}/kalender?weekOffset=${weekOffset + 1}&monthOffset=${monthOffset}&day=${toDayKey(nextWeekStart)}` as Route;
-  const previousMonthHref = `/pferde/${horse.id}/kalender?weekOffset=${weekOffset}&monthOffset=${monthOffset - 1}&day=${selectedDayKey}` as Route;
-  const nextMonthHref = `/pferde/${horse.id}/kalender?weekOffset=${weekOffset}&monthOffset=${monthOffset + 1}&day=${selectedDayKey}` as Route;
-  const todayHref = `/pferde/${horse.id}/kalender?weekOffset=0&monthOffset=0&day=${toDayKey(new Date())}` as Route;
+  const currentViewQuery = `weekOffset=${weekOffset}&monthOffset=${monthOffset}&range=${selectedRange}`;
+  const prevWeekStart = addDays(viewedWeekStart, -selectedRange);
+  const nextWeekStart = addDays(viewedWeekStart, selectedRange);
+  const previousWeekHref = `/pferde/${horse.id}/kalender?weekOffset=${weekOffset - 1}&monthOffset=${monthOffset}&range=${selectedRange}&day=${toDayKey(prevWeekStart)}` as Route;
+  const nextWeekHref = `/pferde/${horse.id}/kalender?weekOffset=${weekOffset + 1}&monthOffset=${monthOffset}&range=${selectedRange}&day=${toDayKey(nextWeekStart)}` as Route;
+  const previousMonthHref = `/pferde/${horse.id}/kalender?weekOffset=${weekOffset}&monthOffset=${monthOffset - 1}&range=${selectedRange}&day=${selectedDayKey}` as Route;
+  const nextMonthHref = `/pferde/${horse.id}/kalender?weekOffset=${weekOffset}&monthOffset=${monthOffset + 1}&range=${selectedRange}&day=${selectedDayKey}` as Route;
+  const todayHref = `/pferde/${horse.id}/kalender?weekOffset=0&monthOffset=0&range=${selectedRange}&day=${toDayKey(new Date())}` as Route;
+  const nextDayHref = `/pferde/${horse.id}/kalender?weekOffset=0&monthOffset=0&range=1&day=${toDayKey(new Date())}#wochenplanung` as Route;
+  const nextSevenDaysHref = `/pferde/${horse.id}/kalender?weekOffset=0&monthOffset=0&range=7&day=${toDayKey(new Date())}#wochenplanung` as Route;
+  const nextThirtyDaysHref = `/pferde/${horse.id}/kalender?weekOffset=0&monthOffset=0&range=30&day=${toDayKey(new Date())}#wochenplanung` as Route;
   const timelineRowsLabel = `${weekRangeFormatter.format(weekDays[0] ?? viewedWeekStart)} - ${weekRangeFormatter.format(weekDays[weekDays.length - 1] ?? viewedWeekStart)}`;
   const selectedTimelineRow = timelineRows.find((row) => row.dayKey === selectedDayKey) ?? timelineRows[0] ?? null;
   const selectedDayLabel = selectedTimelineRow ? `${selectedTimelineRow.label}, ${selectedTimelineRow.meta}` : "heute";
@@ -715,35 +731,36 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
               </Card>
             ) : null}
             <Link className={buttonVariants("secondary", "w-full lg:w-auto")} href={detailHref}>
-              Pferdeprofil öffnen
+              {"Pferdeprofil \u00f6ffnen"}
             </Link>
           </div>
         </div>
       </div>
 
       <SectionCard
-        subtitle="Springe zwischen Wochen und nutze den Monatsüberblick, um direkt in die passende Detailwoche zu wechseln."
+        subtitle={"Prüfe erst den Kalender. Für Änderungen wechselst du darunter bewusst in den Bearbeitungsbereich."}
         title="Kalender anzeigen"
       >
         <div className="space-y-4">
           <div className="rounded-2xl border border-stone-200 bg-white/80 px-4 py-4">
-            <div className="grid gap-2 sm:grid-cols-3">
-              <a className={buttonVariants("secondary", "w-full justify-center text-sm")} href="#wochenplanung">N?chste 7 Tage</a>
+            <div className="grid gap-2 sm:grid-cols-4">
+              <Link className={buttonVariants(selectedRange === 1 ? "primary" : "secondary", "w-full justify-center text-sm")} href={nextDayHref}>{"Nächster Tag"}</Link>
+              <Link className={buttonVariants(selectedRange === 7 ? "primary" : "secondary", "w-full justify-center text-sm")} href={nextSevenDaysHref}>{"Nächste 7 Tage"}</Link>
+              <Link className={buttonVariants(selectedRange === 30 ? "primary" : "secondary", "w-full justify-center text-sm")} href={nextThirtyDaysHref}>{"Nächste 30 Tage"}</Link>
               <a className={buttonVariants("ghost", "w-full justify-center text-sm")} href="#kalender-bearbeiten">Kalender bearbeiten</a>
-              <a className={buttonVariants("ghost", "w-full justify-center text-sm")} href="#offene-terminanfragen">Offene Anfragen</a>
             </div>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-stone-900">{monthFormatter.format(viewedMonthStart)}</p>
-              <p className="text-sm text-stone-600">Jede Zeile steht für eine Woche. Ein Klick öffnet direkt die Detailansicht dieser Woche.</p>
+              <p className="text-sm text-stone-600">{"Jede Zeile steht für eine Woche. Ein Klick öffnet direkt die Detailansicht dieser Woche."}</p>
             </div>
             <div className="flex gap-2">
               <Link className={buttonVariants("secondary", "min-h-[40px] px-4 py-2 text-sm")} href={previousMonthHref}>
                 Vorheriger Monat
               </Link>
               <Link className={buttonVariants("secondary", "min-h-[40px] px-4 py-2 text-sm")} href={nextMonthHref}>
-                Nächster Monat
+                {"Nächster Monat"}
               </Link>
               <Link className={buttonVariants("ghost", "min-h-[40px] px-4 py-2 text-sm")} href={todayHref}>
                 Heute
@@ -766,7 +783,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                     <div className="border-r border-stone-200 px-3 py-3">
                       <Link
                         className={buttonVariants(week.weekOffset === weekOffset ? "primary" : "ghost", "min-h-[40px] w-full justify-center px-3 py-2 text-xs")}
-                        href={`/pferde/${horse.id}/kalender?weekOffset=${week.weekOffset}&monthOffset=${monthOffset}&day=${week.key}` as Route}
+                        href={`/pferde/${horse.id}/kalender?weekOffset=${week.weekOffset}&monthOffset=${monthOffset}&range=${selectedRange}&day=${week.key}` as Route}
                       >
                         {week.label}
                       </Link>
@@ -774,7 +791,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                     {week.days.map((day) => (
                       <Link
                         className={`flex min-h-[52px] items-center justify-center border-r border-stone-200 text-sm font-medium last:border-r-0 ${day.inMonth ? "bg-white text-stone-800" : "bg-stone-50/70 text-stone-400"} ${day.isSelected ? "ring-2 ring-forest/20 ring-inset" : ""}`}
-                        href={`/pferde/${horse.id}/kalender?weekOffset=${day.weekOffset}&monthOffset=${monthOffset}&day=${day.dayKey}` as Route}
+                        href={`/pferde/${horse.id}/kalender?weekOffset=${day.weekOffset}&monthOffset=${monthOffset}&range=${selectedRange}&day=${day.dayKey}` as Route}
                         key={day.dayKey}
                       >
                         <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${day.isToday ? "bg-stone-900 text-white" : day.isSelected ? "bg-sand text-forest" : ""}`}>
@@ -792,25 +809,25 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
 
       <SectionCard
         id="wochenplanung"
-        subtitle={`Aktuelle Woche: ${timelineRowsLabel}. Tage links, Uhrzeiten oben und freie, belegte oder angefragte Zeiten direkt in einer Zeitleiste.`}
-        title={`Wochenplanung f\u00fcr ${horse.title}`}
+        subtitle={`Aktiver Zeitraum: ${timelineRowsLabel}. Tage links, Uhrzeiten oben und freie, belegte oder angefragte Zeiten direkt in einer Zeitleiste.`}
+        title={`Kalenderzeitraum für ${horse.title}`}
       >
         <div className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap gap-2">
-              <Badge tone="approved">Verfügbare Zeiten</Badge>
+              <Badge tone="approved">{"Verfügbare Zeiten"}</Badge>
               <Badge tone="rejected">Belegte Zeiten</Badge>
               {isOwner ? <Badge tone="pending">Offene Anfragen</Badge> : null}
             </div>
             <div className="flex gap-2">
               <Link className={buttonVariants("secondary", "min-h-[40px] px-4 py-2 text-sm")} href={previousWeekHref}>
-                Vorherige Woche
+                Vorheriger Zeitraum
               </Link>
               <Link className={buttonVariants("secondary", "min-h-[40px] px-4 py-2 text-sm")} href={nextWeekHref}>
-                Nächste Woche
+                {"Nächste Woche"}
               </Link>
               <Link className={buttonVariants("ghost", "min-h-[40px] px-4 py-2 text-sm")} href={todayHref}>
-                Diese Woche
+                Heute
               </Link>
             </div>
           </div>
@@ -967,13 +984,13 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         {isOwner ? (
           <>
             <SectionCard
-              subtitle={"Pr?fe zuerst bestehende Standardzeiten und Ausnahmen. ?nderungen nimmst du erst im n?chsten Abschnitt vor."}
+              subtitle={"Prüfe zuerst bestehende Standardzeiten und Ausnahmen. Änderungen nimmst du erst im nächsten Abschnitt vor."}
               title="Kalender bearbeiten"
             >
               <div className="grid gap-4 lg:grid-cols-3">
                 <Card className="p-4">
                   <p className="ui-eyebrow">Standardzeiten</p>
-                  <p className="mt-2 text-sm text-stone-600">Das Wochenmuster ist der wichtigste Hebel f?r den Alltag.</p>
+                  <p className="mt-2 text-sm text-stone-600">{"Das Wochenmuster ist der wichtigste Hebel für den Alltag."}</p>
                   <a className={buttonVariants("ghost", "mt-4 w-full justify-center text-sm")} href="#serienfreigaben-form">Zu Standardzeiten</a>
                 </Card>
                 <Card className="p-4">
