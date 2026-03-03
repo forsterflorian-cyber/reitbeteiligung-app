@@ -83,8 +83,10 @@ type SupabaseErrorLike = {
 };
 
 function redirectWithMessage(path: string, key: "error" | "message", message: string): never {
-  const separator = path.includes("?") ? "&" : "?";
-  redirect(`${path}${separator}${key}=${encodeURIComponent(message)}`);
+  const [basePath, hashFragment = ""] = path.split("#", 2);
+  const separator = basePath.includes("?") ? "&" : "?";
+  const nextPath = `${basePath}${separator}${key}=${encodeURIComponent(message)}`;
+  redirect(hashFragment ? `${nextPath}#${hashFragment}` : nextPath);
 }
 
 function logSupabaseError(context: string, error: SupabaseErrorLike) {
@@ -103,6 +105,45 @@ function getOwnerRedirectPath(formData: FormData, fallback = '/owner/horses') {
   }
 
   return redirectTo;
+}
+
+function getCalendarRedirectPath(
+  formData: FormData,
+  horseId: string,
+  selectedDate: string,
+  options?: {
+    anchor?: string;
+    focusBlockId?: string;
+    focusRuleId?: string;
+  }
+) {
+  const params = new URLSearchParams();
+  const weekOffset = asString(formData.get("weekOffset"));
+  const monthOffset = asString(formData.get("monthOffset"));
+
+  if (/^-?\d{1,3}$/.test(weekOffset)) {
+    params.set("weekOffset", weekOffset);
+  }
+
+  if (/^-?\d{1,3}$/.test(monthOffset)) {
+    params.set("monthOffset", monthOffset);
+  }
+
+  if (selectedDate) {
+    params.set("day", selectedDate);
+  }
+
+  if (options?.focusRuleId) {
+    params.set("focusRule", options.focusRuleId);
+  }
+
+  if (options?.focusBlockId) {
+    params.set("focusBlock", options.focusBlockId);
+  }
+
+  const query = params.toString();
+  const hash = options?.anchor ? `#${options.anchor}` : "";
+  return `/pferde/${horseId}/kalender${query ? `?${query}` : ""}${hash}`;
 }
 
 function addDaysUtc(date: Date, days: number) {
@@ -1378,10 +1419,6 @@ export async function saveHorseAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", "Die PLZ muss genau 5 Ziffern haben.");
   }
 
-  if (locationAddress && locationAddress.length < 5) {
-    redirectWithMessage(redirectPath, "error", "Bitte gib einen genaueren Standort mit mindestens 5 Zeichen an.");
-  }
-
   if (heightCm !== null && (heightCm < 50 || heightCm > 220)) {
     redirectWithMessage(redirectPath, "error", "Das Stockmaß muss zwischen 50 und 220 cm liegen.");
   }
@@ -1619,13 +1656,13 @@ export async function createAvailabilityDayAction(formData: FormData) {
   }
 
   const horse = await getOwnedHorse(supabase, horseId, user.id);
-  const redirectPath = `/pferde/${horseId}/kalender`;
 
   if (!horse) {
-    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verfügbarkeiten verwalten.");
+    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verf\u00fcgbarkeiten verwalten.");
   }
 
   const selectedDate = asString(formData.get("selectedDate"));
+  const redirectPath = getCalendarRedirectPath(formData, horseId, selectedDate, { anchor: "tagesfenster" });
   const startTime = parseClockTime(asString(formData.get("startTime")));
   const endTime = parseClockTime(asString(formData.get("endTime")));
   const isTrialSlot = formData.get("isTrialSlot") === "on";
@@ -1712,7 +1749,7 @@ export async function updateAvailabilityDayAction(formData: FormData) {
   }
 
   const selectedDate = asString(formData.get("selectedDate")) || rule.start_at.slice(0, 10);
-  const redirectPath = `/pferde/${rule.horse_id}/kalender?day=${selectedDate}&focusRule=${rule.id}`;
+  const redirectPath = getCalendarRedirectPath(formData, rule.horse_id, selectedDate, { anchor: "tagesfenster", focusRuleId: rule.id });
   const startTime = parseClockTime(asString(formData.get("startTime")));
   const endTime = parseClockTime(asString(formData.get("endTime")));
   const isTrialSlotValue = formData.get("isTrialSlot");
@@ -2016,7 +2053,7 @@ export async function updateCalendarBlockAction(formData: FormData) {
   }
 
   const selectedDate = asString(formData.get("selectedDate")) || block.start_at.slice(0, 10);
-  const redirectPath = `/pferde/${block.horse_id}/kalender?day=${selectedDate}&focusBlock=${block.id}`;
+  const redirectPath = getCalendarRedirectPath(formData, block.horse_id, selectedDate, { anchor: "tagesfenster", focusBlockId: block.id });
   const startTime = parseClockTime(asString(formData.get("startTime")));
   const endTime = parseClockTime(asString(formData.get("endTime")));
   const blockTitleValue = formData.get("blockTitle");

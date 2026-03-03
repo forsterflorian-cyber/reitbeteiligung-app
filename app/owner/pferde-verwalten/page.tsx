@@ -247,7 +247,7 @@ export default async function OwnerManageHorsesPage({
                   <div className="space-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Aktionen</p>
                     <div className="rounded-xl border border-stone-200 bg-white px-3 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">N\u00e4chster Schritt</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">{"N\u00e4chster Schritt"}</p>
                       <p className="mt-2 text-sm font-semibold text-stone-900">
                         {trialCount > 0
                           ? `${trialCount} Probetermine prüfen`
@@ -282,7 +282,7 @@ export default async function OwnerManageHorsesPage({
                       <ConfirmSubmitButton
                         className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:border-rose-400 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-70"
                         confirmMessage={deletePrompt}
-                        idleLabel="Pferd l\u00f6schen"
+                        idleLabel={"Pferd l\u00f6schen"}
                         pendingLabel="Wird gelöscht..."
                       />
                     </form>

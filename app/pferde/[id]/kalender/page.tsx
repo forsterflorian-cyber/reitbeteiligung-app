@@ -468,7 +468,9 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const weekDays = buildWeekDays(viewedWeekStart, CALENDAR_TIMELINE_DAY_COUNT);
   const fallbackDay = weekDays[0] ?? viewedWeekStart;
   const dayParam = readSearchParam(searchParams, "day");
-  const selectedDayKey = weekDays.some((day) => toDayKey(day) === dayParam) ? (dayParam as string) : toDayKey(fallbackDay);
+  const todayDayKey = toDayKey(new Date());
+  const defaultSelectedDayKey = weekDays.some((day) => toDayKey(day) === todayDayKey) ? todayDayKey : toDayKey(fallbackDay);
+  const selectedDayKey = weekDays.some((day) => toDayKey(day) === dayParam) ? (dayParam as string) : defaultSelectedDayKey;
   const timelineRows = buildTimelineRows({
     days: weekDays,
     includePendingLane: isOwner,
@@ -781,7 +783,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                                 <InteractiveTimelineLane dayKey={row.dayKey} horseId={horse.id} hourCount={timelineHours.length} hours={timelineHours} />
                               ) : null}
                               {lane.segments.length === 0 ? (
-                                <div className="relative z-20 flex h-11 items-center text-xs text-stone-400">
+                                <div className="pointer-events-none relative z-20 flex h-11 items-center text-xs text-stone-400">
                                   {isOwner && lane.key === "available" ? "Freie Stunden ziehen oder anklicken" : "Keine Einträge"}
                                 </div>
                               ) : (
@@ -882,6 +884,8 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                 <form action={dayEditorAction} className="space-y-4">
                   <input name="horseId" type="hidden" value={horse.id} />
                   <input name="selectedDate" type="hidden" value={selectedDayKey} />
+                  <input name="weekOffset" type="hidden" value={String(weekOffset)} />
+                  <input name="monthOffset" type="hidden" value={String(monthOffset)} />
                   {focusedRule ? <input name="ruleId" type="hidden" value={focusedRule.id} /> : null}
                   {focusedBlock ? <input name="blockId" type="hidden" value={focusedBlock.id} /> : null}
                   <div className="ui-subpanel">
