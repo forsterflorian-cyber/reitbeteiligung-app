@@ -237,7 +237,7 @@ export default async function OwnerAnfragenPage({
       </div>
       <SectionCard
         id="aktive-reitbeteiligungen"
-        subtitle="Aktive Reitbeteiligungen verwaltest du hier separat von der eigentlichen Probetermin-Phase."
+        subtitle="Hier verwaltest du laufende Reitbeteiligungen, offene Zeitfenster und konkrete Terminbuchungen."
         title="Aktive Reitbeteiligungen"
       >
         {activeRelationships.length === 0 ? (
@@ -270,6 +270,14 @@ export default async function OwnerAnfragenPage({
                       {hasUnread ? <Badge tone="info">Neue Nachricht</Badge> : null}
                     </div>
                     <Notice text="Diese Reitbeteiligung kann jetzt in offenen Zeitfenstern konkrete Termine anfragen." tone="success" />
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <a className={buttonVariants("primary", "w-full")} href={`/pferde/${approval.horse_id}/kalender#kalender-bearbeiten`}>
+                        Offene Zeiten verwalten
+                      </a>
+                      <a className={buttonVariants("secondary", "w-full")} href={`/pferde/${approval.horse_id}/kalender#offene-terminanfragen`}>
+                        Terminanfragen prüfen
+                      </a>
+                    </div>
                     <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-4">
                       <div className="space-y-3">
                         <div className="space-y-1">
@@ -328,7 +336,7 @@ export default async function OwnerAnfragenPage({
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
                       <Link className={inlineLinkClassName} href={`/pferde/${approval.horse_id}/kalender` as Route}>
-                        Offene Zeiten verwalten
+                        Kalender öffnen
                       </Link>
                       <Link className={inlineLinkClassName} href={`/pferde/${approval.horse_id}` as Route}>
                         Pferdeprofil ansehen

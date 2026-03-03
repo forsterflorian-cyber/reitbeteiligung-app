@@ -25,7 +25,8 @@ Stand: 2026-03-03
 - Markierte Balken lassen sich direkt im Planer stundenweise verl?ngern, verk?rzen und verschieben
 - Pferdehalter k?nnen pro freigeschalteter Reitbeteiligung ein Wochenkontingent hinterlegen
 - FCFS-Probetermin-Slots mit Fallback auf generische Anfragen, wenn kein expliziter Probetermin gepflegt ist
-- Aktive Reitbeteiligungen springen jetzt direkter in offene Zeitfenster; im Kalender gibt es eine Schnellbuchung f?r komplette offene Zeitfenster
+- Aktive Reitbeteiligungen springen direkter in offene Zeitfenster; im Kalender gibt es eine Schnellbuchung f?r komplette offene Zeitfenster
+- `Anfragen verwalten` ist f?r Pferdehalter operativer getrennt: laufende Reitbeteiligungen, Probetermine und konkrete Terminanfragen sind klarer separiert
 - Gemeinsamer UI-Layer mit mobile-first Layout
 - Owner-Tarifstatus mit sichtbaren Start-Trial- und Upgrade-CTAs
 - Anfragen-Seiten mit kompakten Kennzahlen f?r schnellen ?berblick
@@ -50,12 +51,12 @@ Die Limits werden serverseitig beim Anlegen neuer Pferdeprofile und beim Freisch
 ## Offene Schwerpunkte
 
 - Bezahlten Tarif sp?ter an echte Abrechnung anbinden
-- Kalender weiter in Richtung direkter Planung und echtes Drag/Resize ausbauen
+- Kalender weiter in Richtung direkter Planung und echtes freies Drag/Resize ausbauen
 - Owner-Verwaltung weiter als Desktop-Cockpit sch?rfen
 - Bilddarstellung sp?ter auf `next/image` umziehen
 
 ## N?chste sinnvolle Schritte
 
-1. Kalender-Eintr?ge als N?chstes direkt per Drag im Raster verschieben und in der L?nge ?ndern.
-2. Verwaltungsansichten f?r Pferdehalter weiter als Desktop-Cockpit verdichten.
+1. Kalender-Eintr?ge als N?chstes frei im Raster per Drag verschieben und in der L?nge ziehen.
+2. Laufende Reitbeteiligungen noch st?rker als eigenes Tagesgesch?ft mit Buchungsverbrauch und offenen Aktionen zeigen.
 3. Upgrade-Fluss f?r den bezahlten Tarif finalisieren.
