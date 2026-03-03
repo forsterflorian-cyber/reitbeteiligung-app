@@ -875,12 +875,12 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         {isOwner ? (
           <>
             <SectionCard
-              bodyClassName="space-y-5"
+              bodyClassName="flex flex-col gap-5"
               id="kalender-bearbeiten"
               subtitle="Pflege hier dein Wochenmuster und einzelne Ausnahmen. Das Raster oben zeigt dir sofort, wie sich die Eintr?ge auswirken."
               title="Kalender bearbeiten"
             >
-              <Card className="p-5 sm:p-6" id="tagesfenster">
+              <Card className="order-3 p-5 sm:p-6" id="tagesfenster">
                 <form action={dayEditorAction} className="space-y-4">
                   <input name="horseId" type="hidden" value={horse.id} />
                   <input name="selectedDate" type="hidden" value={selectedDayKey} />
@@ -891,8 +891,9 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                   <div className="ui-subpanel">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <p className="ui-eyebrow">{dayEditorModeLabel}</p>
+                        <p className="ui-eyebrow">{focusedRule || focusedBlock ? dayEditorModeLabel : "Einzelnen Tag bearbeiten"}</p>
                         <p className="mt-2 ui-inline-meta">{dayEditorDescription}</p>
+                        {!focusedRule && !focusedBlock ? <p className="mt-2 text-xs text-stone-500">Nutze diesen Bereich erst, wenn Wochenmuster und Ausnahmen nicht ausreichen.</p> : null}
                       </div>
                       {focusedRule ? <Badge tone="approved">Zeitfenster</Badge> : null}
                       {!focusedRule && focusedBlock ? <Badge tone="rejected">Sperre</Badge> : null}
@@ -936,7 +937,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                 </form>
               </Card>
 
-              <Card className="p-5 sm:p-6">
+              <Card className="order-1 p-5 sm:p-6">
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <div className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Aktive Zeitfenster</p>
@@ -966,7 +967,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                 </div>
               </Card>
 
-              <div className="grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
+              <div className="order-2 grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
                 <Card className="p-5 sm:p-6">
                   <form action={createAvailabilityRuleAction} className="ui-form-stack">
                     <input name="horseId" type="hidden" value={horse.id} />

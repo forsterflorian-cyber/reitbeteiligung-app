@@ -1,6 +1,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 
+import { cancelTrialRequestAction } from "@/app/actions";
 import { Notice } from "@/components/notice";
 import { AppPageShell } from "@/components/ui/app-page-shell";
 import { StatusBadge } from "@/components/status-badge";
@@ -348,6 +349,20 @@ export default async function AnfragenPage({
                         <Link className={inlineLinkClassName} href={`/chat/${conversation.id}` as Route}>
                           Zum Chat
                         </Link>
+                      ) : null}
+                      {request.status === "requested" || request.status === "accepted" ? (
+                        <form action={cancelTrialRequestAction}>
+                          <input name="requestId" type="hidden" value={request.id} />
+                          <button
+                            className={buttonVariants(
+                              "ghost",
+                              "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-rose-700 hover:bg-transparent hover:text-rose-800"
+                            )}
+                            type="submit"
+                          >
+                            Anfrage zur\u00fcckziehen
+                          </button>
+                        </form>
                       ) : null}
                     </div>
                   </div>

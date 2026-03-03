@@ -51,17 +51,14 @@ export function InteractiveTimelineLane({ dayKey, horseId, hourCount, hours }: I
     const slotStart = toSlotLabel(startHour);
     const slotEnd = toSlotLabel(endHour);
 
-    router.push(
-      `/pferde/${horseId}/kalender?day=${encodeURIComponent(dayKey)}&slotStart=${encodeURIComponent(slotStart)}&slotEnd=${encodeURIComponent(slotEnd)}#tagesfenster`,
-      {
-        scroll: false
-      }
-    );
+    setPreviewRange(null);
+    router.push(`/pferde/${horseId}/kalender?day=${encodeURIComponent(dayKey)}&slotStart=${encodeURIComponent(slotStart)}&slotEnd=${encodeURIComponent(slotEnd)}#tagesfenster`);
   }
 
   function clearDragState() {
     anchorIndexRef.current = null;
     selectionRef.current = null;
+    setPreviewRange(null);
   }
 
   return (

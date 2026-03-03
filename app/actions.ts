@@ -926,7 +926,7 @@ export async function requestTrialAction(formData: FormData) {
   const riderId = user.id;
   const { data: existingOwnRequest } = await supabase
     .from("trial_requests")
-    .select("id")
+    .select("id, status")
     .eq("horse_id", horseId)
     .eq("rider_id", riderId)
     .neq("status", TRIAL_REQUEST_STATUS.declined)
@@ -1044,6 +1044,46 @@ export async function requestTrialAction(formData: FormData) {
     "message",
     hasExplicitTrialSlots ? "Deine Anfrage für den Probetermin wurde gesendet." : "Deine allgemeine Probeanfrage wurde gesendet."
   );
+}
+
+export async function cancelTrialRequestAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("rider");
+  const requestId = asString(formData.get("requestId"));
+
+  if (!requestId) {
+    redirectWithMessage("/anfragen", "error", "Die Probeanfrage konnte nicht gefunden werden.");
+  }
+
+  const { data } = await supabase
+    .from("trial_requests")
+    .select("id, horse_id, rider_id, status")
+    .eq("id", requestId)
+    .eq("rider_id", user.id)
+    .maybeSingle();
+
+  const request = (data as Pick<TrialRequest, "id" | "horse_id" | "rider_id" | "status"> | null) ?? null;
+
+  if (!request) {
+    redirectWithMessage("/anfragen", "error", "Die Probeanfrage konnte nicht gefunden werden.");
+  }
+
+  if (request.status !== TRIAL_REQUEST_STATUS.requested && request.status !== TRIAL_REQUEST_STATUS.accepted) {
+    redirectWithMessage("/anfragen", "error", "Diese Probeanfrage kann nicht mehr zur\u00fcckgezogen werden.");
+  }
+
+  const { error } = await supabase.from("trial_requests").delete().eq("id", request.id).eq("rider_id", user.id);
+
+  if (error) {
+    logSupabaseError("Trial request cancel failed", error);
+    redirectWithMessage("/anfragen", "error", "Die Probeanfrage konnte nicht zur\u00fcckgezogen werden.");
+  }
+
+  revalidatePath("/anfragen");
+  revalidatePath("/owner/anfragen");
+  revalidatePath("/dashboard");
+  revalidatePath(`/pferde/${request.horse_id}`);
+  revalidatePath(`/pferde/${request.horse_id}/kalender`);
+  redirectWithMessage("/anfragen", "message", "Die Probeanfrage wurde zur\u00fcckgezogen.");
 }
 
 export async function updateTrialRequestStatusAction(formData: FormData) {
@@ -1397,7 +1437,7 @@ export async function saveHorseAction(formData: FormData) {
   const { profile, supabase, user } = await requireProfile("owner");
   const redirectPath = getOwnerRedirectPath(formData);
   const horseId = asString(formData.get("horseId"));
-  const successRedirectPath = horseId ? redirectPath : "/owner/pferde-verwalten";
+  const successRedirectPath = horseId ? "/dashboard" : "/owner/pferde-verwalten";
   const title = asString(formData.get("title"));
   const plz = asString(formData.get("plz"));
   const locationAddress = asOptionalString(formData.get("locationAddress"));
@@ -1663,6 +1703,7 @@ export async function createAvailabilityDayAction(formData: FormData) {
 
   const selectedDate = asString(formData.get("selectedDate"));
   const redirectPath = getCalendarRedirectPath(formData, horseId, selectedDate, { anchor: "tagesfenster" });
+  const successRedirectPath = getCalendarRedirectPath(formData, horseId, selectedDate, { anchor: "wochenplanung" });
   const startTime = parseClockTime(asString(formData.get("startTime")));
   const endTime = parseClockTime(asString(formData.get("endTime")));
   const isTrialSlot = formData.get("isTrialSlot") === "on";
@@ -1732,7 +1773,7 @@ export async function createAvailabilityDayAction(formData: FormData) {
   revalidatePath(`/pferde/${horseId}`);
   revalidatePath("/owner/anfragen");
   revalidatePath("/anfragen");
-  redirectWithMessage(redirectPath, "message", "Das Tagesfenster wurde gespeichert.");
+  redirectWithMessage(successRedirectPath, "message", "Das Tagesfenster wurde gespeichert.");
 }
 export async function updateAvailabilityDayAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
@@ -1750,6 +1791,7 @@ export async function updateAvailabilityDayAction(formData: FormData) {
 
   const selectedDate = asString(formData.get("selectedDate")) || rule.start_at.slice(0, 10);
   const redirectPath = getCalendarRedirectPath(formData, rule.horse_id, selectedDate, { anchor: "tagesfenster", focusRuleId: rule.id });
+  const successRedirectPath = getCalendarRedirectPath(formData, rule.horse_id, selectedDate, { anchor: "wochenplanung" });
   const startTime = parseClockTime(asString(formData.get("startTime")));
   const endTime = parseClockTime(asString(formData.get("endTime")));
   const isTrialSlotValue = formData.get("isTrialSlot");
@@ -1822,7 +1864,7 @@ export async function updateAvailabilityDayAction(formData: FormData) {
   revalidatePath(`/pferde/${rule.horse_id}`);
   revalidatePath("/owner/anfragen");
   revalidatePath("/anfragen");
-  redirectWithMessage(redirectPath, "message", "Das Zeitfenster wurde aktualisiert.");
+  redirectWithMessage(successRedirectPath, "message", "Das Zeitfenster wurde aktualisiert.");
 }
 export async function resizeAvailabilityRuleAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
@@ -2054,6 +2096,7 @@ export async function updateCalendarBlockAction(formData: FormData) {
 
   const selectedDate = asString(formData.get("selectedDate")) || block.start_at.slice(0, 10);
   const redirectPath = getCalendarRedirectPath(formData, block.horse_id, selectedDate, { anchor: "tagesfenster", focusBlockId: block.id });
+  const successRedirectPath = getCalendarRedirectPath(formData, block.horse_id, selectedDate, { anchor: "wochenplanung" });
   const startTime = parseClockTime(asString(formData.get("startTime")));
   const endTime = parseClockTime(asString(formData.get("endTime")));
   const blockTitleValue = formData.get("blockTitle");
@@ -2085,7 +2128,7 @@ export async function updateCalendarBlockAction(formData: FormData) {
 
   revalidatePath(`/pferde/${block.horse_id}/kalender`);
   revalidatePath(`/pferde/${block.horse_id}`);
-  redirectWithMessage(redirectPath, "message", "Die Kalender-Sperre wurde aktualisiert.");
+  redirectWithMessage(successRedirectPath, "message", "Die Kalender-Sperre wurde aktualisiert.");
 }
 export async function resizeCalendarBlockAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
