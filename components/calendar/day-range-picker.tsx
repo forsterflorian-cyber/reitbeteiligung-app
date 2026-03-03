@@ -87,7 +87,7 @@ export function DayRangePicker({
       <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-stone-900">Ausgewählter Zeitraum für {dayLabel}</p>
+            <p className="text-sm font-semibold text-stone-900">{"Ausgew\u00e4hlter Zeitraum f\u00fcr "}{dayLabel}</p>
             <p className="text-sm text-stone-600">Ziehen oder tippen, um den Bereich zu setzen.</p>
           </div>
           <div className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-900">

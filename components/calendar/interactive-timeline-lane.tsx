@@ -74,7 +74,7 @@ export function InteractiveTimelineLane({ dayKey, horseId, hourCount, hours }: I
       }} style={columnStyle}>
         {hours.map((hour, index) => (
           <button
-            aria-label={`${toSlotLabel(hour)} bis ${toSlotLabel(hour + 1)} auswaehlen`}
+            aria-label={`${toSlotLabel(hour)} bis ${toSlotLabel(hour + 1)} ausw\u00e4hlen`}
             className="block h-11 border-r border-transparent transition hover:bg-emerald-50/80 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 last:border-r-0"
             key={`${dayKey}-${hour}`}
             onClick={() => commitSelection({ endIndexExclusive: index + 1, startIndex: index })}

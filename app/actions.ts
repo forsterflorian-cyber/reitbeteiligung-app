@@ -1300,6 +1300,101 @@ export async function createAvailabilityDayAction(formData: FormData) {
   revalidatePath("/anfragen");
   redirectWithMessage(redirectPath, "message", "Das Tagesfenster wurde gespeichert.");
 }
+export async function updateAvailabilityDayAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const ruleId = asString(formData.get("ruleId"));
+
+  if (!ruleId) {
+    redirectWithMessage("/owner/horses", "error", "Das Zeitfenster konnte nicht gefunden werden.");
+  }
+
+  const rule = await getOwnedAvailabilityRule(supabase, ruleId, user.id);
+
+  if (!rule) {
+    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verfuegbarkeiten bearbeiten.");
+  }
+
+  const selectedDate = asString(formData.get("selectedDate")) || rule.start_at.slice(0, 10);
+  const redirectPath = `/pferde/${rule.horse_id}/kalender?day=${selectedDate}&focusRule=${rule.id}`;
+  const startTime = parseClockTime(asString(formData.get("startTime")));
+  const endTime = parseClockTime(asString(formData.get("endTime")));
+
+  if (!startTime || !endTime) {
+    redirectWithMessage(redirectPath, "error", "Bitte gib eine gueltige Uhrzeit an.");
+  }
+
+  const window = buildSingleAvailabilityWindow(selectedDate, startTime, endTime);
+
+  if (!window) {
+    redirectWithMessage(redirectPath, "error", "Fuer dieses Zeitfenster konnte kein gueltiger Zeitraum erstellt werden.");
+  }
+
+  const { data: duplicateRuleData, error: duplicateRuleError } = await supabase
+    .from("availability_rules")
+    .select("id")
+    .eq("horse_id", rule.horse_id)
+    .eq("start_at", window.startAt)
+    .eq("end_at", window.endAt)
+    .eq("active", true)
+    .neq("id", rule.id)
+    .maybeSingle();
+
+  if (duplicateRuleError) {
+    logSupabaseError("Availability day duplicate lookup failed", duplicateRuleError);
+    redirectWithMessage(redirectPath, "error", "Die vorhandenen Verfuegbarkeiten konnten nicht geladen werden.");
+  }
+
+  if (duplicateRuleData?.id) {
+    redirectWithMessage(redirectPath, "error", "Ein anderes Zeitfenster liegt bereits auf diesem Zeitraum.");
+  }
+
+  const { error: slotError } = await supabase
+    .from("availability_slots")
+    .update({
+      end_at: window.endAt,
+      start_at: window.startAt
+    })
+    .eq("id", rule.slot_id)
+    .eq("horse_id", rule.horse_id);
+
+  if (slotError) {
+    logSupabaseError("Availability slot update failed", slotError);
+    redirectWithMessage(redirectPath, "error", "Das Zeitfenster konnte nicht aktualisiert werden.");
+  }
+
+  const { error: ruleError } = await supabase
+    .from("availability_rules")
+    .update({
+      end_at: window.endAt,
+      start_at: window.startAt
+    })
+    .eq("id", rule.id);
+
+  if (ruleError) {
+    logSupabaseError("Availability rule update failed", ruleError);
+
+    const { error: rollbackError } = await supabase
+      .from("availability_slots")
+      .update({
+        end_at: rule.end_at,
+        start_at: rule.start_at
+      })
+      .eq("id", rule.slot_id)
+      .eq("horse_id", rule.horse_id);
+
+    if (rollbackError) {
+      logSupabaseError("Availability slot rollback failed", rollbackError);
+    }
+
+    redirectWithMessage(redirectPath, "error", "Das Zeitfenster konnte nicht aktualisiert werden.");
+  }
+
+  revalidatePath(`/pferde/${rule.horse_id}/kalender`);
+  revalidatePath(`/pferde/${rule.horse_id}`);
+  revalidatePath("/owner/anfragen");
+  revalidatePath("/anfragen");
+  redirectWithMessage(redirectPath, "message", "Das Zeitfenster wurde aktualisiert.");
+}
 export async function createCalendarBlockAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
   const horseId = asString(formData.get("horseId"));
@@ -1344,6 +1439,52 @@ export async function createCalendarBlockAction(formData: FormData) {
   redirectWithMessage(redirectPath, "message", "Der Zeitraum wurde als belegt gespeichert.");
 }
 
+export async function updateCalendarBlockAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const blockId = asString(formData.get("blockId"));
+
+  if (!blockId) {
+    redirectWithMessage("/owner/horses", "error", "Die Kalender-Sperre konnte nicht gefunden werden.");
+  }
+
+  const block = await getOwnedCalendarBlock(supabase, blockId, user.id);
+
+  if (!block) {
+    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Kalender-Sperren bearbeiten.");
+  }
+
+  const selectedDate = asString(formData.get("selectedDate")) || block.start_at.slice(0, 10);
+  const redirectPath = `/pferde/${block.horse_id}/kalender?day=${selectedDate}&focusBlock=${block.id}`;
+  const startTime = parseClockTime(asString(formData.get("startTime")));
+  const endTime = parseClockTime(asString(formData.get("endTime")));
+
+  if (!startTime || !endTime) {
+    redirectWithMessage(redirectPath, "error", "Bitte gib eine gueltige Uhrzeit an.");
+  }
+
+  const window = buildSingleAvailabilityWindow(selectedDate, startTime, endTime);
+
+  if (!window) {
+    redirectWithMessage(redirectPath, "error", "Fuer diese Sperre konnte kein gueltiger Zeitraum erstellt werden.");
+  }
+
+  const { error } = await supabase
+    .from("calendar_blocks")
+    .update({
+      end_at: window.endAt,
+      start_at: window.startAt
+    })
+    .eq("id", block.id);
+
+  if (error) {
+    logSupabaseError("Calendar block update failed", error);
+    redirectWithMessage(redirectPath, "error", "Die Kalender-Sperre konnte nicht aktualisiert werden.");
+  }
+
+  revalidatePath(`/pferde/${block.horse_id}/kalender`);
+  revalidatePath(`/pferde/${block.horse_id}`);
+  redirectWithMessage(redirectPath, "message", "Die Kalender-Sperre wurde aktualisiert.");
+}
 export async function deleteCalendarBlockAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
   const blockId = asString(formData.get("blockId"));

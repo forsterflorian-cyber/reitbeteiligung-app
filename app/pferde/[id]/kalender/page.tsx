@@ -10,7 +10,9 @@ import {
   declineBookingRequestAction,
   deleteAvailabilityRuleAction,
   deleteCalendarBlockAction,
-  requestBookingAction
+  requestBookingAction,
+  updateAvailabilityDayAction,
+  updateCalendarBlockAction
 } from "@/app/actions";
 import { RequestCard } from "@/components/blocks/request-card";
 import { DayRangePicker } from "@/components/calendar/day-range-picker";
@@ -80,6 +82,18 @@ function formatDateTime(value: string) {
     dateStyle: "medium",
     timeStyle: "short"
   }).format(new Date(value));
+}
+
+function getTimelineHourFromIso(value: string, roundUp = false) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const rawHour = date.getHours() + date.getMinutes() / 60;
+  const roundedHour = roundUp ? Math.ceil(rawHour) : Math.floor(rawHour);
+  return clampNumber(roundedHour, CALENDAR_TIMELINE_START_HOUR, CALENDAR_TIMELINE_END_HOUR);
 }
 
 function formatDate(value: string) {
@@ -370,6 +384,54 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     focusBlockId && ownerBlocks.some((block) => block.id === focusBlockId)
       ? [...ownerBlocks].sort((left, right) => Number(right.id === focusBlockId) - Number(left.id === focusBlockId))
       : ownerBlocks;
+  const focusedRule = focusRuleId ? rules.find((rule) => rule.id === focusRuleId) ?? null : null;
+  const focusedBlock = focusBlockId ? ownerBlocks.find((block) => block.id === focusBlockId) ?? null : null;
+  const focusedStartHour = focusedRule
+    ? getTimelineHourFromIso(focusedRule.start_at)
+    : focusedBlock
+      ? getTimelineHourFromIso(focusedBlock.start_at)
+      : null;
+  const focusedEndHourRaw = focusedRule
+    ? getTimelineHourFromIso(focusedRule.end_at, true)
+    : focusedBlock
+      ? getTimelineHourFromIso(focusedBlock.end_at, true)
+      : null;
+  const resolvedFocusedStartHour = typeof focusedStartHour === "number" ? focusedStartHour : null;
+  const resolvedFocusedEndHour =
+    typeof focusedEndHourRaw === "number" && (resolvedFocusedStartHour === null || focusedEndHourRaw > resolvedFocusedStartHour)
+      ? focusedEndHourRaw
+      : resolvedFocusedStartHour !== null
+        ? Math.min(CALENDAR_TIMELINE_END_HOUR, resolvedFocusedStartHour + 1)
+        : null;
+  const editorInitialStartHour = selectedSlotStartHour ?? resolvedFocusedStartHour ?? undefined;
+  const editorInitialEndHour = selectedSlotEndHour ?? resolvedFocusedEndHour ?? undefined;
+  const dayEditorAction = focusedRule
+    ? updateAvailabilityDayAction
+    : focusedBlock
+      ? updateCalendarBlockAction
+      : createAvailabilityDayAction;
+  const dayEditorModeLabel = focusedRule
+    ? "Zeitfenster bearbeiten"
+    : focusedBlock
+      ? "Sperre bearbeiten"
+      : "Schnell f\u00fcr einen Tag";
+  const focusedEntrySummary = focusedRule
+    ? ruleLabel(focusedRule)
+    : focusedBlock
+      ? formatDateRange(focusedBlock.start_at, focusedBlock.end_at)
+      : null;
+  const dayEditorDescription = focusedRule
+    ? `Markiert: ${focusedEntrySummary}. Passe Beginn und Ende direkt im Tageseditor an.`
+    : focusedBlock
+      ? `Markiert: ${focusedEntrySummary}. Passe diese Sperre direkt im Tageseditor an.`
+      : `Gew\u00e4hlt: ${selectedDayLabel}${selectedSlotLabel ? `, ${selectedSlotLabel}` : ""}. Ziehe im Raster \u00fcber freie Stunden oder justiere unten den genauen Zeitraum.`;
+  const dayEditorSubmitLabel = focusedRule
+    ? "Zeitfenster aktualisieren"
+    : focusedBlock
+      ? "Sperre aktualisieren"
+      : "Tagesfenster speichern";
+  const dayEditorPendingLabel = focusedRule || focusedBlock ? "Wird aktualisiert..." : "Wird gespeichert...";
+  const resetEditorHref = `/pferde/${horse.id}/kalender?day=${selectedDayKey}#tagesfenster`;
   const decoratedTimelineRows = timelineRows.map((row) => ({
     ...row,
     lanes: row.lanes.map((lane) => ({
@@ -561,26 +623,37 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
               title="Kalender bearbeiten"
             >
               <Card className="p-5 sm:p-6" id="tagesfenster">
-                <form action={createAvailabilityDayAction} className="space-y-4">
+                <form action={dayEditorAction} className="space-y-4">
                   <input name="horseId" type="hidden" value={horse.id} />
                   <input name="selectedDate" type="hidden" value={selectedDayKey} />
+                  {focusedRule ? <input name="ruleId" type="hidden" value={focusedRule.id} /> : null}
+                  {focusedBlock ? <input name="blockId" type="hidden" value={focusedBlock.id} /> : null}
                   <div className="ui-subpanel">
-                    <p className="ui-eyebrow">Schnell für einen Tag</p>
-                    <p className="mt-2 ui-inline-meta">
-                      Ausgewaehlt: {selectedDayLabel}{selectedSlotLabel ? `, ${selectedSlotLabel}` : ""}. Ziehe direkt im Raster ueber freie Stunden oder justiere unten den genauen Zeitraum.</p>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="ui-eyebrow">{dayEditorModeLabel}</p>
+                        <p className="mt-2 ui-inline-meta">{dayEditorDescription}</p>
+                      </div>
+                      {focusedRule ? <Badge tone="approved">Zeitfenster</Badge> : null}
+                      {!focusedRule && focusedBlock ? <Badge tone="rejected">Sperre</Badge> : null}
+                    </div>
                   </div>
                   <DayRangePicker
                     dayLabel={selectedDayLabel}
                     endHour={CALENDAR_TIMELINE_END_HOUR}
-                    initialEndHour={selectedSlotEndHour ?? undefined}
-                    initialStartHour={selectedSlotStartHour ?? undefined}
-                    key={`${selectedDayKey}-${selectedSlotLabel ?? "default"}`}
+                    initialEndHour={editorInitialEndHour}
+                    initialStartHour={editorInitialStartHour}
+                    key={`${selectedDayKey}-${focusedRule?.id ?? focusedBlock?.id ?? selectedSlotLabel ?? "default"}`}
                     startHour={CALENDAR_TIMELINE_START_HOUR}
                   />
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <SubmitButton className={buttonVariants("primary", "w-full sm:w-auto px-5 py-3 text-base")} idleLabel="Tagesfenster speichern" pendingLabel="Wird gespeichert..." />
-                    <a className={buttonVariants("secondary", "w-full sm:w-auto")} href={`/pferde/${horse.id}/kalender`}>
-                      Auswahl zurücksetzen
+                    <SubmitButton
+                      className={buttonVariants("primary", "w-full sm:w-auto px-5 py-3 text-base")}
+                      idleLabel={dayEditorSubmitLabel}
+                      pendingLabel={dayEditorPendingLabel}
+                    />
+                    <a className={buttonVariants("secondary", "w-full sm:w-auto")} href={resetEditorHref}>
+                      Neue Auswahl starten
                     </a>
                   </div>
                 </form>
@@ -759,7 +832,10 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                               {prioritizedRules.slice(0, 4).map((rule) => (
                                 <div className={`rounded-2xl border px-3 py-3 ${focusRuleId === rule.id ? "border-emerald-300 bg-emerald-50/60" : "border-stone-200 bg-white"}`} key={rule.id}>
                                   <p className="text-sm font-semibold text-stone-900">{ruleLabel(rule)}</p>
-                                  <form action={deleteAvailabilityRuleAction} className="mt-3">
+                                  <a className={buttonVariants("ghost", "mt-3 w-full justify-center text-sm")} href={`/pferde/${horse.id}/kalender?day=${rule.start_at.slice(0, 10)}&focusRule=${rule.id}#tagesfenster`}>
+                                    {"Im Editor \u00f6ffnen"}
+                                  </a>
+                                  <form action={deleteAvailabilityRuleAction} className="mt-2">
                                     <input name="ruleId" type="hidden" value={rule.id} />
                                     <ConfirmSubmitButton
                                       className={buttonVariants("secondary", "w-full text-sm")}
@@ -787,7 +863,10 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                               {prioritizedBlocks.slice(0, 4).map((block) => (
                                 <div className={`rounded-2xl border px-3 py-3 ${focusBlockId === block.id ? "border-rose-300 bg-rose-50/60" : "border-stone-200 bg-white"}`} key={block.id}>
                                   <p className="text-sm font-semibold text-stone-900">{formatDateRange(block.start_at, block.end_at)}</p>
-                                  <form action={deleteCalendarBlockAction} className="mt-3">
+                                  <a className={buttonVariants("ghost", "mt-3 w-full justify-center text-sm")} href={`/pferde/${horse.id}/kalender?day=${block.start_at.slice(0, 10)}&focusBlock=${block.id}#tagesfenster`}>
+                                    {"Im Editor \u00f6ffnen"}
+                                  </a>
+                                  <form action={deleteCalendarBlockAction} className="mt-2">
                                     <input name="blockId" type="hidden" value={block.id} />
                                     <ConfirmSubmitButton
                                       className={buttonVariants("secondary", "w-full text-sm")}

@@ -19,6 +19,7 @@ Stand: 2026-03-03
 - Interner Chat vor der Freischaltung
 - Kalender mit Verfuegbarkeiten, Sperren und Terminanfragen
 - Direkte Kalenderauswahl im Raster fuer Tagesfenster plus Fokus-Spruenge in die Direktbearbeitung
+- Bestehende Zeitfenster und Sperren lassen sich direkt aus dem Raster im Tageseditor fokussieren und anpassen
 - FCFS-Probetermin-Slots auf Basis freier Verfuegbarkeiten
 - Gemeinsamer UI-Layer mit mobile-first Layout
 - Owner-Tarifstatus mit sichtbaren Start-Trial- und Upgrade-CTAs
