@@ -61,11 +61,20 @@ import {
   getCalendarRedirectPath,
   getCalendarBlockSavedMessage,
   getCalendarBlockSaveError,
-  getCalendarBlockTimeError,
-  getOwnedAvailabilityRule,
-  getOwnedCalendarBlock
+  getCalendarBlockTimeError
 } from "@/lib/server-actions/calendar";
-import { deleteAvailabilityRuleForOwner, deleteCalendarBlockForOwner } from "@/lib/server-actions/calendar-actions";
+import {
+  createAvailabilityDayForOwner,
+  createCalendarBlockForOwner,
+  deleteAvailabilityRuleForOwner,
+  deleteCalendarBlockForOwner,
+  moveAvailabilityRuleForOwner,
+  moveCalendarBlockForOwner,
+  resizeAvailabilityRuleForOwner,
+  resizeCalendarBlockForOwner,
+  updateAvailabilityDayForOwner,
+  updateCalendarBlockForOwner
+} from "@/lib/server-actions/calendar-actions";
 import type { Approval, AvailabilityRule, Booking, BookingRequest, CalendarBlock, Horse, HorseImage, RiderBookingLimit, TrialRequest } from "@/types/database";
 
 const PASSWORD_RESET_REDIRECT_URL = "https://reitbeteiligung.app/passwort-zuruecksetzen";
@@ -1529,528 +1538,162 @@ export async function deleteHorseImageAction(formData: FormData) {
 }
 export async function createAvailabilityDayAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
-  const horseId = asString(formData.get("horseId"));
-
-  if (!horseId) {
-    redirectWithMessage("/owner/horses", "error", getCalendarBlockAccessError("missing_horse"));
-  }
-
-  const horse = await getOwnedHorse(supabase, horseId, user.id);
-
-  if (!horse) {
-    redirectWithMessage("/owner/horses", "error", getAvailabilityAccessError("forbidden_manage"));
-  }
-
-  const selectedDate = asString(formData.get("selectedDate"));
-  const redirectPath = getCalendarRedirectPath(formData, horseId, selectedDate, { anchor: "tagesfenster" });
-  const successRedirectPath = getCalendarRedirectPath(formData, horseId, selectedDate, { anchor: "kalender-feedback" });
-  const startTime = parseClockTime(asString(formData.get("startTime")));
-  const endTime = parseClockTime(asString(formData.get("endTime")));
-  const isTrialSlot = formData.get("isTrialSlot") === "on";
-
-  if (!startTime || !endTime) {
-    redirectWithMessage(redirectPath, "error", "Bitte gib eine gültige Uhrzeit an.");
-  }
-
-  const window = buildSingleAvailabilityWindow(selectedDate, startTime, endTime);
-
-  if (!window) {
-    redirectWithMessage(redirectPath, "error", "Für diesen Tag konnte kein gültiges Zeitfenster erstellt werden.");
-  }
-
-  const { ranges: existingRanges, error: existingRuleError } = await getActiveAvailabilityRanges(supabase, horseId);
-
-  if (existingRuleError) {
-    logSupabaseError("Availability day lookup failed", existingRuleError);
-    redirectWithMessage(redirectPath, "error", "Die vorhandenen Verfügbarkeiten konnten nicht geladen werden.");
-  }
-
-  if (hasWindowConflict([window], existingRanges)) {
-    redirectWithMessage(redirectPath, "error", "Dieses Zeitfenster überschneidet sich mit einer bestehenden Verfügbarkeit.");
-  }
-
-  const { data: slotData, error: slotError } = await supabase
-    .from("availability_slots")
-    .insert({
-      active: true,
-      end_at: window.endAt,
-      horse_id: horseId,
-      start_at: window.startAt
-    })
-    .select("id")
-    .maybeSingle();
-
-  if (slotError || !slotData?.id) {
-    if (slotError) {
-      logSupabaseError("Availability day slot insert failed", slotError);
-    }
-
-    redirectWithMessage(redirectPath, "error", getAvailabilitySaveError("create"));
-  }
-
-  const { error } = await supabase.from("availability_rules").insert({
-    active: true,
-    end_at: window.endAt,
-    horse_id: horseId,
-    is_trial_slot: isTrialSlot,
-    slot_id: slotData.id,
-    start_at: window.startAt
+  const result = await createAvailabilityDayForOwner({
+    formData,
+    logSupabaseError,
+    ownerId: user.id,
+    supabase
   });
 
-  if (error) {
-    logSupabaseError("Availability day insert failed", error);
-
-    const { error: cleanupError } = await supabase.from("availability_slots").delete().eq("id", slotData.id).eq("horse_id", horseId);
-
-    if (cleanupError) {
-      logSupabaseError("Availability day cleanup failed", cleanupError);
-    }
-
-    redirectWithMessage(redirectPath, "error", getAvailabilitySaveError("create"));
+  if (!result.ok) {
+    redirectWithMessage(result.redirectPath, "error", result.message);
   }
 
-  for (const path of getAvailabilityRevalidationPaths(horseId)) {
+  for (const path of result.paths) {
     revalidatePath(path);
   }
-  redirectWithMessage(successRedirectPath, "message", getAvailabilitySavedMessage("create"));
+
+  redirectWithMessage(result.redirectPath, "message", result.successMessage);
 }
+
 export async function updateAvailabilityDayAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
-  const ruleId = asString(formData.get("ruleId"));
+  const result = await updateAvailabilityDayForOwner({
+    formData,
+    logSupabaseError,
+    ownerId: user.id,
+    supabase
+  });
 
-  if (!ruleId) {
-    redirectWithMessage("/owner/horses", "error", getAvailabilityAccessError("missing_rule"));
+  if (!result.ok) {
+    redirectWithMessage(result.redirectPath, "error", result.message);
   }
 
-  const rule = await getOwnedAvailabilityRule(supabase, ruleId, user.id);
-
-  if (!rule) {
-    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verfügbarkeiten bearbeiten.");
-  }
-
-  const selectedDate = asString(formData.get("selectedDate")) || rule.start_at.slice(0, 10);
-  const redirectPath = getCalendarRedirectPath(formData, rule.horse_id, selectedDate, { anchor: "tagesfenster", focusRuleId: rule.id });
-  const successRedirectPath = getCalendarRedirectPath(formData, rule.horse_id, selectedDate, { anchor: "kalender-feedback" });
-  const startTime = parseClockTime(asString(formData.get("startTime")));
-  const endTime = parseClockTime(asString(formData.get("endTime")));
-  const isTrialSlotValue = formData.get("isTrialSlot");
-  const isTrialSlot = isTrialSlotValue === null ? Boolean(rule.is_trial_slot) : isTrialSlotValue === "on";
-
-  if (!startTime || !endTime) {
-    redirectWithMessage(redirectPath, "error", getAvailabilityTimeError());
-  }
-
-  const window = buildSingleAvailabilityWindow(selectedDate, startTime, endTime);
-
-  if (!window) {
-    redirectWithMessage(redirectPath, "error", getAvailabilityInvalidWindowError("update"));
-  }
-
-  const { ranges: existingRanges, error: duplicateRuleError } = await getActiveAvailabilityRanges(supabase, rule.horse_id, rule.id);
-
-  if (duplicateRuleError) {
-    logSupabaseError("Availability day duplicate lookup failed", duplicateRuleError);
-    redirectWithMessage(redirectPath, "error", "Die vorhandenen Verfügbarkeiten konnten nicht geladen werden.");
-  }
-
-  if (hasWindowConflict([window], existingRanges)) {
-    redirectWithMessage(redirectPath, "error", "Ein anderes Zeitfenster überschneidet sich bereits mit diesem Zeitraum.");
-  }
-
-  const { error: slotError } = await supabase
-    .from("availability_slots")
-    .update({
-      end_at: window.endAt,
-      start_at: window.startAt
-    })
-    .eq("id", rule.slot_id)
-    .eq("horse_id", rule.horse_id);
-
-  if (slotError) {
-    logSupabaseError("Availability slot update failed", slotError);
-    redirectWithMessage(redirectPath, "error", getAvailabilitySaveError("update"));
-  }
-
-  const { error: ruleError } = await supabase
-    .from("availability_rules")
-    .update({
-      end_at: window.endAt,
-      is_trial_slot: isTrialSlot,
-      start_at: window.startAt
-    })
-    .eq("id", rule.id);
-
-  if (ruleError) {
-    logSupabaseError("Availability rule update failed", ruleError);
-
-    const { error: rollbackError } = await supabase
-      .from("availability_slots")
-      .update({
-        end_at: rule.end_at,
-        start_at: rule.start_at
-      })
-      .eq("id", rule.slot_id)
-      .eq("horse_id", rule.horse_id);
-
-    if (rollbackError) {
-      logSupabaseError("Availability slot rollback failed", rollbackError);
-    }
-
-    redirectWithMessage(redirectPath, "error", getAvailabilitySaveError("update"));
-  }
-
-  for (const path of getAvailabilityRevalidationPaths(rule.horse_id)) {
+  for (const path of result.paths) {
     revalidatePath(path);
   }
-  redirectWithMessage(successRedirectPath, "message", getAvailabilitySavedMessage("update"));
+
+  redirectWithMessage(result.redirectPath, "message", result.successMessage);
 }
+
 export async function resizeAvailabilityRuleAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
-  const ruleId = asString(formData.get("ruleId"));
-  const directionValue = asString(formData.get("direction"));
+  const result = await resizeAvailabilityRuleForOwner({
+    formData,
+    logSupabaseError,
+    ownerId: user.id,
+    supabase
+  });
 
-  if (!ruleId || !isResizeDirection(directionValue)) {
-    redirectWithMessage("/owner/horses", "error", getAvailabilitySaveError("planner_adjust"));
+  if (!result.ok) {
+    redirectWithMessage(result.redirectPath, "error", result.message);
   }
 
-  const rule = await getOwnedAvailabilityRule(supabase, ruleId, user.id);
-
-  if (!rule) {
-    redirectWithMessage("/owner/horses", "error", getAvailabilityAccessError("forbidden_adjust"));
-  }
-
-  const selectedDate = rule.start_at.slice(0, 10);
-  const redirectPath = `/pferde/${rule.horse_id}/kalender?day=${selectedDate}&focusRule=${rule.id}`;
-  const resizedWindow = shiftRangeBoundary(rule.start_at, rule.end_at, directionValue);
-
-  if (!resizedWindow || resizedWindow.startAt.slice(0, 10) !== selectedDate || resizedWindow.endAt.slice(0, 10) !== selectedDate) {
-    redirectWithMessage(redirectPath, "error", getAvailabilityPlannerDayError("adjust"));
-  }
-
-  const { ranges: existingRanges, error: duplicateRuleError } = await getActiveAvailabilityRanges(supabase, rule.horse_id, rule.id);
-
-  if (duplicateRuleError) {
-    logSupabaseError("Availability planner resize lookup failed", duplicateRuleError);
-    redirectWithMessage(redirectPath, "error", "Die vorhandenen Verfügbarkeiten konnten nicht geladen werden.");
-  }
-
-  if (hasWindowConflict([resizedWindow], existingRanges)) {
-    redirectWithMessage(redirectPath, "error", "Ein anderes Zeitfenster überschneidet sich bereits mit diesem Zeitraum.");
-  }
-
-  const { error: slotError } = await supabase
-    .from("availability_slots")
-    .update({
-      end_at: resizedWindow.endAt,
-      start_at: resizedWindow.startAt
-    })
-    .eq("id", rule.slot_id)
-    .eq("horse_id", rule.horse_id);
-
-  if (slotError) {
-    logSupabaseError("Availability slot planner resize failed", slotError);
-    redirectWithMessage(redirectPath, "error", getAvailabilitySaveError("planner_adjust"));
-  }
-
-  const { error: ruleError } = await supabase
-    .from("availability_rules")
-    .update({
-      end_at: resizedWindow.endAt,
-      start_at: resizedWindow.startAt
-    })
-    .eq("id", rule.id);
-
-  if (ruleError) {
-    logSupabaseError("Availability rule planner resize failed", ruleError);
-
-    const { error: rollbackError } = await supabase
-      .from("availability_slots")
-      .update({
-        end_at: rule.end_at,
-        start_at: rule.start_at
-      })
-      .eq("id", rule.slot_id)
-      .eq("horse_id", rule.horse_id);
-
-    if (rollbackError) {
-      logSupabaseError("Availability slot planner resize rollback failed", rollbackError);
-    }
-
-    redirectWithMessage(redirectPath, "error", getAvailabilitySaveError("planner_adjust"));
-  }
-
-  for (const path of getAvailabilityRevalidationPaths(rule.horse_id)) {
+  for (const path of result.paths) {
     revalidatePath(path);
   }
-  redirectWithMessage(redirectPath, "message", getAvailabilitySavedMessage("planner_adjust"));
+
+  redirectWithMessage(result.redirectPath, "message", result.successMessage);
 }
 
 export async function moveAvailabilityRuleAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
-  const ruleId = asString(formData.get("ruleId"));
-  const directionValue = asString(formData.get("direction"));
+  const result = await moveAvailabilityRuleForOwner({
+    formData,
+    logSupabaseError,
+    ownerId: user.id,
+    supabase
+  });
 
-  if (!ruleId || !isMoveDirection(directionValue)) {
-    redirectWithMessage("/owner/horses", "error", getAvailabilitySaveError("planner_move"));
+  if (!result.ok) {
+    redirectWithMessage(result.redirectPath, "error", result.message);
   }
 
-  const rule = await getOwnedAvailabilityRule(supabase, ruleId, user.id);
-
-  if (!rule) {
-    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verfügbarkeiten verschieben.");
-  }
-
-  const selectedDate = rule.start_at.slice(0, 10);
-  const redirectPath = `/pferde/${rule.horse_id}/kalender?day=${selectedDate}&focusRule=${rule.id}`;
-  const shiftedWindow = shiftWholeRange(rule.start_at, rule.end_at, directionValue);
-
-  if (!shiftedWindow || shiftedWindow.startAt.slice(0, 10) !== selectedDate || shiftedWindow.endAt.slice(0, 10) !== selectedDate) {
-    redirectWithMessage(redirectPath, "error", "Im Planer lässt sich das Zeitfenster nur innerhalb dieses Tages verschieben.");
-  }
-
-  const { ranges: existingRanges, error: duplicateRuleError } = await getActiveAvailabilityRanges(supabase, rule.horse_id, rule.id);
-
-  if (duplicateRuleError) {
-    logSupabaseError("Availability planner move lookup failed", duplicateRuleError);
-    redirectWithMessage(redirectPath, "error", "Die vorhandenen Verfügbarkeiten konnten nicht geladen werden.");
-  }
-
-  if (hasWindowConflict([shiftedWindow], existingRanges)) {
-    redirectWithMessage(redirectPath, "error", "Ein anderes Zeitfenster überschneidet sich bereits mit diesem Zeitraum.");
-  }
-
-  const { error: slotError } = await supabase
-    .from("availability_slots")
-    .update({
-      end_at: shiftedWindow.endAt,
-      start_at: shiftedWindow.startAt
-    })
-    .eq("id", rule.slot_id)
-    .eq("horse_id", rule.horse_id);
-
-  if (slotError) {
-    logSupabaseError("Availability slot planner move failed", slotError);
-    redirectWithMessage(redirectPath, "error", getAvailabilitySaveError("planner_move"));
-  }
-
-  const { error: ruleError } = await supabase
-    .from("availability_rules")
-    .update({
-      end_at: shiftedWindow.endAt,
-      start_at: shiftedWindow.startAt
-    })
-    .eq("id", rule.id);
-
-  if (ruleError) {
-    logSupabaseError("Availability rule planner move failed", ruleError);
-
-    const { error: rollbackError } = await supabase
-      .from("availability_slots")
-      .update({
-        end_at: rule.end_at,
-        start_at: rule.start_at
-      })
-      .eq("id", rule.slot_id)
-      .eq("horse_id", rule.horse_id);
-
-    if (rollbackError) {
-      logSupabaseError("Availability slot planner move rollback failed", rollbackError);
-    }
-
-    redirectWithMessage(redirectPath, "error", getAvailabilitySaveError("planner_move"));
-  }
-
-  for (const path of getAvailabilityRevalidationPaths(rule.horse_id)) {
+  for (const path of result.paths) {
     revalidatePath(path);
   }
-  redirectWithMessage(redirectPath, "message", getAvailabilitySavedMessage("planner_move"));
+
+  redirectWithMessage(result.redirectPath, "message", result.successMessage);
 }
 
 export async function createCalendarBlockAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
-  const horseId = asString(formData.get("horseId"));
-
-  if (!horseId) {
-    redirectWithMessage("/owner/horses", "error", getAvailabilityAccessError("missing_horse"));
-  }
-
-  const horse = await getOwnedHorse(supabase, horseId, user.id);
-  const selectedDate = asString(formData.get("selectedDate")) || new Date().toISOString().slice(0, 10);
-  const redirectPath = getCalendarRedirectPath(formData, horseId, selectedDate, { anchor: R1_CORE_MODE ? "kalender-liste" : "kalender-bearbeiten" });
-
-  if (!horse) {
-    redirectWithMessage("/owner/horses", "error", getCalendarBlockAccessError("forbidden_manage"));
-  }
-
-  const startAtValue = asString(formData.get("startAt"));
-  const endAtValue = asString(formData.get("endAt"));
-  const blockTitle = asOptionalString(formData.get("blockTitle"));
-  const startAt = new Date(startAtValue);
-  const endAt = new Date(endAtValue);
-
-  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
-    redirectWithMessage(redirectPath, "error", "Bitte gib einen gültigen Zeitraum an.");
-  }
-
-  if (endAt <= startAt) {
-    redirectWithMessage(redirectPath, "error", "Das Ende muss nach dem Beginn liegen.");
-  }
-
-  if (!isQuarterHourAligned(startAt) || !isQuarterHourAligned(endAt)) {
-    redirectWithMessage(redirectPath, "error", "Bitte nutze für Sperren ein 15-Minuten-Raster.");
-  }
-
-  const { error } = await supabase.from("calendar_blocks").insert({
-    horse_id: horseId,
-    title: blockTitle,
-    start_at: startAt.toISOString(),
-    end_at: endAt.toISOString()
+  const result = await createCalendarBlockForOwner({
+    formData,
+    logSupabaseError,
+    ownerId: user.id,
+    supabase
   });
 
-  if (error) {
-    logSupabaseError("Calendar block insert failed", error);
-    redirectWithMessage(redirectPath, "error", getCalendarBlockSaveError("create"));
+  if (!result.ok) {
+    redirectWithMessage(result.redirectPath, "error", result.message);
   }
 
-  for (const path of getCalendarBlockRevalidationPaths(horseId)) {
+  for (const path of result.paths) {
     revalidatePath(path);
   }
-  redirectWithMessage(redirectPath, "message", getCalendarBlockSavedMessage("create"));
+
+  redirectWithMessage(result.redirectPath, "message", result.successMessage);
 }
 
 export async function updateCalendarBlockAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
-  const blockId = asString(formData.get("blockId"));
+  const result = await updateCalendarBlockForOwner({
+    formData,
+    logSupabaseError,
+    ownerId: user.id,
+    supabase
+  });
 
-  if (!blockId) {
-    redirectWithMessage("/owner/horses", "error", getCalendarBlockAccessError("missing_block"));
+  if (!result.ok) {
+    redirectWithMessage(result.redirectPath, "error", result.message);
   }
 
-  const block = await getOwnedCalendarBlock(supabase, blockId, user.id);
-
-  if (!block) {
-    redirectWithMessage("/owner/horses", "error", getCalendarBlockAccessError("forbidden_edit"));
-  }
-
-  const selectedDate = asString(formData.get("selectedDate")) || block.start_at.slice(0, 10);
-  const redirectPath = getCalendarRedirectPath(formData, block.horse_id, selectedDate, { anchor: "tagesfenster", focusBlockId: block.id });
-  const successRedirectPath = getCalendarRedirectPath(formData, block.horse_id, selectedDate, { anchor: "kalender-feedback" });
-  const startTime = parseClockTime(asString(formData.get("startTime")));
-  const endTime = parseClockTime(asString(formData.get("endTime")));
-  const blockTitleValue = formData.get("blockTitle");
-  const blockTitle = blockTitleValue === null ? block.title ?? null : asOptionalString(blockTitleValue);
-
-  if (!startTime || !endTime) {
-    redirectWithMessage(redirectPath, "error", getAvailabilityTimeError());
-  }
-
-  const window = buildSingleAvailabilityWindow(selectedDate, startTime, endTime);
-
-  if (!window) {
-    redirectWithMessage(redirectPath, "error", getCalendarBlockInvalidWindowError());
-  }
-
-  const { error } = await supabase
-    .from("calendar_blocks")
-    .update({
-      end_at: window.endAt,
-      start_at: window.startAt,
-      title: blockTitle
-    })
-    .eq("id", block.id);
-
-  if (error) {
-    logSupabaseError("Calendar block update failed", error);
-    redirectWithMessage(redirectPath, "error", getCalendarBlockSaveError("update"));
-  }
-
-  for (const path of getCalendarBlockRevalidationPaths(block.horse_id)) {
+  for (const path of result.paths) {
     revalidatePath(path);
   }
-  redirectWithMessage(successRedirectPath, "message", getCalendarBlockSavedMessage("update"));
+
+  redirectWithMessage(result.redirectPath, "message", result.successMessage);
 }
+
 export async function resizeCalendarBlockAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
-  const blockId = asString(formData.get("blockId"));
-  const directionValue = asString(formData.get("direction"));
+  const result = await resizeCalendarBlockForOwner({
+    formData,
+    logSupabaseError,
+    ownerId: user.id,
+    supabase
+  });
 
-  if (!blockId || !isResizeDirection(directionValue)) {
-    redirectWithMessage("/owner/horses", "error", getCalendarBlockSaveError("planner_adjust"));
+  if (!result.ok) {
+    redirectWithMessage(result.redirectPath, "error", result.message);
   }
 
-  const block = await getOwnedCalendarBlock(supabase, blockId, user.id);
-
-  if (!block) {
-    redirectWithMessage("/owner/horses", "error", getCalendarBlockAccessError("forbidden_adjust"));
-  }
-
-  const selectedDate = block.start_at.slice(0, 10);
-  const redirectPath = `/pferde/${block.horse_id}/kalender?day=${selectedDate}&focusBlock=${block.id}`;
-  const resizedWindow = shiftRangeBoundary(block.start_at, block.end_at, directionValue);
-
-  if (!resizedWindow || resizedWindow.startAt.slice(0, 10) !== selectedDate || resizedWindow.endAt.slice(0, 10) !== selectedDate) {
-    redirectWithMessage(redirectPath, "error", getCalendarBlockPlannerDayError("adjust"));
-  }
-
-  const { error } = await supabase
-    .from("calendar_blocks")
-    .update({
-      end_at: resizedWindow.endAt,
-      start_at: resizedWindow.startAt
-    })
-    .eq("id", block.id);
-
-  if (error) {
-    logSupabaseError("Calendar block planner resize failed", error);
-    redirectWithMessage(redirectPath, "error", getCalendarBlockSaveError("planner_adjust"));
-  }
-
-  for (const path of getCalendarBlockRevalidationPaths(block.horse_id)) {
+  for (const path of result.paths) {
     revalidatePath(path);
   }
-  redirectWithMessage(redirectPath, "message", getCalendarBlockSavedMessage("planner_adjust"));
+
+  redirectWithMessage(result.redirectPath, "message", result.successMessage);
 }
 
 export async function moveCalendarBlockAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
-  const blockId = asString(formData.get("blockId"));
-  const directionValue = asString(formData.get("direction"));
+  const result = await moveCalendarBlockForOwner({
+    formData,
+    logSupabaseError,
+    ownerId: user.id,
+    supabase
+  });
 
-  if (!blockId || !isMoveDirection(directionValue)) {
-    redirectWithMessage("/owner/horses", "error", getCalendarBlockSaveError("planner_move"));
+  if (!result.ok) {
+    redirectWithMessage(result.redirectPath, "error", result.message);
   }
 
-  const block = await getOwnedCalendarBlock(supabase, blockId, user.id);
-
-  if (!block) {
-    redirectWithMessage("/owner/horses", "error", getCalendarBlockAccessError("forbidden_move"));
-  }
-
-  const selectedDate = block.start_at.slice(0, 10);
-  const redirectPath = `/pferde/${block.horse_id}/kalender?day=${selectedDate}&focusBlock=${block.id}`;
-  const shiftedWindow = shiftWholeRange(block.start_at, block.end_at, directionValue);
-
-  if (!shiftedWindow || shiftedWindow.startAt.slice(0, 10) !== selectedDate || shiftedWindow.endAt.slice(0, 10) !== selectedDate) {
-    redirectWithMessage(redirectPath, "error", "Im Planer lässt sich die Sperre nur innerhalb dieses Tages verschieben.");
-  }
-
-  const { error } = await supabase
-    .from("calendar_blocks")
-    .update({
-      end_at: shiftedWindow.endAt,
-      start_at: shiftedWindow.startAt
-    })
-    .eq("id", block.id);
-
-  if (error) {
-    logSupabaseError("Calendar block planner move failed", error);
-    redirectWithMessage(redirectPath, "error", getCalendarBlockSaveError("planner_move"));
-  }
-
-  for (const path of getCalendarBlockRevalidationPaths(block.horse_id)) {
+  for (const path of result.paths) {
     revalidatePath(path);
   }
-  redirectWithMessage(redirectPath, "message", getCalendarBlockSavedMessage("planner_move"));
+
+  redirectWithMessage(result.redirectPath, "message", result.successMessage);
 }
 
 export async function deleteCalendarBlockAction(formData: FormData) {
