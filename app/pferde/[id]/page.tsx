@@ -1,4 +1,5 @@
 import type { Route } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -202,15 +203,18 @@ export default async function PferdDetailPage({
           <div className="space-y-4">
             {images.length > 0 ? (
               <>
-                <img alt={horse.title} className="h-64 w-full rounded-2xl object-cover sm:h-80" src={images[0].url} />
+                <Image alt={horse.title} className="h-64 w-full rounded-2xl object-cover sm:h-80" height={320} src={images[0].url} unoptimized width={640} />
                 {images.length > 1 ? (
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {images.slice(1).map((image, index) => (
-                      <img
+                      <Image
                         alt={`Pferdebild ${index + 2} von ${horse.title}`}
                         className="h-24 w-full rounded-2xl object-cover"
+                        height={96}
                         key={image.id}
                         src={image.url}
+                        unoptimized
+                        width={192}
                       />
                     ))}
                   </div>

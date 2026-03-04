@@ -1,4 +1,5 @@
 import type { Route } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 import { deleteHorseAction, deleteHorseImageAction, saveHorseAction, startOwnerTrialAction, uploadHorseImagesAction } from "@/app/actions";
@@ -208,7 +209,7 @@ export default async function OwnerManageHorsesPage({
                 <div className="grid gap-5 xl:grid-cols-[180px_minmax(0,1fr)_280px] xl:items-start">
                   <div className="space-y-3">
                     {primaryImage ? (
-                      <img alt={horse.title} className="h-40 w-full rounded-xl object-cover xl:h-32" src={primaryImage} />
+                      <Image alt={horse.title} className="h-40 w-full rounded-xl object-cover xl:h-32" height={160} src={primaryImage} unoptimized width={320} />
                     ) : (
                       <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-stone-300 bg-stone-50 text-sm text-stone-500">
                         Kein Bild
@@ -368,7 +369,7 @@ export default async function OwnerManageHorsesPage({
                           <div className="grid grid-cols-2 gap-3">
                             {images.map((image, index) => (
                               <div className="space-y-2" key={image.id}>
-                                <img alt={`Pferdebild ${index + 1} von ${horse.title}`} className="h-28 w-full rounded-xl border border-stone-200 object-cover" loading="lazy" src={image.url} />
+                                <Image alt={`Pferdebild ${index + 1} von ${horse.title}`} className="h-28 w-full rounded-xl border border-stone-200 object-cover" height={112} loading="lazy" src={image.url} unoptimized width={224} />
                                 <form action={deleteHorseImageAction}>
                                   <input name="imageId" type="hidden" value={image.id} />
                                   <input name="redirectTo" type="hidden" value={editPath} />

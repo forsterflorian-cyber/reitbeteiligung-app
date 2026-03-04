@@ -4,6 +4,7 @@ import Link from "next/link";
 import { cancelTrialRequestAction } from "@/app/actions";
 import { Notice } from "@/components/notice";
 import { StatusBadge } from "@/components/status-badge";
+import { canCancelTrialRequest } from "@/lib/trial-lifecycle";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -217,7 +218,7 @@ export function RiderRequestsWorkspace({
                         Zum Chat
                       </Link>
                     ) : null}
-                    {(item.status === "requested" || item.status === "accepted") ? (
+                    {canCancelTrialRequest(item.status) ? (
                       <form action={cancelTrialRequestAction}>
                         <input name="requestId" type="hidden" value={item.id} />
                         <button
@@ -241,3 +242,4 @@ export function RiderRequestsWorkspace({
     </>
   );
 }
+

@@ -1,4 +1,4 @@
-import type { Route } from "next";
+﻿import type { Route } from "next";
 import Link from "next/link";
 
 import { startOwnerTrialAction } from "@/app/actions";
@@ -125,21 +125,21 @@ export default async function DashboardPage({
           backdropVariant="hero"
           subtitle={`Hallo ${displayName}. Von hier springst du direkt in Pferde, Probetermine und dein laufendes Tagesgesch\u00e4ft.`}
           surface
-          title="Übersicht"
+          title="Ãœbersicht"
         />
         <Notice text={message} tone="success" />
         <StatGrid items={ownerStats} />
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
           <SectionCard
             action={<Link className={buttonVariants("secondary")} href={ownerManageHref}>Zur Verwaltung</Link>}
-            subtitle="Bestehende Pferde zuerst, das neue Pferd liegt bewusst im Untermenü."
+            subtitle="Bestehende Pferde zuerst, das neue Pferd liegt bewusst im UntermenÃ¼."
             title="Pferde im Blick"
           >
             <div className="space-y-4">
               {horses.length === 0 ? (
                 <EmptyState
                   action={<Link className={buttonVariants("primary")} href={ownerCreateHref}>Erstes Pferd anlegen</Link>}
-                  description="Lege zuerst ein Pferdeprofil an, damit Probetermine und Reitbeteiligungen starten können."
+                  description="Lege zuerst ein Pferdeprofil an, damit Probetermine und Reitbeteiligungen starten kÃ¶nnen."
                   title="Noch kein Pferd angelegt"
                 />
               ) : (
@@ -205,7 +205,7 @@ export default async function DashboardPage({
                     </a>
                   ) : null}
                   <Link className={buttonVariants("ghost")} href={ownerRelationshipsHref}>
-                    Reitbeteiligungen öffnen
+                    Reitbeteiligungen Ã¶ffnen
                   </Link>
                 </div>
               ) : undefined
@@ -274,9 +274,9 @@ export default async function DashboardPage({
   const riderStats: StatItem[] = [
     {
       label: "Profilstatus",
-      value: <Badge tone={riderProfile ? "approved" : "pending"}>{riderProfile ? "Bereit" : "Unvollständig"}</Badge>,
+      value: <Badge tone={riderProfile ? "approved" : "pending"}>{riderProfile ? "Bereit" : "UnvollstÃ¤ndig"}</Badge>,
       valueClassName: "text-base",
-      helper: riderProfile ? "Dein Reiterprofil ist angelegt." : "Bitte vervollständige dein Reiterprofil für passende Anfragen."
+      helper: riderProfile ? "Dein Reiterprofil ist angelegt." : "Bitte vervollstÃ¤ndige dein Reiterprofil fÃ¼r passende Anfragen."
     },
     {
       label: "Offene Probetermine",
@@ -309,7 +309,7 @@ export default async function DashboardPage({
         backdropVariant="hero"
         subtitle={`Hallo ${displayName}. Hier stehen offene Probetermine, Freischaltungen und deine Chats direkt im Fokus.`}
         surface
-        title="Übersicht"
+        title="Ãœbersicht"
       />
       <Notice text={message} tone="success" />
       <SectionCard subtitle="Dein n\u00e4chster Probetermin oder der schnellste Einstieg in deine aktiven Reitbeteiligungen." title="Als N\u00e4chstes">
@@ -327,7 +327,7 @@ export default async function DashboardPage({
           <Card className="p-5">
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge tone="approved">Nächste Buchung</Badge>
+                <Badge tone="approved">NÃ¤chste Buchung</Badge>
                 <p className="text-sm text-stone-500">{formatDate(nextBooking.start_at)}</p>
               </div>
               <p className="text-lg font-semibold text-stone-900">{nextBookingHorse?.title ?? "Reitbeteiligung"}</p>
@@ -348,7 +348,7 @@ export default async function DashboardPage({
       {!R1_CORE_MODE && upcomingBookings.length > 0 ? (
         <SectionCard
           action={<Link className={buttonVariants("secondary")} href={riderRequestsHref}>Zur Planung</Link>}
-          subtitle="Deine n?chsten bereits best?tigten Termine als aktive Reitbeteiligung."
+          subtitle="Deine nächsten bereits bestätigten Termine als aktive Reitbeteiligung."
           title="N\u00e4chste Termine"
         >
           <div className="grid gap-3">
@@ -381,7 +381,7 @@ export default async function DashboardPage({
           {trials.length === 0 ? (
             <EmptyState
               action={<Link className={buttonVariants("primary")} href={riderSearchHref}>Passende Pferde finden</Link>}
-              description="Sobald du deinen ersten Probetermin anfragst, erscheint er hier in der Übersicht."
+              description="Sobald du deinen ersten Probetermin anfragst, erscheint er hier in der Ãœbersicht."
               title="Noch keine Probetermine"
             />
           ) : (
@@ -406,9 +406,9 @@ export default async function DashboardPage({
         </div>
       </SectionCard>
       {!riderProfile ? (
-        <SectionCard subtitle="Ohne Profil sehen Pferdehalter nur sehr wenig von dir." title="Profil vervollständigen">
+        <SectionCard subtitle="Ohne Profil sehen Pferdehalter nur sehr wenig von dir." title="Profil vervollstÃ¤ndigen">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm leading-6 text-stone-600">Ergänze Erfahrung, Gewicht und Notizen, damit deine Anfragen besser einschätzbar sind.</p>
+            <p className="text-sm leading-6 text-stone-600">ErgÃ¤nze Erfahrung, Gewicht und Notizen, damit deine Anfragen besser einschÃ¤tzbar sind.</p>
             <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href={riderProfileHref}>
               Jetzt bearbeiten
             </Link>
@@ -418,3 +418,4 @@ export default async function DashboardPage({
     </AppPageShell>
   );
 }
+
