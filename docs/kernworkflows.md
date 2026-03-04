@@ -1,9 +1,22 @@
 # Kernworkflows
 
-Stand: 2026-03-03
+Stand: 2026-03-04
 
 Diese Datei beschreibt den aktuell gew?nschten fachlichen Kern von `reitbeteiligung.app`.
 Sie ist die Referenz f?r Produktentscheidungen, UI-Priorit?ten und den Testplan.
+
+## Release-Fokus 1
+
+F?r das erste echte Release muss ein kompletter Lebenszyklus stabil funktionieren:
+
+1. Probetermin anfragen
+2. Probetermin entscheiden
+3. Reiter als aktive Reitbeteiligung aufnehmen
+4. Operatives Tagesgesch?ft f?hren
+5. Reitbeteiligung wieder entziehen oder entfernen
+
+Wichtig:
+Das ist die zentrale Kernfunktion. Andere Features sind nachrangig, solange dieser Ablauf nicht rund ist.
 
 ## Produktkern
 
@@ -15,9 +28,6 @@ Die Plattform organisiert den Ablauf zwischen `Pferdehalter` und `Reiter` in f?n
 4. Laufende Termine planen und verwalten
 5. Reitbeteiligung entfernen oder pausieren
 
-Wichtig:
-Der operative Alltag nach der Freischaltung ist die eigentliche Kernfunktion.
-
 ## Rollen und Hauptsichten
 
 ### Pferdehalter
@@ -25,7 +35,7 @@ Der operative Alltag nach der Freischaltung ist die eigentliche Kernfunktion.
 Die fachlich wichtigen Hauptsichten sind:
 
 1. `Pferde verwalten`
-2. `Probetermine verwalten`
+2. `Probetermine`
 3. `Reitbeteiligungen`
 4. `Nachrichten`
 5. `Profil`
@@ -34,9 +44,9 @@ Regeln:
 
 - `Pferde verwalten` ist die Hauptsicht f?r Bestand und ?bersicht.
 - `Neues Pferd anlegen` ist ein Unterweg innerhalb von `Pferde verwalten`, kein eigener Hauptbereich.
-- Die Default?bersicht muss die wichtigsten offenen Themen sofort zeigen.
 - `Probetermine` enth?lt nur die Probephase.
 - `Reitbeteiligungen` enth?lt nur das operative Tagesgesch?ft nach der Freischaltung.
+- Tarifinfos sind sichtbar, d?rfen aber den Arbeitsfluss nicht dominieren.
 
 ### Reiter
 
@@ -48,9 +58,9 @@ Die fachlich wichtigen Hauptsichten sind:
 
 Regeln:
 
-- Die Default?bersicht muss die wichtigsten Infos sofort zeigen.
 - Im Fokus steht entweder ein aktiver Probetermin oder die n?chste operative Buchung.
-- Zus?tzlich braucht der Reiter eine ?bersicht ?ber seine n?chsten Termine.
+- Vor der Freischaltung l?uft alles ?ber Probetermine.
+- Nach der Freischaltung l?uft das Tagesgesch?ft ?ber aktive Reitbeteiligungen.
 
 ## Workflow 1: Konto und Rollenstart
 
@@ -137,13 +147,10 @@ Ablauf:
 1. Pferdehalter sieht aktive Reitbeteiligungen getrennt von offenen Proben.
 2. Pro aktiver Reitbeteiligung kann ein Wochenkontingent in Stunden hinterlegt werden.
 3. Pferdehalter verwaltet offene Zeitfenster und pr?ft nur noch die F?lle, die nicht automatisch laufen.
-4. Pferdehalter kann eine aktive Reitbeteiligung wieder entfernen.
+4. Pferdehalter kann eine aktive Reitbeteiligung wieder entfernen oder die Freischaltung entziehen.
 
 Wichtig:
 Das ist die Hauptlast der Plattform und muss f?r beide Seiten einfach und fl?ssig bedienbar sein.
-
-Ziel:
-Laufende Zusammenarbeit pro Pferd steuerbar halten.
 
 ## Workflow 7: Operative Terminplanung (Pferdehalter)
 
@@ -158,10 +165,10 @@ Aktuelle Regeln:
 
 Gew?nschte Bedienung:
 
-1. Pferdehalter kann Tagesfenster direkt im Raster anlegen.
-2. Bestehende Verf?gbarkeiten und Sperren k?nnen im Raster direkt bearbeitet werden.
-3. Balken sollen sich direkt im Raster verschieben und in der L?nge anpassen lassen.
-4. Der untere Editor ist nur noch Detail- oder Fallback-Werkzeug.
+1. Pferdehalter pflegt zuerst Standardzeiten (Regelverf?gbarkeit).
+2. Danach pflegt er Ausnahmen.
+3. Einzelne Tage sind nur der Detail- oder Fallback-Fall.
+4. Balken sollen direkt im Raster anlegbar, verschiebbar und in der L?nge anpassbar sein.
 
 Zielbild:
 Planen soll sich wie eine echte Terminoberfl?che anf?hlen, nicht wie ein Formular.
@@ -176,23 +183,36 @@ Ablauf:
 2. Reiter sieht offene Verf?gbarkeitsfenster.
 3. Reiter w?hlt innerhalb eines offenen Fensters einen Termin im 15-Minuten-Raster.
 4. Der Termin muss vollst?ndig innerhalb des gew?hlten Verf?gbarkeitsfensters liegen.
-5. Wiederholungen sollen einfach ausw?hlbar sein und nicht nur als technische RRULE-Eingabe funktionieren.
-6. Wenn der Termin frei ist und innerhalb des Wochenkontingents liegt, wird er direkt gebucht.
-7. Nur wenn das Wochenkontingent ?berschritten w?rde, braucht der Pferdehalter eine Entscheidung.
-8. Oberhalb des Kontingents entsteht also eine `booking_request`.
-9. Bei Annahme durch den Pferdehalter werden echte `bookings` erzeugt.
+5. Wenn der Termin frei ist und innerhalb des Wochenkontingents liegt, wird er direkt gebucht.
+6. Nur wenn das Wochenkontingent ?berschritten w?rde, braucht der Pferdehalter eine Entscheidung.
+7. Oberhalb des Kontingents entsteht also eine `booking_request`.
+8. Bei Annahme durch den Pferdehalter werden echte `bookings` erzeugt.
 
 Ergebnis:
 Laufende Termine der Reitbeteiligung werden organisiert.
 
-## Workflow 9: Nachrichten
+## Workflow 9: Reitbeteiligung entfernen oder entziehen
+
+Dieser Schritt geh?rt ebenfalls zum Release-Kern.
+
+Ablauf:
+
+1. Pferdehalter entzieht entweder die Freischaltung oder entfernt die aktive Reitbeteiligung.
+2. Wochenkontingent und operative Zuordnung werden bereinigt.
+3. Der Reiter verliert den operativen Zugriff auf Kalender und offene Zeitfenster.
+4. Das Pferd z?hlt danach wieder nicht mehr als aktive Reitbeteiligung im Tariflimit.
+
+Wichtig:
+Das Entfernen muss genauso sauber funktionieren wie das Aufnehmen.
+
+## Workflow 10: Nachrichten
 
 1. Vor Freischaltung l?uft Kommunikation intern ?ber den Chat.
 2. Nachrichten sind f?r Pferdehalter und Reiter leicht erreichbar.
 3. Es gibt einen Ungelesen-Indikator in der Navigation.
 4. Nach Freischaltung kann Kommunikation zus?tzlich au?erhalb der Plattform laufen.
 
-## Workflow 10: Tariflogik
+## Workflow 11: Tariflogik
 
 Aktueller fachlicher Stand:
 
@@ -204,24 +224,16 @@ Wichtig:
 
 - Reiter bleiben kostenlos.
 - Tariflimits betreffen den Pferdehalter-Bereich.
-- Die Tarifinfos sollen sichtbar sein, aber nicht den operativen Arbeitsfluss dominieren.
+- Tarifinfos sollen sichtbar sein, aber nicht den operativen Arbeitsfluss dominieren.
 
-## Aktuell testkritische Kernbereiche
+## Aktuell release-kritisch
 
-Das sind die fachlich wichtigsten und zugleich fehleranf?lligsten Bereiche:
+Das sind die Punkte, die f?r den ersten echten Release zuerst rund sein m?ssen:
 
-1. ?bergang von Probeterminphase zu aktiver Reitbeteiligung
-2. Operatives Buchen aus offenen Fenstern f?r Reiter
-3. Automatische Direktbuchung innerhalb des Wochenkontingents
-4. Kalender-Bedienung im Tagesgesch?ft
-5. Saubere Trennung der Owner-Hauptsichten (`Probetermine` vs. `Reitbeteiligungen`)
-6. Zusammenspiel aus Kontingent, offenen Fenstern und Buchungsanfragen
-
-## N?chster Schritt
-
-Auf Basis dieser Datei definieren wir eine feste Teststruktur mit:
-
-- Kern-Happy-Paths
-- kritischen Negativf?llen
-- manuellen Smoke-Checks pro Rolle
-- gezielten Techniktests f?r Kalender- und Zeitlogik
+1. Probetermin -> Freischaltung -> aktive Reitbeteiligung
+2. Aktive Reitbeteiligung auf beiden Seiten sofort korrekt sichtbar
+3. Direktbuchung innerhalb des Wochenkontingents
+4. Anfrage oberhalb des Wochenkontingents
+5. Aktive Reitbeteiligung sauber entziehen oder l?schen
+6. Kalenderzugriff nur f?r Pferdehalter und aktive Reitbeteiligungen
+7. Interne Kommunikation und Ungelesen-Indikator entlang dieses Lebenszyklus

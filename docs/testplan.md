@@ -1,9 +1,21 @@
 # Testplan
 
-Stand: 2026-03-03
+Stand: 2026-03-04
 
 Diese Datei ?bersetzt die Kernworkflows in konkrete Testf?lle.
 Ziel ist ein kleiner, fester Pr?frahmen statt paralleler Ad-hoc-?nderungen.
+
+## Release-Fokus zuerst
+
+F?r das erste echte Release testen wir nicht alles gleich wichtig.
+Der zentrale Freigabe-Block ist:
+
+1. Probetermin bis `completed`
+2. Reiter als aktive Reitbeteiligung aufnehmen
+3. Operativ Termine innerhalb und au?erhalb des Kontingents abwickeln
+4. Reitbeteiligung wieder entziehen oder l?schen
+
+Alles andere ist nachrangig, solange dieser Block nicht stabil ist.
 
 ## Testprinzip
 
@@ -63,7 +75,9 @@ Erwartung:
 Erwartung:
 Der Fallback funktioniert ohne Kalenderpflege.
 
-### HP4: Probetermin abschlie?en und Reiter freischalten
+### HP4: Reitbeteiligung aufnehmen und in den Betrieb ?berf?hren
+
+Referenzlauf: siehe `docs/manual-tests/hp4-pdca.md`
 
 1. Pferdehalter nimmt einen Probetermin an.
 2. Pferdehalter markiert ihn sp?ter als durchgef?hrt.
@@ -94,7 +108,17 @@ Der Termin wird direkt als Buchung angelegt, ohne dass der Pferdehalter manuell 
 Erwartung:
 Oberhalb des Kontingents wird nicht automatisch gebucht.
 
-### HP7: Operative Kalenderpflege
+### HP7: Aktive Reitbeteiligung entfernen
+
+1. Eine Reitbeteiligung ist aktiv freigeschaltet.
+2. Pferdehalter entzieht die Freischaltung oder l?scht die Reitbeteiligung.
+3. Der Reiter verschwindet aus den aktiven Reitbeteiligungen.
+4. Der Reiter verliert den operativen Kalenderzugriff.
+
+Erwartung:
+Das Entfernen ist sauber und hinterl?sst keinen halben operativen Zustand.
+
+### HP8: Operative Kalenderpflege
 
 1. Pferdehalter legt ein Tagesfenster direkt im Raster an.
 2. Pferdehalter verschiebt das Fenster im Raster.
@@ -104,15 +128,16 @@ Oberhalb des Kontingents wird nicht automatisch gebucht.
 Erwartung:
 Der Planer ist direkt nutzbar, ohne dass Formulare die Hauptinteraktion sind.
 
-### HP8: Nachrichten vor der Freischaltung
+### HP9: Nachrichten entlang des Lebenszyklus
 
 1. Reiter stellt eine Probeanfrage.
 2. Konversation ist vorhanden.
 3. Beide Seiten k?nnen schreiben.
 4. Ungelesen-Indikator reagiert sichtbar.
+5. Nach Freischaltung bleibt die Kommunikation nachvollziehbar.
 
 Erwartung:
-Die interne Kommunikation funktioniert vor der Freischaltung stabil.
+Die interne Kommunikation funktioniert vor und nach der Freischaltung stabil.
 
 ## Kritische Negativf?lle
 
@@ -147,13 +172,13 @@ Die ?berschneidung wird blockiert.
 Erwartung:
 FCFS greift, der Slot ist nicht mehr buchbar.
 
-### NG5: Unautorisierter Zugriff
+### NG5: Kalenderzugriff ohne Freischaltung
 
-1. Reiter versucht Owner-Aktionen.
-2. Pferdehalter versucht Rider-only-Aktionen.
+1. Reiter ist noch nicht freigeschaltet.
+2. Reiter versucht den operativen Pferde-Kalender zu ?ffnen.
 
 Erwartung:
-Serverseitige Guards greifen sauber.
+Der Kalender bleibt gesperrt und zeigt nur den Hinweis auf die Freischaltung.
 
 ## Manueller Smoke-Check: Pferdehalter
 
@@ -163,7 +188,8 @@ Vor jedem gr??eren Release:
 2. In `Probetermine` eine neue Anfrage sehen und bis `completed` durchspielen.
 3. Einen Reiter freischalten und danach in `Reitbeteiligungen` wiederfinden.
 4. Im Kalender ein offenes Fenster anlegen, verschieben, skalieren und eine Sperre setzen.
-5. Ungelesene Nachricht pr?fen.
+5. Eine aktive Reitbeteiligung wieder entfernen.
+6. Ungelesene Nachricht pr?fen.
 
 ## Manueller Smoke-Check: Reiter
 
@@ -175,6 +201,7 @@ Vor jedem gr??eren Release:
 4. Nach Freischaltung offene Zeiten sehen.
 5. Einen Termin innerhalb des Fensters buchen.
 6. Pr?fen, ob `Als N?chstes` und die n?chsten Termine plausibel sind.
+7. Nach Entzug der Freischaltung keinen operativen Kalender mehr sehen.
 
 ## Techniktests mit h?chstem Nutzen
 
@@ -183,17 +210,17 @@ Diese Teile sollten als erste in kleine, isolierte Tests ausgelagert werden:
 1. Zeitfenster-Validierung (`innerhalb des Verf?gbarkeitsfensters`)
 2. Konfliktpr?fung (`hasWindowConflict`)
 3. Wochenkontingent-Berechnung
-4. Wiederholungslogik f?r RRULEs
-5. Status?berg?nge:
+4. Status?berg?nge:
    - Probetermin
    - Freischaltung
    - Buchungsanfrage
+5. Entfernen einer aktiven Reitbeteiligung inklusive Cleanup
 
-## Release-Gate
+## Release-Gate R1
 
-Ein Stand gilt erst als belastbar, wenn:
+Ein Stand gilt f?r den ersten echten Release erst als belastbar, wenn:
 
-1. Alle Happy Paths mindestens einmal manuell sauber durchlaufen.
-2. Alle Negativf?lle mit erwarteter Fehlermeldung gepr?ft wurden.
+1. HP4, HP5, HP6 und HP7 mindestens einmal sauber manuell durchlaufen wurden.
+2. NG1, NG2, NG3 und NG5 mit erwarteter Fehlermeldung gepr?ft wurden.
 3. `npm run build` gr?n ist.
 4. Keine neue Kernlogik ohne Eintrag in `docs/kernworkflows.md` und `docs/testplan.md` eingebaut wurde.

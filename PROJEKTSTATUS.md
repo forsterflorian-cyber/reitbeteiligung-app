@@ -1,36 +1,38 @@
 # Projektstatus
 
-Stand: 2026-03-03
+Stand: 2026-03-04
 
 ## Fokus jetzt
 
-Wir stoppen vorerst gr??ere Parallel-Features und stabilisieren die Kernworkflows.
-Die fachliche Referenz liegt jetzt in `docs/kernworkflows.md`.
-Der konkrete Pr?frahmen liegt jetzt in `docs/testplan.md`.
+Wir priorisieren f?r den ersten echten Release bewusst nur einen Kernblock:
 
-## Produktkern
-
-`reitbeteiligung.app` organisiert den Ablauf zwischen Pferdehaltern und Reitern:
-
-- Pferd anlegen und sichtbar machen
-- Probetermin anfragen und entscheiden
-- Reiter als aktive Reitbeteiligung aufnehmen
-- Laufende Termine planen und verwalten
-- Reitbeteiligungen bei Bedarf wieder entfernen
+1. Probetermin sauber bis `completed` f?hren
+2. Reiter als aktive Reitbeteiligung aufnehmen
+3. Operativen Alltag mit offenen Zeitfenstern und Kontingent stabil f?hren
+4. Reitbeteiligung wieder sauber entziehen oder l?schen
 
 Wichtig:
 Das operative Tagesgesch?ft nach der Freischaltung ist die eigentliche Kernfunktion.
 
-## Seit dem letzten Stand konkret erg?nzt
+## Was daf?r bereits vorhanden ist
 
-- Kernworkflows fachlich konsolidiert in `docs/kernworkflows.md`
-- Fester Testplan angelegt in `docs/testplan.md`
-- Pferde mit aktiven Reitbeteiligungen k?nnen nicht mehr gel?scht werden
-- Operative Buchungsanfragen laufen Owner-seitig jetzt fachlich ?ber `/owner/reitbeteiligungen`
-- Direkte Buchung innerhalb des Wochenkontingents ist vorbereitet:
-  - innerhalb des Kontingents wird direkt gebucht
-  - oberhalb des Kontingents bleibt es bei einer Anfrage zur Owner-Entscheidung
-- Rider-Dashboard zeigt jetzt zus?tzlich die n?chsten best?tigten Termine
+- Trennung der Owner-Hauptsichten in `Pferde verwalten`, `Probetermine` und `Reitbeteiligungen`
+- Freischalten und Entziehen der Freischaltung
+- Eigene Rider-Sicht f?r aktive Reitbeteiligungen
+- Wochenkontingent pro aktiver Reitbeteiligung
+- Direkte Buchung innerhalb des Kontingents als Grundlage
+- Buchungsanfrage oberhalb des Kontingents als Grundlage
+- Kalenderzugriff ist f?r nicht freigeschaltete Reiter gesperrt
+- Pferde mit aktiven Reitbeteiligungen k?nnen nicht gel?scht werden
+- Interner Chat und Ungelesen-Indikator sind vorhanden
+
+## Was jetzt zuerst robust werden muss
+
+1. Aufnahme eines Reiters nach dem Probetermin ohne Medienbruch
+2. Sofort sichtbare ?berf?hrung in die aktive Reitbeteiligung auf beiden Seiten
+3. Operative Terminbuchung im Alltag ohne holprige Nebenwege
+4. Sauberes Entziehen oder L?schen einer Reitbeteiligung inklusive Cleanup
+5. Klare Tests f?r genau diesen Lebenszyklus
 
 ## Technischer Stand
 
@@ -41,21 +43,14 @@ Das operative Tagesgesch?ft nach der Freischaltung ist die eigentliche Kernfunkt
 - Direkte Bearbeitung im Kalender-Raster ist bereits teilweise vorhanden
 - Build ist gr?n (nur bekannte, nicht blockierende `<img>`-Warnings bleiben)
 
-## Jetzt testkritisch
+## Verbindliche Testreihenfolge
 
-1. Probetermin -> Freischaltung -> aktive Reitbeteiligung
-2. Direktbuchung innerhalb des Wochenkontingents
-3. Anfrage oberhalb des Wochenkontingents
-4. Kalenderbedienung im Tagesgesch?ft
-5. L?schschutz bei aktiven Reitbeteiligungen
+1. HP4: Reitbeteiligung aufnehmen und in den Betrieb ?berf?hren
+2. HP5: Direktbuchung innerhalb des Wochenkontingents
+3. HP6: Anfrage oberhalb des Wochenkontingents
+4. HP7: Aktive Reitbeteiligung entfernen
 
-## N?chste sinnvolle Schritte
+## Offene Bugliste separat
 
-1. Testplan aus `docs/testplan.md` Punkt f?r Punkt manuell durchgehen.
-2. Die ersten harten Fehler nur noch gegen die dokumentierten Kernworkflows beheben.
-3. Danach gezielt kleine Techniktests f?r Zeitfenster, Konflikte und Kontingente einziehen.
-## Kalender-UX TODO f?r den n?chsten gr??eren Umbau
-
-- In der aktuellen Wochenansicht r?ckwirkende Tage nicht mehr als normale Bearbeitungsziele behandeln.
-- `Kalender anzeigen` und `Kalender bearbeiten` als klar getrennte Modi aufbauen.
-
+Nicht-release-kritische Holprigkeiten laufen gesammelt in `docs/bugliste.md`.
+Die n?chste Arbeit orientiert sich aber zuerst an `docs/testplan.md` und am Lebenszyklus aus `docs/kernworkflows.md`.
