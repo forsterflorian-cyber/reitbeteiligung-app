@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { requireOnboardingUser, requireProfile } from "@/lib/auth";
@@ -85,9 +86,27 @@ type SupabaseErrorLike = {
 
 function redirectWithMessage(path: string, key: "error" | "message", message: string): never {
   const [basePath, hashFragment = ""] = path.split("#", 2);
-  const separator = basePath.includes("?") ? "&" : "?";
-  const nextPath = `${basePath}${separator}${key}=${encodeURIComponent(message)}`;
-  redirect(hashFragment ? `${nextPath}#${hashFragment}` : nextPath);
+  const pathname = basePath.split("?", 1)[0] || "/";
+  const tone = key === "error" ? "error" : "success";
+
+  cookies().set(
+    "rb_flash",
+    encodeURIComponent(
+      JSON.stringify({
+        pathname,
+        text: message,
+        tone
+      })
+    ),
+    {
+      httpOnly: false,
+      maxAge: 60,
+      path: "/",
+      sameSite: "lax"
+    }
+  );
+
+  redirect(hashFragment ? `${basePath}#${hashFragment}` : basePath);
 }
 
 function logSupabaseError(context: string, error: SupabaseErrorLike) {

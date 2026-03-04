@@ -25,7 +25,7 @@ function formatDateTime(value: string) {
 
 function formatDateRange(startAt: string | null | undefined, endAt: string | null | undefined) {
   if (!startAt || !endAt) {
-    return "Zeitpunkt wird gepr?ft";
+    return "Zeitpunkt wird noch gepr?ft.";
   }
 
   return `${formatDateTime(startAt)} bis ${formatDateTime(endAt)}`;
@@ -108,7 +108,7 @@ export default async function OwnerTrialRequestsPage({
           <p className="mt-1 text-sm text-stone-600">Angenommene oder durchgef?hrte Probetermine brauchen deine Folgeentscheidung.</p>
         </Card>
       </div>
-      <SectionCard subtitle="Bestehende Probetermine zuerst pr?fen. Neue oder ge?nderte Slots legst du direkt im Pferde-Kalender an." title="Eingestellte Probetermine">
+      <SectionCard subtitle="Bestehende Probetermine zuerst pr?fen. Neue oder ge?nderte Slots pflegst du direkt im Pferdeprofil." title="Eingestellte Probetermine">
         {horses.length === 0 ? (
           <EmptyState
             action={
@@ -116,7 +116,7 @@ export default async function OwnerTrialRequestsPage({
                 Neues Pferd anlegen
               </Link>
             }
-            description="Lege zuerst ein Pferdeprofil an. Danach kannst du dort konkrete Probetermine einstellen."
+            description="Lege zuerst ein Pferdeprofil an. Danach kannst du dort konkrete Probetermine pflegen."
             title="Noch kein Pferd vorhanden"
           />
         ) : (
@@ -134,18 +134,13 @@ export default async function OwnerTrialRequestsPage({
                       <p className="text-sm text-stone-600">{slots.length > 0 ? `${slots.length} kommender Probetermin${slots.length === 1 ? "" : "e"}` : "Noch kein Probetermin eingestellt"}</p>
                     </div>
                     {nextSlot ? <p className="text-sm font-semibold text-ink">N?chster Slot: {formatDateRange(nextSlot.start_at, nextSlot.end_at)}</p> : null}
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid gap-2 sm:grid-cols-2">
                       <Link className={buttonVariants("primary", "w-full justify-center")} href={`/pferde/${horse.id}` as Route}>
                         Pferdeprofil ?ffnen
                       </Link>
-                      <Link className={buttonVariants("secondary", "w-full justify-center")} href={`/pferde/${horse.id}/kalender?mode=edit#serienfreigaben-form` as Route}>
-                        Probetermine einstellen
+                      <Link className={buttonVariants("secondary", "w-full justify-center")} href={`/pferde/${horse.id}/kalender#kalender-liste` as Route}>
+                        Probetermine pflegen
                       </Link>
-                      {slots.length > 0 ? (
-                        <Link className={buttonVariants("ghost", "w-full justify-center")} href={`/pferde/${horse.id}/kalender?day=${nextSlot.start_at.slice(0, 10)}#wochenplanung` as Route}>
-                          Kalender anzeigen
-                        </Link>
-                      ) : null}
                     </div>
                   </div>
                 </Card>

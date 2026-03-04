@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import "@/app/globals.css";
+import { GlobalFlashNotice } from "@/components/global-flash-notice";
 import { NavShell } from "@/components/nav/NavShell";
 import { Backdrop } from "@/components/ui/backdrop";
 import { getViewerContext } from "@/lib/auth";
@@ -55,6 +56,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <NavShell email={user?.email} profile={profile} unreadMessages={unreadMessages} />
           <main>
             <div className="mx-auto w-full max-w-md px-4 py-5 pb-28 sm:max-w-2xl sm:px-5 sm:py-6 sm:pb-28 md:max-w-4xl md:pb-8 lg:max-w-6xl lg:px-8 lg:py-8">
+              <GlobalFlashNotice />
               {children}
             </div>
           </main>
