@@ -4,53 +4,74 @@ Stand: 2026-03-04
 
 ## Fokus jetzt
 
-Wir priorisieren f?r den ersten echten Release bewusst nur einen Kernblock:
+Wir ziehen das eigentliche Pferde-Management bewusst nach hinten.
+Fuer R1 konzentrieren wir uns nur auf diesen Kern:
 
-1. Probetermin sauber bis `completed` f?hren
-2. Reiter als aktive Reitbeteiligung aufnehmen
-3. Operativen Alltag mit offenen Zeitfenstern und Kontingent stabil f?hren
-4. Reitbeteiligung wieder sauber entziehen oder l?schen
+1. Registrieren
+2. Rollen
+3. Pferd anlegen
+4. Pferde mit Probeterminen finden
+5. Probe anfragen
+6. Probe annehmen oder ablehnen
+7. Probetermine einstellen
+8. Chat in der Plattform
+9. Als Reitbeteiligung aufnehmen
+10. Gruppenchat fuer das Pferd
+11. Reitbeteiligung entfernen
 
 Wichtig:
-Das operative Tagesgesch?ft nach der Freischaltung ist die eigentliche Kernfunktion.
+Erst wenn dieser Kern stabil ist, bauen wir das spaetere laufende Pferde-Management weiter aus.
 
-## Was daf?r bereits vorhanden ist
+## Was dafuer bereits vorhanden ist
 
-- Trennung der Owner-Hauptsichten in `Pferde verwalten`, `Probetermine` und `Reitbeteiligungen`
+- Registrierung, Login und Onboarding
+- Rollenrouting fuer Pferdehalter und Reiter
+- Pferde anlegen und sichtbar machen
+- Probetermin-Slots als Grundlage
+- Probeanfragen inklusive interner Konversation
+- Annehmen, Ablehnen und `completed` in der Probephase
 - Freischalten und Entziehen der Freischaltung
-- Eigene Rider-Sicht f?r aktive Reitbeteiligungen
-- Wochenkontingent pro aktiver Reitbeteiligung
-- Direkte Buchung innerhalb des Kontingents als Grundlage
-- Buchungsanfrage oberhalb des Kontingents als Grundlage
-- Kalenderzugriff ist f?r nicht freigeschaltete Reiter gesperrt
-- Pferde mit aktiven Reitbeteiligungen k?nnen nicht gel?scht werden
+- Eigene Sicht fuer aktive Reitbeteiligungen
+- Reitbeteiligung loeschen bzw. entfernen als Grundlage
+- Kalenderzugriff ist fuer nicht freigeschaltete Reiter gesperrt
 - Interner Chat und Ungelesen-Indikator sind vorhanden
 
-## Was jetzt zuerst robust werden muss
+## Was fuer R1 jetzt zuerst robust werden muss
 
-1. Aufnahme eines Reiters nach dem Probetermin ohne Medienbruch
-2. Sofort sichtbare ?berf?hrung in die aktive Reitbeteiligung auf beiden Seiten
-3. Operative Terminbuchung im Alltag ohne holprige Nebenwege
-4. Sauberes Entziehen oder L?schen einer Reitbeteiligung inklusive Cleanup
-5. Klare Tests f?r genau diesen Lebenszyklus
+1. Probetermine sauber pflegen und auffindbar machen
+2. Aufnahme eines Reiters nach dem Probetermin ohne Medienbruch
+3. Sofort sichtbare Ueberfuehrung in die aktive Reitbeteiligung auf beiden Seiten
+4. Klarer Pferde-Chat nach der Aufnahme
+5. Sauberes Entfernen einer Reitbeteiligung inklusive Cleanup
+
+## Was bewusst nach R1 kommt
+
+Dieser Block ist derzeit ausdruecklich nach hinten geschoben:
+
+- offene operative Zeitfenster fuer aktive Reitbeteiligungen
+- Wochenkontingente
+- direkte Buchungen
+- Buchungsanfragen oberhalb des Kontingents
+- das volle laufende Pferde-Management im Alltag
 
 ## Technischer Stand
 
 - Next.js 14 App Router + TypeScript
-- Supabase f?r Auth, Postgres und Storage
-- Rollenbasierte Navigation mit Ungelesen-Indikator f?r Nachrichten
-- Kalender im 15-Minuten-Raster
-- Direkte Bearbeitung im Kalender-Raster ist bereits teilweise vorhanden
-- Build ist gr?n (nur bekannte, nicht blockierende `<img>`-Warnings bleiben)
+- Supabase fuer Auth, Postgres und Storage
+- Rollenbasierte Navigation mit Ungelesen-Indikator fuer Nachrichten
+- Build ist gruen (nur bekannte, nicht blockierende `<img>`-Warnings bleiben)
 
 ## Verbindliche Testreihenfolge
 
-1. HP4: Reitbeteiligung aufnehmen und in den Betrieb ?berf?hren
-2. HP5: Direktbuchung innerhalb des Wochenkontingents
-3. HP6: Anfrage oberhalb des Wochenkontingents
-4. HP7: Aktive Reitbeteiligung entfernen
+1. HP1: Registrieren und Rollenstart
+2. HP2: Pferd anlegen und sichtbar machen
+3. HP3: Probetermine einstellen und finden
+4. HP4: Probe anfragen und als Reitbeteiligung aufnehmen
+5. HP5: Chat in der Plattform
+6. HP6: Gruppenchat fuer das Pferd
+7. HP7: Reitbeteiligung entfernen
 
 ## Offene Bugliste separat
 
 Nicht-release-kritische Holprigkeiten laufen gesammelt in `docs/bugliste.md`.
-Die n?chste Arbeit orientiert sich aber zuerst an `docs/testplan.md` und am Lebenszyklus aus `docs/kernworkflows.md`.
+Die naechste Arbeit orientiert sich aber zuerst an `docs/testplan.md` und am R1-Kern.

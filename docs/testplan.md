@@ -2,51 +2,57 @@
 
 Stand: 2026-03-04
 
-Diese Datei ?bersetzt die Kernworkflows in konkrete Testf?lle.
-Ziel ist ein kleiner, fester Pr?frahmen statt paralleler Ad-hoc-?nderungen.
+Diese Datei uebersetzt die Kernworkflows in konkrete Testfaelle.
+Ziel ist ein kleiner, fester Pruefrahmen statt paralleler Ad-hoc-Aenderungen.
 
-## Release-Fokus zuerst
+## Release-Fokus R1
 
-F?r das erste echte Release testen wir nicht alles gleich wichtig.
-Der zentrale Freigabe-Block ist:
+Fuer den ersten echten Release pruefen wir zuerst nur diesen Kern:
 
-1. Probetermin bis `completed`
-2. Reiter als aktive Reitbeteiligung aufnehmen
-3. Operativ Termine innerhalb und au?erhalb des Kontingents abwickeln
-4. Reitbeteiligung wieder entziehen oder l?schen
+1. Registrieren
+2. Rollen waehlen
+3. Pferd anlegen
+4. Pferde mit Probeterminen finden
+5. Probe anfragen
+6. Probe annehmen oder ablehnen
+7. Probetermine einstellen
+8. Chat in der Plattform
+9. Als Reitbeteiligung aufnehmen
+10. Gruppenchat fuer das Pferd
+11. Reitbeteiligung entfernen
 
-Alles andere ist nachrangig, solange dieser Block nicht stabil ist.
+Das spaetere laufende Pferde-Management ist fuer R1 bewusst nachrangig.
 
 ## Testprinzip
 
-Wir testen zuerst die produktkritischen Happy Paths und danach die h?rtesten Negativf?lle.
-Neue Feature-Arbeit sollte erst weitergehen, wenn diese F?lle stabil sind.
-
-## Teststufen
-
-1. Dokumentierter Happy Path pro Kernworkflow
-2. Kritische Negativf?lle und Guards
-3. Manueller Smoke-Check pro Rolle
-4. Gezielte Techniktests f?r Zeit- und Statuslogik
+Wir testen zuerst die produktkritischen Happy Paths und danach die haertesten Negativfaelle.
+Neue Feature-Arbeit sollte erst weitergehen, wenn diese Faelle stabil sind.
 
 ## Gemeinsame Testdaten
 
-F?r konsistente Tests brauchen wir mindestens:
+Fuer konsistente Tests brauchen wir mindestens:
 
 - 1 Pferdehalter im kostenlosen Tarif
-- 1 Reiter mit vollst?ndigem Profil
+- 1 Reiter mit vollstaendigem Profil
 - 1 aktives Pferd ohne Reitbeteiligung
-- 1 aktives Pferd mit bestehender freigeschalteter Reitbeteiligung
 - 1 Pferd mit gepflegten Probetermin-Slots
-- 1 Pferd mit gepflegten offenen operativen Verf?gbarkeiten
-- 1 Pferd mit gesetztem Wochenkontingent f?r eine aktive Reitbeteiligung
+- 1 bestehende Konversation aus einer Probeanfrage
 
-## Kern-Happy-Paths
+## Kern-Happy-Paths R1
 
-### HP1: Pferd anlegen und sichtbar machen
+### HP1: Registrieren und Rollenstart
+
+1. Neuer Nutzer registriert sich.
+2. Onboarding erscheint.
+3. Rolle wird gesetzt.
+4. Nutzer landet im passenden Bereich.
+
+Erwartung:
+Auth, Onboarding und Rollenrouting sind stabil.
+
+### HP2: Pferd anlegen und sichtbar machen
 
 Referenzlauf: siehe `docs/manual-tests/hp1-pdca.md`
-Status: Einmal manuell gr?n gepr?ft (2026-03-03). Der Redirect nach dem ersten Speichern wurde auf `Pferde verwalten` nachgezogen.
 
 1. Pferdehalter legt ein neues Pferdeprofil an.
 2. Pferd erscheint unter `Pferde verwalten`.
@@ -54,117 +60,79 @@ Status: Einmal manuell gr?n gepr?ft (2026-03-03). Der Redirect nach dem ersten S
 4. Pferdeprofil ist aufrufbar.
 
 Erwartung:
-Das Pferd ist aktiv sichtbar und vollst?ndig bearbeitbar.
+Das Pferd ist aktiv sichtbar und vollstaendig bearbeitbar.
 
-### HP2: Probetermin mit explizitem Slot anfragen
+### HP3: Probetermine einstellen und finden
 
-1. Pferdehalter pflegt einen expliziten Probetermin-Slot.
-2. Reiter ?ffnet das Pferdeprofil.
-3. Reiter w?hlt genau diesen Slot und sendet die Anfrage.
-4. Pferdehalter sieht die Anfrage in `Probetermine`.
-
-Erwartung:
-`trial_request` wird mit konkretem Slot angelegt und ist f?r beide Seiten sichtbar.
-
-### HP3: Generische Probeanfrage ohne gepflegte Probetermin-Slots
-
-1. Pferdehalter hat keine expliziten Probetermin-Slots gepflegt.
-2. Reiter sendet eine allgemeine Probeanfrage.
-3. Pferdehalter sieht die Anfrage in `Probetermine`.
+1. Pferdehalter pflegt mindestens einen expliziten Probetermin-Slot.
+2. Reiter findet das Pferd mit diesem Slot.
+3. Im Pferdeprofil ist der Slot klar sichtbar.
 
 Erwartung:
-Der Fallback funktioniert ohne Kalenderpflege.
+Die Probetraining-Suche funktioniert ueber echte Probetermin-Slots.
 
-### HP4: Reitbeteiligung aufnehmen und in den Betrieb ?berf?hren
+### HP4: Probe anfragen und als Reitbeteiligung aufnehmen
 
 Referenzlauf: siehe `docs/manual-tests/hp4-pdca.md`
 
-1. Pferdehalter nimmt einen Probetermin an.
-2. Pferdehalter markiert ihn sp?ter als durchgef?hrt.
-3. Pferdehalter nimmt den Reiter als Reitbeteiligung auf.
-4. Reiter erscheint unter `Meine Reitbeteiligungen`.
-5. Pferdehalter sieht den Reiter unter `Reitbeteiligungen`.
+1. Reiter fragt einen Probetermin an.
+2. Pferdehalter nimmt an oder lehnt ab.
+3. Bei Annahme wird spaeter auf `completed` gesetzt.
+4. Pferdehalter nimmt den Reiter als Reitbeteiligung auf.
 
 Erwartung:
-Der ?bergang von Probephase zu aktivem Tagesgesch?ft ist klar und sauber.
+Der Uebergang von Probephase zu aktiver Reitbeteiligung ist klar und sauber.
 
-### HP5: Direktbuchung innerhalb des Wochenkontingents
-
-1. F?r eine aktive Reitbeteiligung ist ein Wochenkontingent gesetzt.
-2. Pferdehalter hat offene Verf?gbarkeitsfenster gepflegt.
-3. Reiter w?hlt einen freien Termin innerhalb des Fensters.
-4. Der Termin bleibt innerhalb des Wochenkontingents.
-
-Erwartung:
-Der Termin wird direkt als Buchung angelegt, ohne dass der Pferdehalter manuell annehmen muss.
-
-### HP6: Buchungsanfrage oberhalb des Wochenkontingents
-
-1. F?r eine aktive Reitbeteiligung ist ein Wochenkontingent gesetzt.
-2. Reiter w?hlt einen weiteren Termin, der das Wochenkontingent ?berschreitet.
-3. Pferdehalter sieht diese Anfrage zur Entscheidung.
-4. Pferdehalter kann die Anfrage annehmen oder ablehnen.
-
-Erwartung:
-Oberhalb des Kontingents wird nicht automatisch gebucht.
-
-### HP7: Aktive Reitbeteiligung entfernen
-
-1. Eine Reitbeteiligung ist aktiv freigeschaltet.
-2. Pferdehalter entzieht die Freischaltung oder l?scht die Reitbeteiligung.
-3. Der Reiter verschwindet aus den aktiven Reitbeteiligungen.
-4. Der Reiter verliert den operativen Kalenderzugriff.
-
-Erwartung:
-Das Entfernen ist sauber und hinterl?sst keinen halben operativen Zustand.
-
-### HP8: Operative Kalenderpflege
-
-1. Pferdehalter legt ein Tagesfenster direkt im Raster an.
-2. Pferdehalter verschiebt das Fenster im Raster.
-3. Pferdehalter passt Beginn oder Ende im Raster an.
-4. Pferdehalter legt eine Sperre mit Titel an.
-
-Erwartung:
-Der Planer ist direkt nutzbar, ohne dass Formulare die Hauptinteraktion sind.
-
-### HP9: Nachrichten entlang des Lebenszyklus
+### HP5: Chat in der Plattform
 
 1. Reiter stellt eine Probeanfrage.
 2. Konversation ist vorhanden.
-3. Beide Seiten k?nnen schreiben.
-4. Ungelesen-Indikator reagiert sichtbar.
-5. Nach Freischaltung bleibt die Kommunikation nachvollziehbar.
+3. Beide Seiten koennen schreiben.
+4. Ungelesene Nachrichten sind sichtbar.
 
 Erwartung:
-Die interne Kommunikation funktioniert vor und nach der Freischaltung stabil.
+Die Kommunikation vor der Aufnahme funktioniert stabil.
 
-## Kritische Negativf?lle
+### HP6: Gruppenchat fuer das Pferd
 
-### NG1: Pferd mit aktiver Reitbeteiligung l?schen
+1. Nach der Aufnahme ist ein klarer Chat-Kontext fuer das Pferd erreichbar.
+2. Pferdehalter und aktive Reitbeteiligung koennen dort schreiben.
+3. Der Chat ist von beiden Seiten leicht erreichbar.
+
+Erwartung:
+Die Kommunikation nach der Aufnahme laeuft ueber einen klaren Pferde-Chat.
+
+### HP7: Reitbeteiligung entfernen
+
+1. Eine Reitbeteiligung ist aktiv freigeschaltet.
+2. Pferdehalter entzieht die Freischaltung oder loescht die Reitbeteiligung.
+3. Der Reiter verschwindet aus den aktiven Reitbeteiligungen.
+4. Der Reiter verliert den Zugriff auf den Pferde-Kontext.
+
+Erwartung:
+Das Entfernen ist sauber und hinterlaesst keinen halben Zustand.
+
+## Phase 2 nach R1
+
+Diese Tests ziehen wir erst nach dem ersten Release nach:
+
+- operative Zeitfenster im Alltag
+- Wochenkontingente
+- direkte Buchung innerhalb des Kontingents
+- Buchungsanfrage oberhalb des Kontingents
+- der volle Management-Kalender
+
+## Kritische Negativfaelle R1
+
+### NG1: Pferd mit aktiver Reitbeteiligung loeschen
 
 1. Pferd hat mindestens eine aktive `approved`-Reitbeteiligung.
-2. Pferdehalter versucht zu l?schen.
+2. Pferdehalter versucht zu loeschen.
 
 Erwartung:
-L?schen wird blockiert, mit klarer Fehlermeldung.
+Loeschen wird blockiert, mit klarer Fehlermeldung.
 
-### NG2: Termin au?erhalb des offenen Fensters
-
-1. Reiter w?hlt einen Terminstart oder ein Terminende au?erhalb des offenen Verf?gbarkeitsfensters.
-
-Erwartung:
-Die Aktion wird serverseitig abgelehnt.
-
-### NG3: ?berlappende Verf?gbarkeiten anlegen
-
-1. Pferdehalter hat bereits ein offenes Zeitfenster.
-2. Pferdehalter versucht ein ?berlappendes neues Fenster anzulegen oder ein bestehendes hineinzuschieben.
-
-Erwartung:
-Die ?berschneidung wird blockiert.
-
-### NG4: Probetermin-Slot ist bereits vergeben
+### NG2: Probetermin-Slot ist bereits vergeben
 
 1. Ein expliziter Probetermin wurde bereits reserviert.
 2. Ein zweiter Reiter versucht denselben Slot anzufragen.
@@ -172,55 +140,51 @@ Die ?berschneidung wird blockiert.
 Erwartung:
 FCFS greift, der Slot ist nicht mehr buchbar.
 
-### NG5: Kalenderzugriff ohne Freischaltung
+### NG3: Kalenderzugriff ohne Aufnahme
 
-1. Reiter ist noch nicht freigeschaltet.
-2. Reiter versucht den operativen Pferde-Kalender zu ?ffnen.
+1. Reiter ist noch nicht als Reitbeteiligung aufgenommen.
+2. Reiter versucht den Pferde-Kalender oder spaeteren Pferde-Kontext zu oeffnen.
 
 Erwartung:
-Der Kalender bleibt gesperrt und zeigt nur den Hinweis auf die Freischaltung.
+Der Zugriff bleibt gesperrt und zeigt nur den Hinweis auf die Freischaltung.
+
+### NG4: Reitbeteiligung nach Entfernen noch sichtbar
+
+1. Eine aktive Reitbeteiligung wurde entfernt.
+2. Eine der beiden Seiten sieht die Beziehung noch als aktiv.
+
+Erwartung:
+Das darf nicht passieren. Beide Seiten muessen denselben bereinigten Zustand sehen.
 
 ## Manueller Smoke-Check: Pferdehalter
 
-Vor jedem gr??eren Release:
+Vor jedem groesseren Release:
 
-1. In `Pferde verwalten` ein Pferd anlegen, ?ffnen, bearbeiten.
-2. In `Probetermine` eine neue Anfrage sehen und bis `completed` durchspielen.
-3. Einen Reiter freischalten und danach in `Reitbeteiligungen` wiederfinden.
-4. Im Kalender ein offenes Fenster anlegen, verschieben, skalieren und eine Sperre setzen.
-5. Eine aktive Reitbeteiligung wieder entfernen.
-6. Ungelesene Nachricht pr?fen.
+1. Pferd anlegen.
+2. Probetermin-Slot pflegen.
+3. Neue Probeanfrage sehen.
+4. Chat pruefen.
+5. Reiter aufnehmen.
+6. Pferde-Chat pruefen.
+7. Reitbeteiligung wieder entfernen.
 
 ## Manueller Smoke-Check: Reiter
 
-Vor jedem gr??eren Release:
+Vor jedem groesseren Release:
 
-1. Pferd finden und Detailseite ?ffnen.
-2. Probetermin anfragen.
-3. Interne Nachricht senden.
-4. Nach Freischaltung offene Zeiten sehen.
-5. Einen Termin innerhalb des Fensters buchen.
-6. Pr?fen, ob `Als N?chstes` und die n?chsten Termine plausibel sind.
-7. Nach Entzug der Freischaltung keinen operativen Kalender mehr sehen.
-
-## Techniktests mit h?chstem Nutzen
-
-Diese Teile sollten als erste in kleine, isolierte Tests ausgelagert werden:
-
-1. Zeitfenster-Validierung (`innerhalb des Verf?gbarkeitsfensters`)
-2. Konfliktpr?fung (`hasWindowConflict`)
-3. Wochenkontingent-Berechnung
-4. Status?berg?nge:
-   - Probetermin
-   - Freischaltung
-   - Buchungsanfrage
-5. Entfernen einer aktiven Reitbeteiligung inklusive Cleanup
+1. Registrieren und Rolle setzen.
+2. Pferd finden.
+3. Probe anfragen.
+4. Plattform-Chat pruefen.
+5. Nach Aufnahme als aktive Reitbeteiligung sichtbar sein.
+6. Pferde-Chat sehen.
+7. Nach Entfernen nicht mehr im aktiven Pferde-Kontext sein.
 
 ## Release-Gate R1
 
-Ein Stand gilt f?r den ersten echten Release erst als belastbar, wenn:
+Ein Stand gilt fuer den ersten echten Release erst als belastbar, wenn:
 
-1. HP4, HP5, HP6 und HP7 mindestens einmal sauber manuell durchlaufen wurden.
-2. NG1, NG2, NG3 und NG5 mit erwarteter Fehlermeldung gepr?ft wurden.
-3. `npm run build` gr?n ist.
-4. Keine neue Kernlogik ohne Eintrag in `docs/kernworkflows.md` und `docs/testplan.md` eingebaut wurde.
+1. HP1 bis HP7 mindestens einmal sauber manuell durchlaufen wurden.
+2. NG1 bis NG4 mit erwarteter Fehlermeldung oder sauberem Guard geprueft wurden.
+3. `npm run build` gruen ist.
+4. Das spaetere Pferde-Management noch nicht in den Release-Kern hineingemischt wird.
