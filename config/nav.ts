@@ -74,7 +74,16 @@ export function getNavItems(profile?: Pick<Profile, "role"> | null, options?: { 
   }
 
   if (profile.role !== "owner") {
-    return [...riderNav];
+    return riderNav.map((item) => {
+      if (item.href === "/anfragen" && options?.unreadMessages) {
+        return {
+          ...item,
+          badgeCount: options.unreadMessages
+        };
+      }
+
+      return { ...item };
+    });
   }
 
   return ownerNav.map((item) => {

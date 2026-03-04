@@ -146,6 +146,8 @@ export function OwnerRelationshipsWorkspace({
                       <form action={updateApprovalAction}>
                         <input name="requestId" type="hidden" value={item.latestTrialId} />
                         <input name="status" type="hidden" value="revoked" />
+                        <input name="redirectTo" type="hidden" value="/owner/reitbeteiligungen" />
+                        <input name="approvalContext" type="hidden" value="relationship" />
                         <Button className="w-full" type="submit" variant="secondary">
                           Freischaltung entziehen
                         </Button>

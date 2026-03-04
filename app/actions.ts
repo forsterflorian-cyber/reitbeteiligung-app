@@ -1072,23 +1072,25 @@ export async function updateTrialRequestStatusAction(formData: FormData) {
 
 export async function updateApprovalAction(formData: FormData) {
   const { profile, user } = await requireProfile("owner");
+  const redirectPath = getOwnerRedirectPath(formData, "/owner/anfragen");
   const requestId = asString(formData.get("requestId"));
   const nextStatus = asString(formData.get("status"));
+  const approvalContext = asString(formData.get("approvalContext"));
 
   if (!requestId || !isApprovalStatus(nextStatus)) {
-    redirectWithMessage("/owner/anfragen", "error", "Die Freischaltung ist ungültig.");
+    redirectWithMessage(redirectPath, "error", "Die Freischaltung ist ung?ltig.");
   }
 
   const record = await getOwnedTrialRequest(requestId, user.id);
 
   if (!record) {
-    redirectWithMessage("/owner/anfragen", "error", "Die Anfrage konnte nicht gefunden werden.");
+    redirectWithMessage(redirectPath, "error", "Die Anfrage konnte nicht gefunden werden.");
   }
 
   const approvalTransitionError = getApprovalTransitionError(record.request.status);
 
   if (approvalTransitionError) {
-    redirectWithMessage("/owner/anfragen", "error", approvalTransitionError);
+    redirectWithMessage(redirectPath, "error", approvalTransitionError);
   }
 
   if (nextStatus === APPROVAL_STATUS.approved) {
@@ -1107,9 +1109,9 @@ export async function updateApprovalAction(formData: FormData) {
       const riderLabel = riderLimit === 1 ? "1 Reitbeteiligung" : `${riderLimit} Reitbeteiligungen`;
 
       redirectWithMessage(
-        "/owner/anfragen",
+        redirectPath,
         "error",
-        `Im Tarif ${ownerPlan.label} sind ${riderLabel} enthalten. Für weitere Freischaltungen brauchst du später den bezahlten Tarif.`
+        `Im Tarif ${ownerPlan.label} sind ${riderLabel} enthalten. F?r weitere Freischaltungen brauchst du sp?ter den bezahlten Tarif.`
       );
     }
   }
@@ -1127,7 +1129,7 @@ export async function updateApprovalAction(formData: FormData) {
 
   if (error) {
     logSupabaseError("Approval upsert failed", error);
-    redirectWithMessage("/owner/anfragen", "error", "Die Freischaltung konnte nicht gespeichert werden.");
+    redirectWithMessage(redirectPath, "error", "Die Freischaltung konnte nicht gespeichert werden.");
   }
 
   revalidatePath("/owner/anfragen");
@@ -1137,9 +1139,12 @@ export async function updateApprovalAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath(`/pferde/${record.request.horse_id}`);
   revalidatePath(`/pferde/${record.request.horse_id}/gruppenchat`);
-  redirectWithMessage("/owner/anfragen", "message", getApprovalSavedMessage(nextStatus));
+  revalidatePath(redirectPath);
+  const successMessage = nextStatus === APPROVAL_STATUS.revoked && approvalContext === "trial"
+    ? "Die Reitbeteiligung wurde nicht aufgenommen."
+    : getApprovalSavedMessage(nextStatus);
+  redirectWithMessage(redirectPath, "message", successMessage);
 }
-
 export async function saveRiderBookingLimitAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
   const horseId = asString(formData.get("horseId"));

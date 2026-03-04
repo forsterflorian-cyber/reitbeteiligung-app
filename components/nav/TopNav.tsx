@@ -24,6 +24,7 @@ export function TopNav({ email, profile, unreadMessages = 0 }: TopNavProps) {
   const items = getNavItems(profile, { unreadMessages });
   const displayName = getProfileDisplayName(profile, email);
   const roleLabel = getRoleLabel(profile.role);
+  const unreadLabel = unreadMessages === 1 ? "1 neue Nachricht" : `${unreadMessages} neue Nachrichten`;
 
   return (
     <header className="relative border-b border-stone-200/80 bg-white/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90">
@@ -38,6 +39,7 @@ export function TopNav({ email, profile, unreadMessages = 0 }: TopNavProps) {
               <Badge className="uppercase tracking-[0.14em]" tone="approved">
                 {roleLabel}
               </Badge>
+              {unreadMessages > 0 ? <Badge tone="info">{unreadLabel}</Badge> : null}
               <span className="truncate font-medium text-stone-700">{displayName}</span>
             </div>
           </div>

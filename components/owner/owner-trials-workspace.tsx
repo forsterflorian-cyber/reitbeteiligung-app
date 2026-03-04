@@ -171,7 +171,7 @@ export function OwnerTrialsWorkspace({
                   <p className="text-sm leading-6 text-stone-600">{request.messageText}</p>
                   <div className="flex flex-wrap gap-2">
                     <StatusBadge status={request.status} />
-                    {request.approvalStatus ? <StatusBadge status={request.approvalStatus} /> : null}
+                    {request.approvalStatus === "revoked" && request.status === "completed" ? <Badge tone="rejected">Nicht aufgenommen</Badge> : request.approvalStatus ? <StatusBadge status={request.approvalStatus} /> : null}
                     {request.hasUnread ? <Badge tone="info">Neue Nachricht</Badge> : null}
                   </div>
                   {canAcceptTrialRequest(request.status) ? (
@@ -202,13 +202,26 @@ export function OwnerTrialsWorkspace({
                     </form>
                   ) : null}
                   {canApproveTrialRequest(request.status) ? (
-                    <form action={updateApprovalAction}>
-                      <input name="requestId" type="hidden" value={request.requestId} />
-                      <input name="status" type="hidden" value="approved" />
-                      <Button className="w-full" type="submit" variant="primary">
-                        Als Reitbeteiligung aufnehmen
-                      </Button>
-                    </form>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <form action={updateApprovalAction}>
+                        <input name="requestId" type="hidden" value={request.requestId} />
+                        <input name="status" type="hidden" value="approved" />
+                        <input name="redirectTo" type="hidden" value="/owner/anfragen" />
+                        <input name="approvalContext" type="hidden" value="trial" />
+                        <Button className="w-full" type="submit" variant="primary">
+                          Als Reitbeteiligung aufnehmen
+                        </Button>
+                      </form>
+                      <form action={updateApprovalAction}>
+                        <input name="requestId" type="hidden" value={request.requestId} />
+                        <input name="status" type="hidden" value="revoked" />
+                        <input name="redirectTo" type="hidden" value="/owner/anfragen" />
+                        <input name="approvalContext" type="hidden" value="trial" />
+                        <Button className="w-full border-rose-300 text-rose-700 hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700" type="submit" variant="secondary">
+                          Nicht aufnehmen
+                        </Button>
+                      </form>
+                    </div>
                   ) : null}
                   <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
                     <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={`/pferde/${request.horseId}` as Route}>
