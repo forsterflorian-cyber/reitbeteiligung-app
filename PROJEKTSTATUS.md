@@ -54,6 +54,11 @@ Dieser Block ist derzeit ausdruecklich nach hinten geschoben:
 - Buchungsanfragen oberhalb des Kontingents
 - das volle laufende Pferde-Management im Alltag
 
+## Oeffentliche Release-Oberflaeche
+
+- Landing, Login, Signup und FAQ muessen immer zum aktuellen Kernflow passen.
+- FAQ und Hilfe gehoeren zur oeffentlichen Release-Oberflaeche und werden bei Kernflow-Aenderungen mitgeprueft.
+
 ## Technischer Stand
 
 - Next.js 14 App Router + TypeScript

@@ -9,6 +9,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: BASE_URL + "/suchen", changeFrequency: "daily", priority: 0.9 },
     { url: BASE_URL + "/login", changeFrequency: "monthly", priority: 0.5 },
     { url: BASE_URL + "/signup", changeFrequency: "monthly", priority: 0.6 },
+    { url: BASE_URL + "/faq", changeFrequency: "monthly", priority: 0.4 },
     { url: BASE_URL + "/passwort-vergessen", changeFrequency: "yearly", priority: 0.3 }
   ];
 }

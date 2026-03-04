@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export function LandingFooter() {
   return (
     <footer className="border-t border-stone-200 py-8">
@@ -10,12 +12,16 @@ export function LandingFooter() {
           Datenschutz
         </a>
         <span className="text-stone-300">|</span>
+        <Link className="hover:text-stone-900" href="/faq">
+          FAQ
+        </Link>
+        <span className="text-stone-300">|</span>
         <a className="hover:text-stone-900" href="mailto:kontakt@reitbeteiligung.app">
           Kontakt
         </a>
       </div>
       <p className="mt-3 text-sm text-stone-500" id="rechtliches">
-        Impressum und Datenschutzhinweise werden im nächsten Schritt hinterlegt.
+        Impressum und Datenschutzhinweise werden bald hinterlegt.
       </p>
     </footer>
   );
