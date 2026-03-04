@@ -407,16 +407,16 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const detailHref = `/pferde/${horse.id}` as Route;
   const isOwner = profile?.role === "owner" && user?.id === horse.owner_id;
   const isRider = profile?.role === "rider" && Boolean(user);
+  const ownerR1Mode = isOwner && R1_CORE_MODE;
   const { data: ownerProfileData } = await supabase
     .from("profiles")
     .select("id, role, is_premium, created_at, display_name, phone")
     .eq("id", horse.owner_id)
     .maybeSingle();
   const ownerProfile = ((ownerProfileData as Profile | null) ?? null) || (isOwner ? profile : null);
-  const ownerPlanUsage = isOwner && user ? await getOwnerPlanUsage(supabase, user.id) : { approvedRiderCount: 0, horseCount: 1 };
+  const ownerPlanUsage = !ownerR1Mode && isOwner && user ? await getOwnerPlanUsage(supabase, user.id) : { approvedRiderCount: 0, horseCount: 1 };
   const ownerPlan = getOwnerPlan(ownerProfile, ownerPlanUsage);
   const riderApproved = isRider && user ? await isApproved(horse.id, user.id, supabase) : false;
-  const ownerR1Mode = isOwner && R1_CORE_MODE;
   const canUseCalendar = isOwner || (!R1_CORE_MODE && riderApproved);
   const { data: riderBookingLimitData } = !R1_CORE_MODE && isRider && riderApproved && user
     ? await supabase
