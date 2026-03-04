@@ -42,6 +42,7 @@ import {
   getOwnedHorse,
   getOwnerRedirectPath
 } from "@/lib/server-actions/horse";
+import { deleteHorseImageForOwner, uploadHorseImagesForOwner } from "@/lib/server-actions/horse-actions";
 import {
   getAvailabilityAccessError,
   getAvailabilityConflictError,
@@ -64,6 +65,7 @@ import {
   getOwnedAvailabilityRule,
   getOwnedCalendarBlock
 } from "@/lib/server-actions/calendar";
+import { deleteAvailabilityRuleForOwner, deleteCalendarBlockForOwner } from "@/lib/server-actions/calendar-actions";
 import type { Approval, AvailabilityRule, Booking, BookingRequest, CalendarBlock, Horse, HorseImage, RiderBookingLimit, TrialRequest } from "@/types/database";
 
 const PASSWORD_RESET_REDIRECT_URL = "https://reitbeteiligung.app/passwort-zuruecksetzen";
@@ -1474,113 +1476,26 @@ export async function uploadHorseImagesAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", getHorseDeleteError("missing"));
   }
 
-  const horse = await getOwnedHorse(supabase, horseId, user.id);
-
-  if (!horse) {
-    redirectWithMessage(redirectPath, "error", "Du kannst nur Bilder für eigene Pferdeprofile hochladen.");
-  }
-
   const rawFiles = formData.getAll("images");
   const files = rawFiles.filter((entry): entry is File => typeof File !== "undefined" && entry instanceof File && entry.size > 0);
-
-  if (files.length === 0) {
-    redirectWithMessage(redirectPath, "error", "Bitte wähle mindestens ein Bild aus.");
-  }
-
-  if (files.some((file) => !file.type.startsWith("image/"))) {
-    redirectWithMessage(redirectPath, "error", "Es können nur Bilddateien hochgeladen werden.");
-  }
-
-  const { data: existingImagesData } = await supabase
-    .from("horse_images")
-    .select(HORSE_IMAGE_SELECT_FIELDS)
-    .eq("horse_id", horseId)
-    .order("created_at", { ascending: true });
-
-  const existingImages = sortHorseImages(
-    (Array.isArray(existingImagesData) ? (existingImagesData as HorseImageRecord[]) : []).filter((image) => image.id)
-  );
-
-  if (existingImages.length + files.length > MAX_HORSE_IMAGES) {
-    redirectWithMessage(redirectPath, "error", `Es können maximal ${MAX_HORSE_IMAGES} Bilder gespeichert werden.`);
-  }
-
-  const nextPosition = existingImages.reduce((maxPosition, image) => {
-    const position = typeof image.position === "number" ? image.position : 0;
-    return Math.max(maxPosition, position + 1);
-  }, 0);
-
-  const uploads = files.map((file, index) => {
-    const imageId = crypto.randomUUID();
-    const path = createHorseImageStoragePath(horseId, imageId, file.name);
-
-    return {
-      file,
-      id: imageId,
-      path,
-      position: nextPosition + index
-    };
+  const result = await uploadHorseImagesForOwner({
+    files,
+    horseId,
+    logSupabaseError,
+    ownerId: user.id,
+    supabase
   });
 
-  const preparedImageIds: string[] = [];
-  const uploadedPaths: string[] = [];
-
-  const rollbackBatch = async () => {
-    if (uploadedPaths.length > 0) {
-      const { error: storageCleanupError } = await supabase.storage.from(HORSE_IMAGE_BUCKET).remove(uploadedPaths);
-
-      if (storageCleanupError) {
-        logSupabaseError("Horse image batch storage cleanup failed", storageCleanupError);
-      }
-    }
-
-    if (preparedImageIds.length > 0) {
-      const { error: rowCleanupError } = await supabase.from("horse_images").delete().in("id", preparedImageIds);
-
-      if (rowCleanupError) {
-        logSupabaseError("Horse image batch row cleanup failed", rowCleanupError);
-      }
-    }
-  };
-
-  for (const upload of uploads) {
-    const { error: insertError } = await supabase.rpc("prepare_owner_horse_image", {
-      p_horse_id: horseId,
-      p_image_id: upload.id,
-      p_path: upload.path,
-      p_position: upload.position
-    });
-
-    if (insertError) {
-      logSupabaseError("Horse image row prepare failed", insertError);
-      await rollbackBatch();
-      redirectWithMessage(redirectPath, "error", "Die Bilder konnten nicht gespeichert werden.");
-    }
-
-    preparedImageIds.push(upload.id);
-
-    const { error: uploadError } = await supabase.storage.from(HORSE_IMAGE_BUCKET).upload(upload.path, upload.file, {
-      cacheControl: "3600",
-      contentType: upload.file.type || undefined,
-      upsert: false
-    });
-
-    if (uploadError) {
-      logSupabaseError("Horse image upload failed", uploadError);
-      await rollbackBatch();
-      redirectWithMessage(redirectPath, "error", "Die Bilder konnten nicht hochgeladen werden.");
-    }
-
-    uploadedPaths.push(upload.path);
+  if (!result.ok) {
+    redirectWithMessage(redirectPath, "error", result.message);
   }
 
   revalidatePath("/owner/horses");
   revalidatePath("/owner/pferde-verwalten");
   revalidatePath("/suchen");
-  revalidatePath(`/pferde/${horseId}`);
+  revalidatePath(`/pferde/${result.horseId}`);
   redirectWithMessage(redirectPath, "message", "Die Bilder wurden gespeichert.");
 }
-
 export async function deleteHorseImageAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
   const redirectPath = getOwnerRedirectPath(formData, "/owner/pferde-verwalten");
@@ -1590,43 +1505,21 @@ export async function deleteHorseImageAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", "Das Bild konnte nicht gefunden werden.");
   }
 
-  const { data: imageData } = await supabase.from("horse_images").select(HORSE_IMAGE_SELECT_FIELDS).eq("id", imageId).maybeSingle();
-  const image = (imageData as HorseImageRecord | null) ?? null;
+  const result = await deleteHorseImageForOwner({
+    imageId,
+    logSupabaseError,
+    ownerId: user.id,
+    supabase
+  });
 
-  if (!image) {
-    redirectWithMessage(redirectPath, "error", "Das Bild konnte nicht gefunden werden.");
-  }
-
-  const horse = await getOwnedHorse(supabase, image.horse_id, user.id);
-
-  if (!horse) {
-    redirectWithMessage(redirectPath, "error", "Du kannst nur Bilder für eigene Pferdeprofile löschen.");
-  }
-
-  const imagePath = image.path ?? image.storage_path ?? null;
-
-  if (!imagePath) {
-    redirectWithMessage(redirectPath, "error", "Das Bild konnte nicht gelöscht werden.");
-  }
-
-  const { error: storageError } = await supabase.storage.from(HORSE_IMAGE_BUCKET).remove([imagePath]);
-
-  if (storageError) {
-    logSupabaseError("Horse image storage delete failed", storageError);
-    redirectWithMessage(redirectPath, "error", "Das Bild konnte nicht gelöscht werden.");
-  }
-
-  const { error } = await supabase.from("horse_images").delete().eq("id", imageId);
-
-  if (error) {
-    logSupabaseError("Horse image row delete failed", error);
-    redirectWithMessage(redirectPath, "error", "Das Bild konnte nicht gelöscht werden.");
+  if (!result.ok) {
+    redirectWithMessage(redirectPath, "error", result.message);
   }
 
   revalidatePath("/owner/horses");
   revalidatePath("/owner/pferde-verwalten");
   revalidatePath("/suchen");
-  revalidatePath(`/pferde/${image.horse_id}`);
+  revalidatePath(`/pferde/${result.horseId}`);
   redirectWithMessage(redirectPath, "message", "Das Bild wurde entfernt.");
 }
 export async function createAvailabilityDayAction(formData: FormData) {
@@ -2163,23 +2056,23 @@ export async function deleteCalendarBlockAction(formData: FormData) {
     redirectWithMessage("/owner/horses", "error", getCalendarBlockAccessError("missing_block"));
   }
 
-  const block = await getOwnedCalendarBlock(supabase, blockId, user.id);
+  const result = await deleteCalendarBlockForOwner({
+    blockId,
+    logSupabaseError,
+    ownerId: user.id,
+    supabase
+  });
 
-  if (!block) {
-    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Kalender-Sperren löschen.");
+  if (!result.ok) {
+    redirectWithMessage("/owner/horses", "error", result.message);
   }
 
-  const redirectPath = `/pferde/${block.horse_id}/kalender`;
-  const { error } = await supabase.from("calendar_blocks").delete().eq("id", blockId);
+  const redirectPath = `/pferde/${result.horseId}/kalender`;
 
-  if (error) {
-    logSupabaseError("Calendar block delete failed", error);
-    redirectWithMessage(redirectPath, "error", "Die Kalender-Sperre konnte nicht gelöscht werden.");
+  for (const pathToRevalidate of result.paths) {
+    revalidatePath(pathToRevalidate);
   }
-
-  revalidatePath(redirectPath);
-  revalidatePath(`/pferde/${block.horse_id}`);
-  redirectWithMessage(redirectPath, "message", getCalendarBlockSavedMessage("delete"));
+  redirectWithMessage(redirectPath, "message", result.successMessage);
 }
 export async function createAvailabilityRuleAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
@@ -2380,29 +2273,27 @@ export async function deleteAvailabilityRuleAction(formData: FormData) {
   const ruleId = asString(formData.get("ruleId"));
 
   if (!ruleId) {
-    redirectWithMessage("/owner/horses", "error", "Das Verfügbarkeitsfenster konnte nicht gefunden werden.");
+    redirectWithMessage("/owner/horses", "error", "Das Verf\u00fcgbarkeitsfenster konnte nicht gefunden werden.");
   }
 
-  const rule = await getOwnedAvailabilityRule(supabase, ruleId, user.id);
+  const result = await deleteAvailabilityRuleForOwner({
+    logSupabaseError,
+    ownerId: user.id,
+    ruleId,
+    supabase
+  });
 
-  if (!rule) {
-    redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verfügbarkeitsfenster löschen.");
+  if (!result.ok) {
+    redirectWithMessage("/owner/horses", "error", result.message);
   }
 
-  const redirectPath = `/pferde/${rule.horse_id}/kalender#kalender-liste`;
-  const { error } = await supabase.from("availability_slots").delete().eq("id", rule.slot_id).eq("horse_id", rule.horse_id);
+  const redirectPath = `/pferde/${result.horseId}/kalender#kalender-liste`;
 
-  if (error) {
-    logSupabaseError("Availability rule delete failed", error);
-    redirectWithMessage(redirectPath, "error", "Das Verfügbarkeitsfenster konnte nicht gelöscht werden.");
+  for (const pathToRevalidate of result.paths) {
+    revalidatePath(pathToRevalidate);
   }
-
-  revalidatePath(redirectPath);
-  revalidatePath("/owner/anfragen");
-  revalidatePath("/anfragen");
-  redirectWithMessage(redirectPath, "message", "Das Verfügbarkeitsfenster wurde entfernt.");
+  redirectWithMessage(redirectPath, "message", result.successMessage);
 }
-
 export async function requestBookingAction(formData: FormData) {
   const { supabase, user } = await requireProfile("rider");
   const horseId = asString(formData.get("horseId"));
