@@ -39,7 +39,7 @@ function formatDateTime(value: string) {
 
 function formatDateRange(startAt: string | null, endAt: string | null) {
   if (!startAt || !endAt) {
-    return "Zeitpunkt wird noch gekl?rt.";
+    return "Zeitpunkt wird noch geklärt.";
   }
 
   return `${formatDateTime(startAt)} bis ${formatDateTime(endAt)}`;
@@ -175,7 +175,7 @@ export default async function AnfragenPage({
         }
         backdropVariant="hero"
         eyebrow="Reiter"
-        subtitle="In R1 stehen Probetermine, Freischaltungen und deine Chats im Fokus. Das laufende Pferde-Management folgt sp?ter."
+        subtitle="In R1 stehen Probetermine, Freischaltungen und deine Chats im Fokus. Das laufende Pferde-Management folgt später."
         surface
         title="Proben & Reitbeteiligungen"
       />
@@ -236,11 +236,11 @@ export default async function AnfragenPage({
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {conversation ? (
                         <Link className={buttonVariants("primary", "w-full justify-center")} href={`/chat/${conversation.id}` as Route}>
-                          1:1-Chat ?ffnen
+                          1:1-Chat öffnen
                         </Link>
                       ) : (
                         <Link className={buttonVariants("primary", "w-full justify-center")} href={`/pferde/${approval.horse_id}` as Route}>
-                          Pferdeprofil ?ffnen
+                          Pferdeprofil öffnen
                         </Link>
                       )}
                       <Link className={buttonVariants("secondary", "w-full justify-center")} href={`/pferde/${approval.horse_id}/gruppenchat` as Route}>
@@ -272,7 +272,7 @@ export default async function AnfragenPage({
       </SectionCard>
       <SectionCard
         id="meine-probetermine"
-        subtitle="Hier siehst du den Status deiner Probetermin-Anfragen bis zur Entscheidung ?ber eine neue Reitbeteiligung."
+        subtitle="Hier siehst du den Status deiner Probetermin-Anfragen bis zur Entscheidung über eine neue Reitbeteiligung."
         title="Meine Probetermine"
       >
         {openTrialItems.length === 0 ? (
@@ -324,7 +324,7 @@ export default async function AnfragenPage({
                             )}
                             type="submit"
                           >
-                            Anfrage zur?ckziehen
+                            Anfrage zurückziehen
                           </button>
                         </form>
                       ) : null}

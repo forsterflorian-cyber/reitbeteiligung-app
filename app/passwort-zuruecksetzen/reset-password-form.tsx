@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 
 import { Notice } from "@/components/notice";
 import { buttonVariants } from "@/components/ui/button";
+import { FLASH_COOKIE_NAME, createFlashCookieValue } from "@/lib/flash";
 import { createClient } from "@/lib/supabase/client";
 
 type FormState = "checking" | "ready" | "saving";
@@ -137,7 +138,8 @@ export function PasswordResetForm() {
     }
 
     await supabase.auth.signOut();
-    window.location.replace(`/login?message=${encodeURIComponent("Passwort aktualisiert. Bitte neu anmelden.")}`);
+    document.cookie = FLASH_COOKIE_NAME + "=" + createFlashCookieValue("/login", "Passwort aktualisiert. Bitte neu anmelden.", "success") + "; Max-Age=60; path=/; SameSite=Lax";
+    window.location.replace("/login");
   }
 
   const isDisabled = status !== "ready" || !canReset;

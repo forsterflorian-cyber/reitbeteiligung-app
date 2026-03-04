@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-const FLASH_COOKIE_NAME = "rb_flash";
+import { FLASH_COOKIE_NAME } from "@/lib/flash";
 
 export function FlashCookieClearer() {
   useEffect(() => {

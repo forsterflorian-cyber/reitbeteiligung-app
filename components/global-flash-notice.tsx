@@ -2,16 +2,8 @@ import { cookies } from "next/headers";
 
 import { FlashCookieClearer } from "@/components/flash-cookie-clearer";
 import { Notice } from "@/components/notice";
+import { FLASH_COOKIE_NAME, type FlashPayload } from "@/lib/flash";
 
-type FlashTone = "error" | "success";
-
-type FlashPayload = {
-  pathname: string;
-  text: string;
-  tone: FlashTone;
-};
-
-const FLASH_COOKIE_NAME = "rb_flash";
 
 function readFlashCookie() {
   const rawValue = cookies().get(FLASH_COOKIE_NAME)?.value;

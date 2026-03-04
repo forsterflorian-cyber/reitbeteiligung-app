@@ -1,6 +1,5 @@
 import type { Route } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { ChatThread } from "@/components/chat-thread";
 import { StatusBadge } from "@/components/status-badge";
@@ -11,6 +10,7 @@ import { SectionCard } from "@/components/ui/section-card";
 import { buttonVariants } from "@/components/ui/button";
 import { requireProfile } from "@/lib/auth";
 import { getRoleLabel } from "@/lib/profiles";
+import { redirectWithFlash } from "@/lib/server-flash";
 import type { Approval, Conversation, Horse, Message, TrialRequest } from "@/types/database";
 
 type ContactInfoRecord = {
@@ -40,7 +40,7 @@ export default async function ChatPage({
   const conversation = (conversationData as Conversation | null) ?? null;
 
   if (!conversation) {
-    redirect(`${backHref}?error=${encodeURIComponent("Der Chat konnte nicht gefunden werden.")}`);
+    redirectWithFlash(backHref, "error", "Der Chat konnte nicht gefunden werden.");
   }
 
   await supabase.rpc("mark_conversation_read", {

@@ -1,6 +1,5 @@
 import type { Route } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { HorseGroupChatThread } from "@/components/horse-group-chat-thread";
 import { Notice } from "@/components/notice";
@@ -10,6 +9,7 @@ import { SectionCard } from "@/components/ui/section-card";
 import { buttonVariants } from "@/components/ui/button";
 import { isApproved } from "@/lib/approvals";
 import { requireProfile } from "@/lib/auth";
+import { redirectWithFlash } from "@/lib/server-flash";
 import type { Approval, Horse, HorseGroupMessage, Profile } from "@/types/database";
 
 function getDisplayName(profile: Profile | null, fallback: string) {
@@ -31,14 +31,14 @@ export default async function HorseGroupChatPage({
   const horse = (horseData as Horse | null) ?? null;
 
   if (!horse) {
-    redirect(`/dashboard?error=${encodeURIComponent("Das Pferdeprofil konnte nicht gefunden werden.")}`);
+    redirectWithFlash("/dashboard", "error", "Das Pferdeprofil konnte nicht gefunden werden.");
   }
 
   const isOwner = profile.role === "owner" && user.id === horse.owner_id;
   const riderApproved = profile.role === "rider" ? await isApproved(horse.id, user.id, supabase) : false;
 
   if (!isOwner && !riderApproved) {
-    redirect(`/pferde/${horse.id}?error=${encodeURIComponent("Der Pferde-Gruppenchat ist erst nach der Freischaltung verfuegbar.")}`);
+    redirectWithFlash(`/pferde/${horse.id}`, "error", "Der Pferde-Gruppenchat ist erst nach der Freischaltung verfügbar.");
   }
 
   const [{ data: approvalData }, { data: messageData }] = await Promise.all([
@@ -75,13 +75,13 @@ export default async function HorseGroupChatPage({
       <PageHeader
         actions={
           <Link className={buttonVariants("ghost", "w-full sm:w-auto")} href={backHref}>
-            {profile.role === "owner" ? "Zurueck zu den Reitbeteiligungen" : "Zurueck zu meinen Reitbeteiligungen"}
+            {profile.role === "owner" ? "Zurück zu den Reitbeteiligungen" : "Zurück zu meinen Reitbeteiligungen"}
           </Link>
         }
         subtitle={`Pferdeprofil: ${horse.title}`}
         title="Pferde-Gruppenchat"
       />
-      <SectionCard subtitle="Hier schreiben Pferdehalter und alle bereits freigeschalteten Reitbeteiligungen gemeinsam fuer dieses Pferd." title="Teilnehmer & Status">
+      <SectionCard subtitle="Hier schreiben Pferdehalter und alle bereits freigeschalteten Reitbeteiligungen gemeinsam für dieses Pferd." title="Teilnehmer & Status">
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
             <Badge tone="approved">{approvals.length} aktive Reitbeteiligung{approvals.length === 1 ? "" : "en"}</Badge>

@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { requireOnboardingUser, requireProfile } from "@/lib/auth";
@@ -25,6 +24,7 @@ import { createClient } from "@/lib/supabase/server";
 import { MAX_WEEKLY_HOURS_LIMIT, MIN_WEEKLY_HOURS_LIMIT, formatWeeklyHoursLimit } from "@/lib/booking-limits";
 import { canApproveRider, canCreateHorseProfile, canStartOwnerTrial, getOwnerPlan, getOwnerPlanUsage } from "@/lib/plans";
 import { R1_CORE_MODE } from "@/lib/release-stage";
+import { redirectWithFlash } from "@/lib/server-flash";
 import { isTrialRuleBlocked } from "@/lib/trial-slots";
 import type { Approval, AvailabilityRule, Booking, BookingRequest, CalendarBlock, Horse, HorseImage, RiderBookingLimit, TrialRequest } from "@/types/database";
 
@@ -85,28 +85,7 @@ type SupabaseErrorLike = {
 };
 
 function redirectWithMessage(path: string, key: "error" | "message", message: string): never {
-  const [basePath, hashFragment = ""] = path.split("#", 2);
-  const pathname = basePath.split("?", 1)[0] || "/";
-  const tone = key === "error" ? "error" : "success";
-
-  cookies().set(
-    "rb_flash",
-    encodeURIComponent(
-      JSON.stringify({
-        pathname,
-        text: message,
-        tone
-      })
-    ),
-    {
-      httpOnly: false,
-      maxAge: 60,
-      path: "/",
-      sameSite: "lax"
-    }
-  );
-
-  redirect(hashFragment ? `${basePath}#${hashFragment}` : basePath);
+  return redirectWithFlash(path, key === "error" ? "error" : "success", message);
 }
 
 function logSupabaseError(context: string, error: SupabaseErrorLike) {
@@ -1068,10 +1047,12 @@ export async function requestTrialAction(formData: FormData) {
     revalidatePath(`/pferde/${horseId}/kalender`);
     revalidatePath("/anfragen");
     revalidatePath("/owner/anfragen");
-    redirect(
-      `/pferde/${horseId}?message=${encodeURIComponent(
-        hasExplicitTrialSlots ? "Deine Anfrage für den Probetermin wurde gesendet." : "Deine allgemeine Probeanfrage wurde gesendet."
-      )}&error=${encodeURIComponent("Chat konnte nicht erstellt werden.")}`
+    redirectWithMessage(
+      `/pferde/${horseId}`,
+      "error",
+      hasExplicitTrialSlots
+        ? "Deine Anfrage f?r den Probetermin wurde gesendet. Der Chat konnte nicht erstellt werden."
+        : "Deine allgemeine Probeanfrage wurde gesendet. Der Chat konnte nicht erstellt werden."
     );
   }
 
