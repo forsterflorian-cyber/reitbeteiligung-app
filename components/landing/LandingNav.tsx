@@ -13,15 +13,15 @@ export function LandingNav() {
   const isLogin = pathname === "/login";
 
   const brandLink = (
-    <Link className="flex min-w-0 items-center" href="/">
+    <Link className="header-left flex min-w-0 items-center" href="/">
       <Image
         alt=""
         aria-hidden
-        className="h-9 w-9 shrink-0 sm:hidden"
+        className="block h-9 w-auto shrink-0 sm:hidden"
         height={36}
         priority
         src="/brand/logo-mark.svg"
-        width={36}
+        width={29}
       />
       <Image
         alt="reitbeteiligung.app"
@@ -29,7 +29,7 @@ export function LandingNav() {
         height={36}
         priority
         src="/brand/logo.svg"
-        width={203}
+        width={162}
       />
     </Link>
   );
