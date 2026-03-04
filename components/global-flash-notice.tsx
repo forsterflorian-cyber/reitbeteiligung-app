@@ -1,8 +1,6 @@
-﻿"use client";
+import { cookies } from "next/headers";
 
-import { useEffect, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
-
+import { FlashCookieClearer } from "@/components/flash-cookie-clearer";
 import { Notice } from "@/components/notice";
 
 type FlashTone = "error" | "success";
@@ -15,20 +13,12 @@ type FlashPayload = {
 
 const FLASH_COOKIE_NAME = "rb_flash";
 
-function clearFlashCookie() {
-  document.cookie = `${FLASH_COOKIE_NAME}=; Max-Age=0; path=/; SameSite=Lax`;
-}
-
 function readFlashCookie() {
-  const cookie = document.cookie
-    .split("; ")
-    .find((entry) => entry.startsWith(`${FLASH_COOKIE_NAME}=`));
+  const rawValue = cookies().get(FLASH_COOKIE_NAME)?.value;
 
-  if (!cookie) {
+  if (!rawValue) {
     return null;
   }
-
-  const rawValue = cookie.slice(`${FLASH_COOKIE_NAME}=`.length);
 
   try {
     const parsed = JSON.parse(decodeURIComponent(rawValue)) as Partial<FlashPayload>;
@@ -38,43 +28,26 @@ function readFlashCookie() {
       typeof parsed.text !== "string" ||
       (parsed.tone !== "error" && parsed.tone !== "success")
     ) {
-      clearFlashCookie();
       return null;
     }
 
     return parsed as FlashPayload;
   } catch {
-    clearFlashCookie();
     return null;
   }
 }
 
 export function GlobalFlashNotice() {
-  const pathname = usePathname();
-  const [payload, setPayload] = useState<FlashPayload | null>(null);
-
-  useEffect(() => {
-    const flash = readFlashCookie();
-
-    if (!flash) {
-      setPayload(null);
-      return;
-    }
-
-    if (flash.pathname !== pathname) {
-      setPayload(null);
-      return;
-    }
-
-    setPayload(flash);
-    clearFlashCookie();
-  }, [pathname]);
-
-  const tone = useMemo(() => payload?.tone ?? "success", [payload]);
+  const payload = readFlashCookie();
 
   if (!payload) {
     return null;
   }
 
-  return <Notice text={payload.text} tone={tone} />;
+  return (
+    <>
+      <FlashCookieClearer />
+      <Notice text={payload.text} tone={payload.tone} />
+    </>
+  );
 }
