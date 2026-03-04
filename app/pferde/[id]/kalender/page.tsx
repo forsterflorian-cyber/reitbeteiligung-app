@@ -680,12 +680,12 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   return (
     <div className="space-y-6 sm:space-y-8">
       <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={detailHref}>
-        ZurÃ¼ck zum Pferdeprofil
+        Zurück zum Pferdeprofil
       </Link>
 
       <PageHeader
-        subtitle="Kalender, VerfÃ¼gbarkeiten und Terminanfragen auf einen Blick."
-        title={`Kalender fÃ¼r ${horse.title}`}
+        subtitle="Kalender, Verfügbarkeiten und Terminanfragen auf einen Blick."
+        title={`Kalender für ${horse.title}`}
       />
 
       <div className="space-y-3" id="kalender-feedback">
@@ -701,7 +701,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
             <h2 className="font-serif text-2xl text-stone-900 sm:text-3xl">{horse.title}</h2>
             <p className="ui-inline-meta">{horse.location_address ?? `PLZ ${horse.plz}`} {horse.active ? "- Aktiv" : "- Inaktiv"}</p>
             <p className="text-sm leading-6 text-stone-600">
-              {horse.description?.trim() || "Hier steuerst du VerfÃ¼gbarkeiten, Sperren und eingehende Terminanfragen fÃ¼r dieses Pferd."}
+              {horse.description?.trim() || "Hier steuerst du Verfügbarkeiten, Sperren und eingehende Terminanfragen für dieses Pferd."}
             </p>
           </div>
           <div className="flex flex-col gap-3 lg:items-end">
@@ -741,7 +741,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
       {isOwner ? (
         <SectionCard
           id="kalender-liste"
-          subtitle={"F?r R1 pflegst du hier nur explizite Probetermine. Standardzeiten, Ausnahmen und die gro?e Wochenplanung bleiben vorerst ausgeblendet."}
+          subtitle={"Für R1 pflegst du hier nur explizite Probetermine. Standardzeiten, Ausnahmen und die große Wochenplanung bleiben vorerst ausgeblendet."}
           title="Probetermine pflegen"
         >
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
@@ -773,7 +773,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                               <input name="ruleId" type="hidden" value={rule.id} />
                               <ConfirmSubmitButton
                                 className={buttonVariants("secondary", "w-full text-sm sm:w-auto")}
-                                confirmMessage="M?chtest du diesen Probetermin wirklich entfernen?"
+                                confirmMessage="Möchtest du diesen Probetermin wirklich entfernen?"
                                 idleLabel="Entfernen"
                                 pendingLabel="Wird entfernt..."
                               />
@@ -797,7 +797,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                     <input name="isTrialSlot" type="hidden" value="on" />
                     <div className="space-y-1">
                       <p className="text-sm font-semibold text-stone-900">Neuen Probetermin anlegen</p>
-                      <p className="text-sm text-stone-600">W?hle Tage und Uhrzeit. Daraus werden f?r die n?chsten 8 Wochen konkrete Probetermine erzeugt.</p>
+                      <p className="text-sm text-stone-600">Wähle Tage und Uhrzeit. Daraus werden für die nächsten 8 Wochen konkrete Probetermine erzeugt.</p>
                     </div>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
                       <label className="block">
@@ -849,12 +849,12 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
               <div className="space-y-4">
                 <div className="space-y-1">
                   <p className="ui-eyebrow">Was in R1 live ist</p>
-                  <p className="text-sm text-stone-600">F?r den ersten Release bleibt diese Seite bewusst klein und klar.</p>
+                  <p className="text-sm text-stone-600">Für den ersten Release bleibt diese Seite bewusst klein und klar.</p>
                 </div>
                 <ul className="space-y-2 text-sm text-stone-700">
                   <li>- Reiter finden nur Pferde mit echten Probeterminen.</li>
                   <li>- Du stellst Probetermine hier gezielt ein und entfernst sie wieder.</li>
-                  <li>- Standardzeiten, Ausnahmen und gro?e Kalenderplanung folgen sp?ter.</li>
+                  <li>- Standardzeiten, Ausnahmen und große Kalenderplanung folgen später.</li>
                 </ul>
                 <Link className={buttonVariants("secondary", "w-full justify-center text-sm")} href={detailHref}>
                   Zum Pferdeprofil
@@ -870,7 +870,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
 
       {!isOwner ? (
         <SectionCard
-          subtitle={"Kalender, VerfÃ¼gbarkeiten und Terminanfragen auf einen Blick."}
+          subtitle={"Kalender, Verfügbarkeiten und Terminanfragen auf einen Blick."}
           title="Kalender anzeigen"
         >
         <div className="space-y-4">

@@ -118,7 +118,7 @@ export function HorseGroupChatThread({ currentUserId, horseId, initialMessages, 
     <div className="space-y-4">
       <div className="max-h-[56vh] space-y-3 overflow-y-auto rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
         {messages.length === 0 ? (
-          <p className="rounded-2xl bg-sand p-4 text-sm text-stone-600">Noch keine Nachricht. Nutzt den Gruppenchat f?r alles rund um dieses Pferd.</p>
+          <p className="rounded-2xl bg-sand p-4 text-sm text-stone-600">Noch keine Nachricht. Nutzt den Gruppenchat für alles rund um dieses Pferd.</p>
         ) : (
           messages.map((message) => {
             const isOwnMessage = message.sender_id === currentUserId;

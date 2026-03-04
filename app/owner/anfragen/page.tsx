@@ -25,7 +25,7 @@ function formatDateTime(value: string) {
 
 function formatDateRange(startAt: string | null | undefined, endAt: string | null | undefined) {
   if (!startAt || !endAt) {
-    return "Zeitpunkt wird noch gepr?ft.";
+    return "Zeitpunkt wird noch geprüft.";
   }
 
   return `${formatDateTime(startAt)} bis ${formatDateTime(endAt)}`;
@@ -100,15 +100,15 @@ export default async function OwnerTrialRequestsPage({
         <Card className="p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Neue Anfragen</p>
           <p className="mt-2 text-2xl font-semibold text-stone-900">{requestedCount}</p>
-          <p className="mt-1 text-sm text-stone-600">Diese Reiter warten auf deine erste R?ckmeldung.</p>
+          <p className="mt-1 text-sm text-stone-600">Diese Reiter warten auf deine erste Rückmeldung.</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">N?chster Schritt</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Nächster Schritt</p>
           <p className="mt-2 text-2xl font-semibold text-stone-900">{acceptedCount + completedCount}</p>
-          <p className="mt-1 text-sm text-stone-600">Angenommene oder durchgef?hrte Probetermine brauchen deine Folgeentscheidung.</p>
+          <p className="mt-1 text-sm text-stone-600">Angenommene oder durchgeführte Probetermine brauchen deine Folgeentscheidung.</p>
         </Card>
       </div>
-      <SectionCard subtitle="Bestehende Probetermine zuerst pr?fen. Neue oder ge?nderte Slots pflegst du direkt im Pferdeprofil." title="Eingestellte Probetermine">
+      <SectionCard subtitle="Bestehende Probetermine zuerst prüfen. Neue oder geänderte Slots pflegst du direkt im Pferdeprofil." title="Eingestellte Probetermine">
         {horses.length === 0 ? (
           <EmptyState
             action={
@@ -133,10 +133,10 @@ export default async function OwnerTrialRequestsPage({
                       <p className="font-semibold text-ink">{horse.title}</p>
                       <p className="text-sm text-stone-600">{slots.length > 0 ? `${slots.length} kommender Probetermin${slots.length === 1 ? "" : "e"}` : "Noch kein Probetermin eingestellt"}</p>
                     </div>
-                    {nextSlot ? <p className="text-sm font-semibold text-ink">N?chster Slot: {formatDateRange(nextSlot.start_at, nextSlot.end_at)}</p> : null}
+                    {nextSlot ? <p className="text-sm font-semibold text-ink">Nächster Slot: {formatDateRange(nextSlot.start_at, nextSlot.end_at)}</p> : null}
                     <div className="grid gap-2 sm:grid-cols-2">
                       <Link className={buttonVariants("primary", "w-full justify-center")} href={`/pferde/${horse.id}` as Route}>
-                        Pferdeprofil ?ffnen
+                        Pferdeprofil öffnen
                       </Link>
                       <Link className={buttonVariants("secondary", "w-full justify-center")} href={`/pferde/${horse.id}/kalender#kalender-liste` as Route}>
                         Probetermine pflegen
@@ -152,7 +152,7 @@ export default async function OwnerTrialRequestsPage({
       <SectionCard subtitle="Von der ersten Anfrage bis zur Aufnahme als Reitbeteiligung." title="Eingehende Probeanfragen">
         {trialPipelineItems.length === 0 ? (
           <EmptyState
-            description="Sobald Reiter einen Probetermin anfragen, erscheint er hier gesammelt mit allen n?chsten Schritten."
+            description="Sobald Reiter einen Probetermin anfragen, erscheint er hier gesammelt mit allen nächsten Schritten."
             title="Noch keine Probetermine"
           />
         ) : (
@@ -203,7 +203,7 @@ export default async function OwnerTrialRequestsPage({
                         <input name="requestId" type="hidden" value={request.id} />
                         <input name="status" type="hidden" value="completed" />
                         <Button className="w-full" type="submit" variant="primary">
-                          Als durchgef?hrt markieren
+                          Als durchgeführt markieren
                         </Button>
                       </form>
                     ) : null}

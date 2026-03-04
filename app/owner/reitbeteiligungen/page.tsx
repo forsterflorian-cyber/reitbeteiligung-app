@@ -24,7 +24,7 @@ function formatDateTime(value: string) {
 
 function formatDateRange(startAt: string | null | undefined, endAt: string | null | undefined) {
   if (!startAt || !endAt) {
-    return "Zeitpunkt wird noch gekl?rt.";
+    return "Zeitpunkt wird noch geklärt.";
   }
 
   return `${formatDateTime(startAt)} bis ${formatDateTime(endAt)}`;
@@ -126,15 +126,15 @@ export default async function OwnerRelationshipsPage({
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {conversation ? (
                         <Link className={buttonVariants("primary", "w-full justify-center")} href={`/chat/${conversation.id}` as Route}>
-                          1:1-Chat ?ffnen
+                          1:1-Chat öffnen
                         </Link>
                       ) : (
                         <Link className={buttonVariants("primary", "w-full justify-center")} href={`/pferde/${approval.horse_id}` as Route}>
-                          Pferdeprofil ?ffnen
+                          Pferdeprofil öffnen
                         </Link>
                       )}
                       <Link className={buttonVariants("secondary", "w-full justify-center")} href={`/pferde/${approval.horse_id}/gruppenchat` as Route}>
-                        Gruppenchat ?ffnen
+                        Gruppenchat öffnen
                       </Link>
                       {latestTrial ? (
                         <form action={updateApprovalAction}>
@@ -151,9 +151,9 @@ export default async function OwnerRelationshipsPage({
                       <input name="riderId" type="hidden" value={approval.rider_id} />
                       <input name="redirectTo" type="hidden" value="/owner/reitbeteiligungen" />
                       <ConfirmSubmitButton
-                        confirmMessage="M?chtest du diese Reitbeteiligung wirklich l?schen? Die Beziehung wird vollst?ndig entfernt."
-                        idleLabel="Reitbeteiligung l?schen"
-                        pendingLabel="Wird gel?scht..."
+                        confirmMessage="Möchtest du diese Reitbeteiligung wirklich löschen? Die Beziehung wird vollständig entfernt."
+                        idleLabel="Reitbeteiligung löschen"
+                        pendingLabel="Wird gelöscht..."
                       />
                     </form>
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
