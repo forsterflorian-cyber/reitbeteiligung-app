@@ -64,7 +64,7 @@ export default async function OwnerRelationshipsPage({
         }
         backdropVariant="hero"
         eyebrow="Pferdehalter"
-        subtitle="In R1 verwaltest du hier bestehende Beziehungen, erreichst 1:1- und Gruppenchat und kannst Reitbeteiligungen sauber wieder entfernen."
+        subtitle="Hier verwaltest du bestehende Beziehungen, erreichst 1:1- und Gruppenchat und kannst Reitbeteiligungen sauber wieder entfernen."
         surface
         title="Reitbeteiligungen"
       />
@@ -89,7 +89,7 @@ export default async function OwnerRelationshipsPage({
       </div>
       <SectionCard
         id="aktive-reitbeteiligungen"
-        subtitle="In R1 verwaltest du hier bestehende Beziehungen, erreichst den Pferde-Chat und kannst die Freischaltung wieder entziehen oder die Beziehung ganz entfernen."
+        subtitle="Hier verwaltest du bestehende Beziehungen, erreichst den Pferde-Chat und kannst die Freischaltung wieder entziehen oder die Beziehung ganz entfernen."
         title="Aktive Reitbeteiligungen"
       >
         {activeRelationships.length === 0 ? (
@@ -122,7 +122,7 @@ export default async function OwnerRelationshipsPage({
                       <Badge tone="approved">Aktive Reitbeteiligung</Badge>
                       {hasUnread ? <Badge tone="info">Neue Nachricht</Badge> : null}
                     </div>
-                    <Notice text="Das laufende Pferde-Management folgt nach R1. Jetzt stehen Pferde-Chat und saubere Beziehungsverwaltung im Fokus." tone="success" />
+                    <Notice text="Das laufende Pferde-Management folgt später. Jetzt stehen Pferde-Chat und saubere Beziehungsverwaltung im Fokus." tone="success" />
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {conversation ? (
                         <Link className={buttonVariants("primary", "w-full justify-center")} href={`/chat/${conversation.id}` as Route}>

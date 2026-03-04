@@ -10,7 +10,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { requireProfile } from "@/lib/auth";
-import { PAID_PLAN_CONTACT_EMAIL, canStartOwnerTrial, getOwnerPlan, getOwnerPlanUsage, getOwnerPlanUsageSummary } from "@/lib/plans";
+import { OWNER_PLAN_LIMITS_ENABLED, PAID_PLAN_CONTACT_EMAIL, canStartOwnerTrial, getOwnerPlan, getOwnerPlanUsage, getOwnerPlanUsageSummary } from "@/lib/plans";
 import { getProfileDisplayName, getRoleLabel } from "@/lib/profiles";
 import { readSearchParam } from "@/lib/search-params";
 import type { RiderProfile } from "@/types/database";
@@ -47,7 +47,7 @@ export default async function ProfilPage({
     <AppPageShell>
       <PageHeader
         backdropVariant="hero"
-        subtitle={`Hallo ${displayName}. Hier pflegst du deine Kontaktdaten und deine Rolle fuer den ersten Release.`}
+        subtitle={`Hallo ${displayName}. Hier pflegst du deine Kontaktdaten und deine Rolle.`}
         surface
         title="Mein Profil"
       />
@@ -84,33 +84,35 @@ export default async function ProfilPage({
         </div>
         <div className="space-y-5">
           {profile.role === "owner" ? (
-            <SectionCard subtitle="Im ersten Release sind die Kernfunktionen ohne Tarifstufen freigeschaltet." title="Status im ersten Release">
-              <div className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  <Badge tone={ownerPlan?.key === "paid" ? "approved" : ownerPlan?.key === "trial" ? "pending" : "neutral"}>{ownerPlan?.label}</Badge>
+            OWNER_PLAN_LIMITS_ENABLED ? (
+              <SectionCard subtitle="Alle Kernfunktionen sind aktuell direkt verfügbar." title="Aktueller Status">
+                <div className="space-y-4">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge tone={ownerPlan?.key === "paid" ? "approved" : ownerPlan?.key === "trial" ? "pending" : "neutral"}>{ownerPlan?.label}</Badge>
+                  </div>
+                  <p className="text-sm leading-6 text-stone-600">{ownerPlan?.summary}</p>
+                  {ownerPlan?.key !== "paid" && ownerPlanUsageSummary ? <p className="text-sm leading-6 text-stone-600">{ownerPlanUsageSummary}</p> : null}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                    <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href="/owner/pferde-verwalten">
+                      Zu den Pferdeprofilen
+                    </Link>
+                    {showStartTrial ? (
+                      <form action={startOwnerTrialAction}>
+                        <input name="redirectTo" type="hidden" value="/profil" />
+                        <Button className="w-full sm:w-auto" type="submit" variant="secondary">
+                          Start Trial
+                        </Button>
+                      </form>
+                    ) : null}
+                    {ownerPlan?.key !== "paid" ? (
+                      <a className={buttonVariants(showStartTrial ? "ghost" : "secondary", "w-full sm:w-auto")} href={upgradeHref}>
+                        Bezahlten Tarif anfragen
+                      </a>
+                    ) : null}
+                  </div>
                 </div>
-                <p className="text-sm leading-6 text-stone-600">{ownerPlan?.summary}</p>
-                {ownerPlan?.key !== "paid" && ownerPlanUsageSummary ? <p className="text-sm leading-6 text-stone-600">{ownerPlanUsageSummary}</p> : null}
-                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                  <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href="/owner/pferde-verwalten">
-                    Zu den Pferdeprofilen
-                  </Link>
-                  {showStartTrial ? (
-                    <form action={startOwnerTrialAction}>
-                      <input name="redirectTo" type="hidden" value="/profil" />
-                      <Button className="w-full sm:w-auto" type="submit" variant="secondary">
-                        Start Trial
-                      </Button>
-                    </form>
-                  ) : null}
-                  {ownerPlan?.key !== "paid" ? (
-                    <a className={buttonVariants(showStartTrial ? "ghost" : "secondary", "w-full sm:w-auto")} href={upgradeHref}>
-                      Bezahlten Tarif anfragen
-                    </a>
-                  ) : null}
-                </div>
-              </div>
-            </SectionCard>
+              </SectionCard>
+            ) : null
           ) : (
             <SectionCard subtitle={"Damit Pferdehalter dich besser einsch\u00e4tzen k\u00f6nnen, sollte dein Reiterprofil vollst\u00e4ndig sein."} title="Reiterprofil">
               <div className="space-y-4">

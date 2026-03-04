@@ -18,7 +18,7 @@ import { RequestCard } from "@/components/blocks/request-card";
 import { DayRangePicker } from "@/components/calendar/day-range-picker";
 import { DraggableTimelineSegment } from "@/components/calendar/draggable-timeline-segment";
 import { InteractiveTimelineLane } from "@/components/calendar/interactive-timeline-lane";
-import { OwnerR1TrialManager } from "@/components/calendar/owner-r1-trial-manager";
+import { OwnerTrialManager } from "@/components/calendar/owner-trial-manager";
 import { RiderBookingWindowForm } from "@/components/calendar/rider-booking-window-form";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
@@ -499,7 +499,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
 
   if (ownerR1Mode) {
     return (
-      <OwnerR1TrialManager
+      <OwnerTrialManager
         defaultSlotDate={toDayKey(new Date())}
         detailHref={detailHref}
         error={error}

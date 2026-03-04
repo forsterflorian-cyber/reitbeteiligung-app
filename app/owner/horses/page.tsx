@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { requireProfile } from "@/lib/auth";
 import { HORSE_GESCHLECHTER } from "@/lib/horses";
-import { PAID_PLAN_CONTACT_EMAIL, canStartOwnerTrial, getOwnerPlan, getOwnerPlanUsage, getOwnerPlanUsageSummary } from "@/lib/plans";
+import { OWNER_PLAN_LIMITS_ENABLED, PAID_PLAN_CONTACT_EMAIL, canStartOwnerTrial, getOwnerPlan, getOwnerPlanUsage, getOwnerPlanUsageSummary } from "@/lib/plans";
 import { readSearchParam } from "@/lib/search-params";
 
 export default async function OwnerHorsesPage({
@@ -23,10 +23,10 @@ export default async function OwnerHorsesPage({
   const currentYear = new Date().getFullYear();
   const error = readSearchParam(searchParams, "error");
   const message = readSearchParam(searchParams, "message");
-  const ownerPlanUsage = await getOwnerPlanUsage(supabase, user.id);
-  const ownerPlan = getOwnerPlan(profile, ownerPlanUsage);
-  const ownerPlanUsageSummary = getOwnerPlanUsageSummary(ownerPlan, ownerPlanUsage);
-  const showStartTrial = canStartOwnerTrial(profile);
+  const ownerPlanUsage = OWNER_PLAN_LIMITS_ENABLED ? await getOwnerPlanUsage(supabase, user.id) : { approvedRiderCount: 0, horseCount: 0 };
+  const ownerPlan = OWNER_PLAN_LIMITS_ENABLED ? getOwnerPlan(profile, ownerPlanUsage) : null;
+  const ownerPlanUsageSummary = ownerPlan ? getOwnerPlanUsageSummary(ownerPlan, ownerPlanUsage) : null;
+  const showStartTrial = OWNER_PLAN_LIMITS_ENABLED ? canStartOwnerTrial(profile) : false;
   const manageHref = "/owner/pferde-verwalten" as Route;
   const upgradeHref = `mailto:${PAID_PLAN_CONTACT_EMAIL}?subject=${encodeURIComponent("Bezahlten Tarif anfragen")}`;
 
@@ -113,34 +113,36 @@ export default async function OwnerHorsesPage({
             <SubmitButton idleLabel="Pferdeprofil speichern" pendingLabel="Wird gespeichert..." />
           </form>
         </SectionCard>
-        <SectionCard subtitle={"Alles Wichtige fuer den ersten Release ohne Tarifstufen."} title={"Status im ersten Release"}>
-          <div className="space-y-4 text-sm leading-6 text-stone-600">
-            <div className="flex flex-wrap gap-2">
-              <Badge tone={ownerPlan.key === "paid" ? "approved" : ownerPlan.key === "trial" ? "pending" : "neutral"}>{ownerPlan.label}</Badge>
+        {OWNER_PLAN_LIMITS_ENABLED ? (
+          <SectionCard subtitle={"Alle Kernfunktionen sind zum Start direkt verfügbar."} title={"Aktueller Status"}>
+            <div className="space-y-4 text-sm leading-6 text-stone-600">
+              <div className="flex flex-wrap gap-2">
+                <Badge tone={ownerPlan?.key === "paid" ? "approved" : ownerPlan?.key === "trial" ? "pending" : "neutral"}>{ownerPlan?.label}</Badge>
+              </div>
+              <p>{ownerPlan?.summary}</p>
+              {ownerPlan?.key !== "paid" ? <p>{ownerPlanUsageSummary}</p> : null}
+              <p>Nach dem ersten Speichern findest du Bearbeiten, Kalender, Standort und Bilder in deiner Verwaltung.</p>
+              <div className="flex flex-col gap-2">
+                <Link className={buttonVariants("secondary", "w-full")} href={manageHref}>
+                  Zu Pferde verwalten
+                </Link>
+                {showStartTrial ? (
+                  <form action={startOwnerTrialAction}>
+                    <input name="redirectTo" type="hidden" value="/owner/horses" />
+                    <Button className="w-full" type="submit" variant="secondary">
+                      Start Trial
+                    </Button>
+                  </form>
+                ) : null}
+                {ownerPlan?.key !== "paid" ? (
+                  <a className={buttonVariants(showStartTrial ? "ghost" : "secondary", "w-full")} href={upgradeHref}>
+                    Bezahlten Tarif anfragen
+                  </a>
+                ) : null}
+              </div>
             </div>
-            <p>{ownerPlan.summary}</p>
-            {ownerPlan.key !== "paid" ? <p>{ownerPlanUsageSummary}</p> : null}
-            <p>Nach dem ersten Speichern findest du Bearbeiten, Kalender, Standort und Bilder in deiner Verwaltung.</p>
-            <div className="flex flex-col gap-2">
-              <Link className={buttonVariants("secondary", "w-full")} href={manageHref}>
-                Zu Pferde verwalten
-              </Link>
-              {showStartTrial ? (
-                <form action={startOwnerTrialAction}>
-                  <input name="redirectTo" type="hidden" value="/owner/horses" />
-                  <Button className="w-full" type="submit" variant="secondary">
-                    Start Trial
-                  </Button>
-                </form>
-              ) : null}
-              {ownerPlan.key !== "paid" ? (
-                <a className={buttonVariants(showStartTrial ? "ghost" : "secondary", "w-full")} href={upgradeHref}>
-                  Bezahlten Tarif anfragen
-                </a>
-              ) : null}
-            </div>
-          </div>
-        </SectionCard>
+          </SectionCard>
+        ) : null}
       </div>
     </AppPageShell>
   );

@@ -200,7 +200,7 @@ export default async function AnfragenPage({
       </div>
       <SectionCard
         id="aktive-reitbeteiligungen"
-        subtitle="Nach der Aufnahme stehen in R1 zuerst die Beziehung zum Pferd, der direkte Chat und der neue Gruppenchat im Fokus."
+        subtitle="Nach der Aufnahme stehen die Beziehung zum Pferd, der direkte Chat und der Gruppenchat im Fokus."
         title="Meine Reitbeteiligungen"
       >
         {activeRelationships.length === 0 ? (
@@ -232,7 +232,7 @@ export default async function AnfragenPage({
                       <Badge tone="approved">Aktive Reitbeteiligung</Badge>
                       {hasUnread ? <Badge tone="info">Neue Nachricht</Badge> : null}
                     </div>
-                    <Notice text="Das laufende Pferde-Management folgt nach R1. Jetzt stehen Beziehung, 1:1-Chat und Gruppenchat im Fokus." tone="success" />
+                    <Notice text="Das laufende Pferde-Management folgt später. Jetzt stehen Beziehung, 1:1-Chat und Gruppenchat im Fokus." tone="success" />
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {conversation ? (
                         <Link className={buttonVariants("primary", "w-full justify-center")} href={`/chat/${conversation.id}` as Route}>
@@ -244,7 +244,7 @@ export default async function AnfragenPage({
                         </Link>
                       )}
                       <Link className={buttonVariants("secondary", "w-full justify-center")} href={`/pferde/${approval.horse_id}/gruppenchat` as Route}>
-                        Gruppenchat ?ffnen
+                        Gruppenchat öffnen
                       </Link>
                       <Link className={buttonVariants("ghost", "w-full justify-center")} href={`/pferde/${approval.horse_id}` as Route}>
                         Pferdeprofil ansehen

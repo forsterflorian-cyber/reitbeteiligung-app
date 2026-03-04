@@ -13,7 +13,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import type { AvailabilityRule, Horse, TrialRequest } from "@/types/database";
 
-type OwnerR1TrialManagerProps = {
+type OwnerTrialManagerProps = {
   defaultSlotDate: string;
   detailHref: Route;
   error: string | null;
@@ -35,7 +35,7 @@ function formatDateRange(startAt: string, endAt: string) {
   return `${formatDateTime(startAt)} bis ${formatDateTime(endAt)}`;
 }
 
-export function OwnerR1TrialManager({
+export function OwnerTrialManager({
   defaultSlotDate,
   detailHref,
   error,
@@ -44,17 +44,17 @@ export function OwnerR1TrialManager({
   nextTrialRequest,
   nextTrialRiderName,
   rules
-}: OwnerR1TrialManagerProps) {
+}: OwnerTrialManagerProps) {
   const ownerTrialRules = rules.filter((rule) => rule.is_trial_slot);
 
   return (
     <div className="space-y-6 sm:space-y-8">
       <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={detailHref}>
-        {"Zur?ck zum Pferdeprofil"}
+        Zur?ck zum Pferdeprofil
       </Link>
 
       <PageHeader
-        subtitle={"F?r R1 pflegst du hier nur konkrete Probetermine. Die gro?e Kalenderplanung bleibt bewusst ausgeblendet."}
+        subtitle={"Hier pflegst du konkrete Probetermine. Die gro?e Kalenderplanung folgt sp?ter."}
         title={`Probetermine f?r ${horse.title}`}
       />
 
@@ -70,7 +70,7 @@ export function OwnerR1TrialManager({
             <h2 className="font-serif text-2xl text-stone-900 sm:text-3xl">{horse.title}</h2>
             <p className="ui-inline-meta">{horse.location_address ?? `PLZ ${horse.plz}`} {horse.active ? "- Aktiv" : "- Inaktiv"}</p>
             <p className="text-sm leading-6 text-stone-600">
-              {horse.description?.trim() || "Hier pflegst du die Probetermine f?r den ersten Release."}
+              {horse.description?.trim() || "Hier pflegst du die Probetermine f?r den Start."}
             </p>
           </div>
           <div className="flex flex-col gap-3 lg:items-end">
@@ -101,7 +101,7 @@ export function OwnerR1TrialManager({
               </Card>
             ) : null}
             <Link className={buttonVariants("secondary", "w-full lg:w-auto")} href={detailHref}>
-              {"Pferdeprofil ?ffnen"}
+              Pferdeprofil ?ffnen
             </Link>
           </div>
         </div>
@@ -109,7 +109,7 @@ export function OwnerR1TrialManager({
 
       <SectionCard
         id="kalender-liste"
-        subtitle={"Reiter sehen nur diese Termine in der Suche und im Pferdeprofil. Mehr braucht R1 an dieser Stelle nicht."}
+        subtitle={"Reiter sehen nur diese Termine in der Suche und im Pferdeprofil. Mehr brauchst du an dieser Stelle nicht."}
         title="Probetermine pflegen"
       >
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
@@ -134,7 +134,7 @@ export function OwnerR1TrialManager({
                           <input name="ruleId" type="hidden" value={rule.id} />
                           <ConfirmSubmitButton
                             className={buttonVariants("secondary", "w-full text-sm sm:w-auto")}
-                            confirmMessage={"M?chtest du diesen Probetermin wirklich entfernen?"}
+                            confirmMessage="M?chtest du diesen Probetermin wirklich entfernen?"
                             idleLabel="Entfernen"
                             pendingLabel="Wird entfernt..."
                           />
@@ -172,12 +172,12 @@ export function OwnerR1TrialManager({
               </div>
               <div className="ui-field-grid sm:grid-cols-2">
                 <div>
-                  <label htmlFor="trialStartTimeR1">Von</label>
-                  <input defaultValue="17:00" id="trialStartTimeR1" name="startTime" required step={900} type="time" />
+                  <label htmlFor="trialStartTime">Von</label>
+                  <input defaultValue="17:00" id="trialStartTime" name="startTime" required step={900} type="time" />
                 </div>
                 <div>
-                  <label htmlFor="trialEndTimeR1">Bis</label>
-                  <input defaultValue="18:00" id="trialEndTimeR1" name="endTime" required step={900} type="time" />
+                  <label htmlFor="trialEndTime">Bis</label>
+                  <input defaultValue="18:00" id="trialEndTime" name="endTime" required step={900} type="time" />
                 </div>
               </div>
               <SubmitButton idleLabel="Probetermine speichern" pendingLabel="Wird gespeichert..." />
