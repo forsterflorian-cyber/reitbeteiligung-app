@@ -357,7 +357,7 @@ function buildTimelineRows({
     // Feste Stundenraster machen freie Zeiten, Belegung und offene Anfragen direkt vergleichbar.
     const availableSegments = rules
       .filter((rule) => overlapsDay(rule.start_at, rule.end_at, dayDate))
-      .map((rule) => buildTimelineSegment(dayDate, rule.start_at, rule.end_at, `Verfügbar ${formatTime(rule.start_at)}-${formatTime(rule.end_at)}`, "available", rule.id))
+      .map((rule) => buildTimelineSegment(dayDate, rule.start_at, rule.end_at, `VerfÃ¼gbar ${formatTime(rule.start_at)}-${formatTime(rule.end_at)}`, "available", rule.id))
       .filter((segment): segment is TimelineSegment => Boolean(segment));
 
     const occupiedSegments = occupancy
@@ -371,7 +371,7 @@ function buildTimelineRows({
       .filter((segment): segment is TimelineSegment => Boolean(segment));
 
     const lanes: TimelineLane[] = [
-      { key: "available", label: "Verfügbar", tone: "available", segments: availableSegments },
+      { key: "available", label: "VerfÃ¼gbar", tone: "available", segments: availableSegments },
       { key: "occupied", label: "Belegt", tone: "occupied", segments: occupiedSegments }
     ];
 
@@ -680,12 +680,12 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   return (
     <div className="space-y-6 sm:space-y-8">
       <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={detailHref}>
-        Zurück zum Pferdeprofil
+        ZurÃ¼ck zum Pferdeprofil
       </Link>
 
       <PageHeader
-        subtitle="Kalender, Verfügbarkeiten und Terminanfragen auf einen Blick."
-        title={`Kalender für ${horse.title}`}
+        subtitle="Kalender, VerfÃ¼gbarkeiten und Terminanfragen auf einen Blick."
+        title={`Kalender fÃ¼r ${horse.title}`}
       />
 
       <div className="space-y-3" id="kalender-feedback">
@@ -701,7 +701,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
             <h2 className="font-serif text-2xl text-stone-900 sm:text-3xl">{horse.title}</h2>
             <p className="ui-inline-meta">{horse.location_address ?? `PLZ ${horse.plz}`} {horse.active ? "- Aktiv" : "- Inaktiv"}</p>
             <p className="text-sm leading-6 text-stone-600">
-              {horse.description?.trim() || "Hier steuerst du Verfügbarkeiten, Sperren und eingehende Terminanfragen für dieses Pferd."}
+              {horse.description?.trim() || "Hier steuerst du VerfÃ¼gbarkeiten, Sperren und eingehende Terminanfragen fÃ¼r dieses Pferd."}
             </p>
           </div>
           <div className="flex flex-col gap-3 lg:items-end">
@@ -738,30 +738,120 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         </div>
       </div>
 
-      <SectionCard
-        subtitle={"Prüfe erst den Kalender. Für Änderungen wechselst du darunter bewusst in den Bearbeitungsbereich."}
-        title="Kalender anzeigen"
-      >
+      {isOwner ? (
+        <SectionCard
+          subtitle={"Pflege fÃ¼r R1 zuerst deine Probetermine, Standardzeiten und Ausnahmen als Liste. Die Wochenplanung kommt darunter nur noch als optionaler visueller Check."}
+          title="Listenansicht zuerst"
+        >
+          <div className="grid gap-5 xl:grid-cols-3">
+            <Card className="p-5">
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <p className="ui-eyebrow">Probetermine</p>
+                  <p className="text-sm text-stone-600">Nur diese Slots sind fÃ¼r Reiter sichtbar und anfragbar.</p>
+                </div>
+                <Badge tone="pending">{trialSlotCount} aktive Slots</Badge>
+                {prioritizedRules.filter((rule) => rule.is_trial_slot).length === 0 ? (
+                  <p className="text-sm text-stone-500">Noch keine Probetermine eingestellt.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {prioritizedRules.filter((rule) => rule.is_trial_slot).slice(0, 4).map((rule) => (
+                      <div className="rounded-2xl border border-stone-200 bg-white px-3 py-3" key={rule.id}>
+                        <p className="text-sm font-semibold text-stone-900">{ruleLabel(rule)}</p>
+                        <a className={buttonVariants("ghost", "mt-3 w-full justify-center text-sm")} href={`/pferde/${horse.id}/kalender?${currentViewQuery}&day=${rule.start_at.slice(0, 10)}&focusRule=${rule.id}#tagesfenster`}>
+                          Bearbeiten
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <a className={buttonVariants("secondary", "w-full justify-center text-sm")} href="#serienfreigaben-form">
+                  Probetermin hinzufÃ¼gen
+                </a>
+              </div>
+            </Card>
+            <Card className="p-5">
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <p className="ui-eyebrow">Standardzeiten</p>
+                  <p className="text-sm text-stone-600">Dein Grundmuster fÃ¼r wiederkehrende VerfÃ¼gbarkeit.</p>
+                </div>
+                <Badge tone="approved">{Math.max(0, rules.length - trialSlotCount)} weitere Fenster</Badge>
+                {prioritizedRules.filter((rule) => !rule.is_trial_slot).length === 0 ? (
+                  <p className="text-sm text-stone-500">Noch keine Standardzeiten gepflegt.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {prioritizedRules.filter((rule) => !rule.is_trial_slot).slice(0, 4).map((rule) => (
+                      <div className="rounded-2xl border border-stone-200 bg-white px-3 py-3" key={rule.id}>
+                        <p className="text-sm font-semibold text-stone-900">{ruleLabel(rule)}</p>
+                        <a className={buttonVariants("ghost", "mt-3 w-full justify-center text-sm")} href={`/pferde/${horse.id}/kalender?${currentViewQuery}&day=${rule.start_at.slice(0, 10)}&focusRule=${rule.id}#tagesfenster`}>
+                          Bearbeiten
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <a className={buttonVariants("secondary", "w-full justify-center text-sm")} href="#serienfreigaben-form">
+                  Standardzeiten pflegen
+                </a>
+              </div>
+            </Card>
+            <Card className="p-5">
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <p className="ui-eyebrow">Ausnahmen</p>
+                  <p className="text-sm text-stone-600">Kurzfristige Sperren getrennt vom Grundmuster.</p>
+                </div>
+                <Badge tone="rejected">{ownerBlocks.length} Ausnahmen</Badge>
+                {ownerBlocks.length === 0 ? (
+                  <p className="text-sm text-stone-500">Noch keine Ausnahmen hinterlegt.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {prioritizedBlocks.slice(0, 4).map((block) => (
+                      <div className="rounded-2xl border border-stone-200 bg-white px-3 py-3" key={block.id}>
+                        <p className="text-sm font-semibold text-stone-900">{block.title?.trim() || "Sperre"}</p>
+                        <p className="mt-1 text-sm text-stone-600">{formatDateRange(block.start_at, block.end_at)}</p>
+                        <a className={buttonVariants("ghost", "mt-3 w-full justify-center text-sm")} href={`/pferde/${horse.id}/kalender?${currentViewQuery}&day=${block.start_at.slice(0, 10)}&focusBlock=${block.id}#tagesfenster`}>
+                          Bearbeiten
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <a className={buttonVariants("secondary", "w-full justify-center text-sm")} href="#ausnahmen-form">
+                  Ausnahme hinzufügen
+                </a>
+              </div>
+            </Card>
+          </div>
+        </SectionCard>
+      ) : null}
+
+      {!isOwner ? (
+        <SectionCard
+          subtitle={"Kalender, VerfÃ¼gbarkeiten und Terminanfragen auf einen Blick."}
+          title="Kalender anzeigen"
+        >
         <div className="space-y-4">
           <div className="rounded-2xl border border-stone-200 bg-white/80 px-4 py-4">
             <div className="grid gap-2 sm:grid-cols-4">
-              <Link className={buttonVariants(selectedRange === 1 ? "primary" : "secondary", "w-full justify-center text-sm")} href={nextDayHref}>{"Nächster Tag"}</Link>
-              <Link className={buttonVariants(selectedRange === 7 ? "primary" : "secondary", "w-full justify-center text-sm")} href={nextSevenDaysHref}>{"Nächste 7 Tage"}</Link>
-              <Link className={buttonVariants(selectedRange === 30 ? "primary" : "secondary", "w-full justify-center text-sm")} href={nextThirtyDaysHref}>{"Nächste 30 Tage"}</Link>
-              <a className={buttonVariants("ghost", "w-full justify-center text-sm")} href="#kalender-bearbeiten">Kalender bearbeiten</a>
+              <Link className={buttonVariants(selectedRange === 1 ? "primary" : "secondary", "w-full justify-center text-sm")} href={nextDayHref}>{"NÃ¤chster Tag"}</Link>
+              <Link className={buttonVariants(selectedRange === 7 ? "primary" : "secondary", "w-full justify-center text-sm")} href={nextSevenDaysHref}>{"NÃ¤chste 7 Tage"}</Link>
+              <Link className={buttonVariants(selectedRange === 30 ? "primary" : "secondary", "w-full justify-center text-sm")} href={nextThirtyDaysHref}>{"NÃ¤chste 30 Tage"}</Link>
+              
             </div>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-stone-900">{monthFormatter.format(viewedMonthStart)}</p>
-              <p className="text-sm text-stone-600">{"Jede Zeile steht für eine Woche. Ein Klick öffnet direkt die Detailansicht dieser Woche."}</p>
+              <p className="text-sm text-stone-600">{"Jede Zeile steht fÃ¼r eine Woche. Ein Klick Ã¶ffnet direkt die Detailansicht dieser Woche."}</p>
             </div>
             <div className="flex gap-2">
               <Link className={buttonVariants("secondary", "min-h-[40px] px-4 py-2 text-sm")} href={previousMonthHref}>
                 Vorheriger Monat
               </Link>
               <Link className={buttonVariants("secondary", "min-h-[40px] px-4 py-2 text-sm")} href={nextMonthHref}>
-                {"Nächster Monat"}
+                {"NÃ¤chster Monat"}
               </Link>
               <Link className={buttonVariants("ghost", "min-h-[40px] px-4 py-2 text-sm")} href={todayHref}>
                 Heute
@@ -806,17 +896,19 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
             </div>
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      ) : null}
 
-      <SectionCard
-        id="wochenplanung"
+      {!isOwner ? (
+        <SectionCard
+          id="wochenplanung"
         subtitle={`Aktiver Zeitraum: ${timelineRowsLabel}. Tage links, Uhrzeiten oben und freie, belegte oder angefragte Zeiten direkt in einer Zeitleiste.`}
-        title={`Kalenderzeitraum für ${horse.title}`}
+        title={`Kalenderzeitraum fÃ¼r ${horse.title}`}
       >
         <div className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap gap-2">
-              <Badge tone="approved">{"Verfügbare Zeiten"}</Badge>
+              <Badge tone="approved">{"VerfÃ¼gbare Zeiten"}</Badge>
               <Badge tone="rejected">Belegte Zeiten</Badge>
               {isOwner ? <Badge tone="pending">Offene Anfragen</Badge> : null}
             </div>
@@ -825,7 +917,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                 Vorheriger Zeitraum
               </Link>
               <Link className={buttonVariants("secondary", "min-h-[40px] px-4 py-2 text-sm")} href={nextWeekHref}>
-                {"Nächste Woche"}
+                {"NÃ¤chste Woche"}
               </Link>
               <Link className={buttonVariants("ghost", "min-h-[40px] px-4 py-2 text-sm")} href={todayHref}>
                 Heute
@@ -835,7 +927,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
 
           {isOwner ? (
             <p className="text-sm text-stone-600">
-              Tipp: Klicke links auf einen Tag oder ziehe direkt über freie Stunden. Der Tageseditor wird sofort mit Datum und Uhrzeit vorbelegt.</p>
+              Tipp: Klicke links auf einen Tag oder ziehe direkt Ã¼ber freie Stunden. Der Tageseditor wird sofort mit Datum und Uhrzeit vorbelegt.</p>
           ) : null}
 
           <div className="overflow-x-auto">
@@ -863,7 +955,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                           <p className="text-xs text-stone-500">{row.meta}</p>
                           <div className="flex flex-wrap gap-2">
                             {row.isToday ? <Badge tone="info">Heute</Badge> : null}
-                            {row.isSelected ? <Badge tone="approved">Ausgewählt</Badge> : <Badge tone="neutral">Tag wählen</Badge>}
+                            {row.isSelected ? <Badge tone="approved">AusgewÃ¤hlt</Badge> : <Badge tone="neutral">Tag wÃ¤hlen</Badge>}
                           </div>
                         </a>
                       ) : (
@@ -894,7 +986,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                               ) : null}
                               {lane.segments.length === 0 ? (
                                 <div className="pointer-events-none relative z-20 flex h-11 items-center text-xs text-stone-400">
-                                  {isOwner && lane.key === "available" ? "Freie Stunden ziehen oder anklicken" : "Keine Einträge"}
+                                  {isOwner && lane.key === "available" ? "Freie Stunden ziehen oder anklicken" : "Keine EintrÃ¤ge"}
                                 </div>
                               ) : (
                                 lane.segments.map((segment) => {
@@ -979,19 +1071,20 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
             </div>
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+      ) : null}
 
       <div className="space-y-5">
         {isOwner ? (
           <>
             <SectionCard
-              subtitle={"Prüfe zuerst bestehende Standardzeiten und Ausnahmen. Änderungen nimmst du erst im nächsten Abschnitt vor."}
+              subtitle={"PrÃ¼fe zuerst bestehende Standardzeiten und Ausnahmen. Ã„nderungen nimmst du erst im nÃ¤chsten Abschnitt vor."}
               title="Kalender bearbeiten"
             >
               <div className="grid gap-4 lg:grid-cols-3">
                 <Card className="p-4">
                   <p className="ui-eyebrow">Standardzeiten</p>
-                  <p className="mt-2 text-sm text-stone-600">{"Das Wochenmuster ist der wichtigste Hebel für den Alltag."}</p>
+                  <p className="mt-2 text-sm text-stone-600">{"Das Wochenmuster ist der wichtigste Hebel fÃ¼r den Alltag."}</p>
                   <a className={buttonVariants("ghost", "mt-4 w-full justify-center text-sm")} href="#serienfreigaben-form">Zu Standardzeiten</a>
                 </Card>
                 <Card className="p-4">
@@ -1075,7 +1168,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                   <div className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Aktive Zeitfenster</p>
                     <p className="mt-2 text-2xl font-semibold text-stone-900">{rules.length}</p>
-                    <p className="mt-1 text-sm text-stone-600">Im Planer direkt als verfügbar sichtbar.</p>
+                    <p className="mt-1 text-sm text-stone-600">Im Planer direkt als verfÃ¼gbar sichtbar.</p>
                   </div>
                   <div className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Belegte Zeiten</p>
@@ -1085,7 +1178,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                   <div className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Ausnahmen</p>
                     <p className="mt-2 text-2xl font-semibold text-stone-900">{ownerBlocks.length}</p>
-                    <p className="mt-1 text-sm text-stone-600">Nur für kurzfristige Sperren außerhalb des Musters.</p>
+                    <p className="mt-1 text-sm text-stone-600">Nur fÃ¼r kurzfristige Sperren auÃŸerhalb des Musters.</p>
                   </div>
                   <div className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Offene Anfragen</p>
@@ -1095,7 +1188,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                   <div className="rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Probetermin-Slots</p>
                     <p className="mt-2 text-2xl font-semibold text-stone-900">{trialSlotCount}</p>
-                    <p className="mt-1 text-sm text-stone-600">{"Nur diese Zeitfenster werden Reitern für Probetermine angeboten."}</p>
+                    <p className="mt-1 text-sm text-stone-600">{"Nur diese Zeitfenster werden Reitern fÃ¼r Probetermine angeboten."}</p>
                   </div>
                 </div>
               </Card>
@@ -1105,8 +1198,8 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                   <form action={createAvailabilityRuleAction} className="ui-form-stack">
                     <input name="horseId" type="hidden" value={horse.id} />
                     <div className="ui-subpanel">
-                      <p className="ui-eyebrow">Wiederkehrende Verfügbarkeit</p>
-                      <p className="mt-2 ui-inline-meta">1. Wochenmuster wählen 2. Tage markieren 3. Uhrzeit speichern. Daraus werden für die nächsten 8 Wochen konkrete Zeitfenster erzeugt.</p>
+                      <p className="ui-eyebrow">Wiederkehrende VerfÃ¼gbarkeit</p>
+                      <p className="mt-2 ui-inline-meta">1. Wochenmuster wÃ¤hlen 2. Tage markieren 3. Uhrzeit speichern. Daraus werden fÃ¼r die nÃ¤chsten 8 Wochen konkrete Zeitfenster erzeugt.</p>
                     </div>
                     <fieldset className="space-y-3">
                       <legend className="text-sm font-medium text-stone-900">Schnellauswahl</legend>
@@ -1122,7 +1215,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                           <input className="peer sr-only" name="availabilityPreset" type="radio" value="daily" />
                           <span className="flex min-h-[56px] flex-col justify-center rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
                             <span>Jeden Tag</span>
-                            <span className="mt-1 text-xs text-stone-500 peer-checked:text-forest">Für die komplette Woche</span>
+                            <span className="mt-1 text-xs text-stone-500 peer-checked:text-forest">FÃ¼r die komplette Woche</span>
                           </span>
                         </label>
                         <label className="block">
@@ -1143,7 +1236,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                     </fieldset>
                     <fieldset className="space-y-3">
                       <legend className="text-sm font-medium text-stone-900">Wochenraster</legend>
-                      <p className="text-sm text-stone-600">Markiere die Tage, an denen das Pferd grundsätzlich verfügbar sein soll.</p>
+                      <p className="text-sm text-stone-600">Markiere die Tage, an denen das Pferd grundsÃ¤tzlich verfÃ¼gbar sein soll.</p>
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
                         <label className="block">
                           <input className="peer sr-only" name="weekday" type="checkbox" value="1" />
@@ -1220,7 +1313,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                       <input name="horseId" type="hidden" value={horse.id} />
                       <div className="ui-subpanel">
                         <p className="ui-eyebrow">Ausnahme blockieren</p>
-                        <p className="mt-2 ui-inline-meta">Nutze Sperren nur dann, wenn das Pferd trotz Wochenmuster kurzfristig nicht verfügbar ist.</p>
+                        <p className="mt-2 ui-inline-meta">Nutze Sperren nur dann, wenn das Pferd trotz Wochenmuster kurzfristig nicht verfÃ¼gbar ist.</p>
                       </div>
                       <div>
                         <label htmlFor="blockTitleNew">Titel der Sperre (optional)</label>
@@ -1240,13 +1333,13 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                     <div className="space-y-4 border-t border-stone-200 pt-5" id="direktbearbeitung">
                       <div className="space-y-1">
                         <h3 className="text-base font-semibold text-stone-900">Direktbearbeitung</h3>
-                        <p className="text-sm text-stone-600">Hier entfernst du die nächsten Einträge direkt. Für die Gesamtübersicht bleibt das Raster oben die wichtigste Ansicht.</p>
+                        <p className="text-sm text-stone-600">Hier entfernst du die nÃ¤chsten EintrÃ¤ge direkt. FÃ¼r die GesamtÃ¼bersicht bleibt das Raster oben die wichtigste Ansicht.</p>
                       </div>
 
                       <div className="grid gap-4 lg:grid-cols-2">
                         <div className="space-y-3">
                           <div className="flex items-center justify-between gap-3">
-                            <h4 className="text-sm font-semibold text-stone-900">Nächste Zeitfenster</h4>
+                            <h4 className="text-sm font-semibold text-stone-900">NÃ¤chste Zeitfenster</h4>
                             <Badge tone="approved">{rules.length}</Badge>
                           </div>
                           {rules.length === 0 ? (
@@ -1263,21 +1356,21 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                                     <input name="ruleId" type="hidden" value={rule.id} />
                                     <ConfirmSubmitButton
                                       className={buttonVariants("secondary", "w-full text-sm")}
-                                      confirmMessage="Möchtest du dieses Verfügbarkeitsfenster wirklich entfernen?"
+                                      confirmMessage="MÃ¶chtest du dieses VerfÃ¼gbarkeitsfenster wirklich entfernen?"
                                       idleLabel="Entfernen"
                                       pendingLabel="Wird entfernt..."
                                     />
                                   </form>
                                 </div>
                               ))}
-                              {rules.length > 4 ? <p className="text-xs text-stone-500">+ {rules.length - 4} weitere Einträge sind bereits im Planer sichtbar.</p> : null}
+                              {rules.length > 4 ? <p className="text-xs text-stone-500">+ {rules.length - 4} weitere EintrÃ¤ge sind bereits im Planer sichtbar.</p> : null}
                             </div>
                           )}
                         </div>
 
                         <div className="space-y-3">
                           <div className="flex items-center justify-between gap-3">
-                            <h4 className="text-sm font-semibold text-stone-900">Nächste Sperren</h4>
+                            <h4 className="text-sm font-semibold text-stone-900">NÃ¤chste Sperren</h4>
                             <Badge tone="rejected">{ownerBlocks.length}</Badge>
                           </div>
                           {ownerBlocks.length === 0 ? (
@@ -1295,7 +1388,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                                     <input name="blockId" type="hidden" value={block.id} />
                                     <ConfirmSubmitButton
                                       className={buttonVariants("secondary", "w-full text-sm")}
-                                      confirmMessage="Möchtest du diese Kalender-Sperre wirklich entfernen?"
+                                      confirmMessage="MÃ¶chtest du diese Kalender-Sperre wirklich entfernen?"
                                       idleLabel="Entfernen"
                                       pendingLabel="Wird entfernt..."
                                     />
@@ -1317,7 +1410,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
             <SectionCard id="offene-terminanfragen" subtitle="Nimm angefragte Termine an oder lehne sie ab." title="Offene Terminanfragen">
               <div className="space-y-4">
                 {requestedOwnerBookingItems.length === 0 ? (
-                  <EmptyState description="Für dieses Pferd liegen derzeit keine offenen Terminanfragen vor." title="Keine offenen Terminanfragen" />
+                  <EmptyState description="FÃ¼r dieses Pferd liegen derzeit keine offenen Terminanfragen vor." title="Keine offenen Terminanfragen" />
                 ) : (
                   requestedOwnerBookingItems.map((request) => {
                     const rule = request.availability_rule_id ? ruleMap.get(request.availability_rule_id) ?? null : null;
@@ -1477,7 +1570,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         ) : null}
 
         {!profile ? (
-          <SectionCard subtitle={"Melde dich an, um Verfügbarkeiten, Anfragen und deinen eigenen Status zu sehen."} title="Kalender nutzen">
+          <SectionCard subtitle={"Melde dich an, um VerfÃ¼gbarkeiten, Anfragen und deinen eigenen Status zu sehen."} title="Kalender nutzen">
             <Link className={buttonVariants("primary", "w-full sm:w-auto")} href="/login">
               Anmelden, um den Kalender zu nutzen
             </Link>
