@@ -160,7 +160,7 @@ export default async function PferdDetailPage({
       : null;
   const canSelectTrialSlot = profile?.role === "rider" && !approved && (!latestRequest || latestRequest.status === "declined");
   const hasExplicitTrialSlots = trialSlots.length > 0;
-  const canRequest = canSelectTrialSlot;
+  const canRequest = canSelectTrialSlot && hasExplicitTrialSlots;
   const facts = horseFacts(horse);
   const calendarHref = `/pferde/${horse.id}/kalender` as Route;
 
@@ -300,34 +300,28 @@ export default async function PferdDetailPage({
           {canRequest ? (
             <form action={requestTrialAction} className="space-y-4" id="probetermin">
               <input name="horseId" type="hidden" value={horse.id} />
-              {hasExplicitTrialSlots ? (
+              <div className="space-y-2">
+                <label>Die nächsten freien Probetermine</label>
                 <div className="space-y-2">
-                  <label>Die nächsten freien Probetermine</label>
-                  <div className="space-y-2">
-                    {trialSlots.map((slot, index) => (
-                      <label className="block" key={slot.availabilityRuleId}>
-                        <input
-                          className="peer sr-only"
-                          defaultChecked={index === 0}
-                          name="availabilityRuleId"
-                          required
-                          type="radio"
-                          value={slot.availabilityRuleId}
-                        />
-                        <span className="flex min-h-[52px] items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
-                          <span>{formatTrialSlotRange(slot.startAt, slot.endAt)}</span>
-                          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500 peer-checked:text-forest">Auswählen</span>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                  <p className="text-sm text-stone-600">Die nächsten 10 explizit freigegebenen Probetermine werden direkt aus dem Kalender übernommen.</p>
+                  {trialSlots.map((slot, index) => (
+                    <label className="block" key={slot.availabilityRuleId}>
+                      <input
+                        className="peer sr-only"
+                        defaultChecked={index === 0}
+                        name="availabilityRuleId"
+                        required
+                        type="radio"
+                        value={slot.availabilityRuleId}
+                      />
+                      <span className="flex min-h-[52px] items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
+                        <span>{formatTrialSlotRange(slot.startAt, slot.endAt)}</span>
+                        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500 peer-checked:text-forest">Auswählen</span>
+                      </span>
+                    </label>
+                  ))}
                 </div>
-              ) : (
-                <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4 text-sm leading-6 text-stone-600">
-                  Für dieses Pferd sind aktuell keine festen Probetermine gepflegt. Du kannst stattdessen eine allgemeine Probeanfrage senden.
-                </div>
-              )}
+                <p className="text-sm text-stone-600">Die nächsten 10 explizit freigegebenen Probetermine werden direkt aus dem Kalender übernommen.</p>
+              </div>
               <div>
                 <label htmlFor="message">Nachricht (optional)</label>
                 <textarea
@@ -338,14 +332,17 @@ export default async function PferdDetailPage({
                 />
               </div>
               <SubmitButton
-                idleLabel={hasExplicitTrialSlots ? "Probetermin anfragen" : "Allgemeine Probeanfrage senden"}
+                idleLabel="Probetermin anfragen"
                 pendingLabel="Wird gesendet..."
               />
             </form>
           ) : null}
 
           {canSelectTrialSlot && !hasExplicitTrialSlots ? (
-            <p className="text-sm text-stone-500">Der Pferdehalter kann später konkrete Probetermine im Kalender freigeben. Bis dahin geht eine allgemeine Anfrage ein.</p>
+            <EmptyState
+              description="Für dieses Pferd sind aktuell noch keine Probetermine freigegeben. Sobald der Pferdehalter feste Probetermine einstellt, kannst du hier direkt anfragen."
+              title="Aktuell keine Probetermine verfügbar"
+            />
           ) : null}
         </SectionCard>
       ) : null}

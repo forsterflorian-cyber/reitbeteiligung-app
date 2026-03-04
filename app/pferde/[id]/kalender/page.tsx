@@ -416,6 +416,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const ownerPlanUsage = isOwner && user ? await getOwnerPlanUsage(supabase, user.id) : { approvedRiderCount: 0, horseCount: 1 };
   const ownerPlan = getOwnerPlan(ownerProfile, ownerPlanUsage);
   const riderApproved = isRider && user ? await isApproved(horse.id, user.id, supabase) : false;
+  const ownerR1Mode = isOwner && R1_CORE_MODE;
   const canUseCalendar = isOwner || (!R1_CORE_MODE && riderApproved);
   const { data: riderBookingLimitData } = !R1_CORE_MODE && isRider && riderApproved && user
     ? await supabase
@@ -429,15 +430,17 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const nowIso = new Date().toISOString();
 
   const [occupancyResult, rulesResult, ownerBlocksResult, ownerBookingRequestsResult, riderBookingRequestsResult, ownerNextTrialResult] = await Promise.all([
-    supabase.rpc("get_horse_calendar_occupancy", {
-      p_horse_id: horse.id
-    }),
+    ownerR1Mode
+      ? Promise.resolve({ data: [] as CalendarOccupancyRow[] | null, error: null })
+      : supabase.rpc("get_horse_calendar_occupancy", {
+          p_horse_id: horse.id
+        }),
     supabase
       .from("availability_rules")
       .select("id, horse_id, slot_id, start_at, end_at, active, is_trial_slot, created_at")
       .eq("horse_id", horse.id)
       .order("start_at", { ascending: true }),
-    isOwner
+    isOwner && !ownerR1Mode
       ? supabase
           .from("calendar_blocks")
           .select("id, horse_id, title, start_at, end_at, created_at")
@@ -492,7 +495,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     ? await supabase.from("profiles").select("display_name").eq("id", nextTrialRequest.rider_id).maybeSingle()
     : { data: null };
   const nextTrialRiderName = (((nextTrialRiderData as Pick<Profile, "display_name"> | null) ?? null)?.display_name ?? null)?.trim() || null;
-  const timelineHours = buildTimelineHours();
+  const timelineHours = ownerR1Mode ? [] : buildTimelineHours();
   const weekOffset = parseRelativeOffset(readSearchParam(searchParams, "weekOffset"));
   const monthOffset = parseRelativeOffset(readSearchParam(searchParams, "monthOffset"));
   const selectedRange = parseCalendarRange(readSearchParam(searchParams, "range"));
@@ -504,15 +507,17 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const todayDayKey = toDayKey(new Date());
   const defaultSelectedDayKey = weekDays.some((day) => toDayKey(day) === todayDayKey) ? todayDayKey : toDayKey(fallbackDay);
   const selectedDayKey = weekDays.some((day) => toDayKey(day) === dayParam) ? (dayParam as string) : defaultSelectedDayKey;
-  const timelineRows = buildTimelineRows({
-    days: weekDays,
-    includePendingLane: isOwner,
-    occupancy,
-    pendingRequests: requestedOwnerBookingItems,
-    rules,
-    selectedDayKey
-  });
-  const monthOverview = buildMonthOverviewWeeks(viewedMonthStart, selectedDayKey);
+  const timelineRows = ownerR1Mode
+    ? []
+    : buildTimelineRows({
+        days: weekDays,
+        includePendingLane: isOwner,
+        occupancy,
+        pendingRequests: requestedOwnerBookingItems,
+        rules,
+        selectedDayKey
+      });
+  const monthOverview = ownerR1Mode ? { weekdayLabels: [] as string[], weeks: [] as MonthOverviewWeek[] } : buildMonthOverviewWeeks(viewedMonthStart, selectedDayKey);
   const monthFormatter = new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" });
   const weekRangeFormatter = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "short" });
   const currentViewQuery = `weekOffset=${weekOffset}&monthOffset=${monthOffset}&range=${selectedRange}`;
@@ -527,7 +532,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const nextSevenDaysHref = `/pferde/${horse.id}/kalender?weekOffset=0&monthOffset=0&range=7&day=${toDayKey(new Date())}#wochenplanung` as Route;
   const nextThirtyDaysHref = `/pferde/${horse.id}/kalender?weekOffset=0&monthOffset=0&range=30&day=${toDayKey(new Date())}#wochenplanung` as Route;
   const timelineRowsLabel = `${weekRangeFormatter.format(weekDays[0] ?? viewedWeekStart)} - ${weekRangeFormatter.format(weekDays[weekDays.length - 1] ?? viewedWeekStart)}`;
-  const selectedTimelineRow = timelineRows.find((row) => row.dayKey === selectedDayKey) ?? timelineRows[0] ?? null;
+  const selectedTimelineRow = ownerR1Mode ? null : timelineRows.find((row) => row.dayKey === selectedDayKey) ?? timelineRows[0] ?? null;
   const selectedDayLabel = selectedTimelineRow ? `${selectedTimelineRow.label}, ${selectedTimelineRow.meta}` : "heute";
   const slotStartParam = parseTimelineHourParam(readSearchParam(searchParams, "slotStart"));
   const slotEndParam = parseTimelineHourParam(readSearchParam(searchParams, "slotEnd"));
@@ -602,7 +607,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
       : "Tagesfenster speichern";
   const dayEditorPendingLabel = focusedRule || focusedBlock ? "Wird aktualisiert..." : "Wird gespeichert...";
   const resetEditorHref = `/pferde/${horse.id}/kalender?${currentViewQuery}&day=${selectedDayKey}#tagesfenster`;
-  const decoratedTimelineRows = timelineRows.map((row) => ({
+  const decoratedTimelineRows = ownerR1Mode ? [] : timelineRows.map((row) => ({
     ...row,
     lanes: row.lanes.map((lane) => ({
       ...lane,
@@ -876,7 +881,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         <div className="space-y-4">
           <div className="rounded-2xl border border-stone-200 bg-white/80 px-4 py-4">
             <div className="grid gap-2 sm:grid-cols-4">
-              <Link className={buttonVariants(selectedRange === 1 ? "primary" : "secondary", "w-full justify-center text-sm")} href={nextDayHref}>{"NÃ¤chster Tag"}</Link>
+              <Link className={buttonVariants(selectedRange === 1 ? "primary" : "secondary", "w-full justify-center text-sm")} href={nextDayHref}>{"N?chster Tag"}</Link>
               <Link className={buttonVariants(selectedRange === 7 ? "primary" : "secondary", "w-full justify-center text-sm")} href={nextSevenDaysHref}>{"NÃ¤chste 7 Tage"}</Link>
               <Link className={buttonVariants(selectedRange === 30 ? "primary" : "secondary", "w-full justify-center text-sm")} href={nextThirtyDaysHref}>{"NÃ¤chste 30 Tage"}</Link>
               
@@ -892,7 +897,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                 Vorheriger Monat
               </Link>
               <Link className={buttonVariants("secondary", "min-h-[40px] px-4 py-2 text-sm")} href={nextMonthHref}>
-                {"NÃ¤chster Monat"}
+                {"N?chster Monat"}
               </Link>
               <Link className={buttonVariants("ghost", "min-h-[40px] px-4 py-2 text-sm")} href={todayHref}>
                 Heute
@@ -1119,7 +1124,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         {isOwner && !R1_CORE_MODE ? (
           <>
             <SectionCard
-              subtitle={"PrÃ¼fe zuerst bestehende Standardzeiten und Ausnahmen. Ã„nderungen nimmst du erst im nÃ¤chsten Abschnitt vor."}
+              subtitle={"PrÃ¼fe zuerst bestehende Standardzeiten und Ausnahmen. Ã„nderungen nimmst du erst im n?chsten Abschnitt vor."}
               title="Kalender bearbeiten"
             >
               <div className="grid gap-4 lg:grid-cols-3">
@@ -1240,7 +1245,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                     <input name="horseId" type="hidden" value={horse.id} />
                     <div className="ui-subpanel">
                       <p className="ui-eyebrow">Wiederkehrende VerfÃ¼gbarkeit</p>
-                      <p className="mt-2 ui-inline-meta">1. Wochenmuster wÃ¤hlen 2. Tage markieren 3. Uhrzeit speichern. Daraus werden fÃ¼r die nÃ¤chsten 8 Wochen konkrete Zeitfenster erzeugt.</p>
+                      <p className="mt-2 ui-inline-meta">1. Wochenmuster wÃ¤hlen 2. Tage markieren 3. Uhrzeit speichern. Daraus werden fÃ¼r die n?chsten 8 Wochen konkrete Zeitfenster erzeugt.</p>
                     </div>
                     <fieldset className="space-y-3">
                       <legend className="text-sm font-medium text-stone-900">Schnellauswahl</legend>
@@ -1374,7 +1379,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                     <div className="space-y-4 border-t border-stone-200 pt-5" id="direktbearbeitung">
                       <div className="space-y-1">
                         <h3 className="text-base font-semibold text-stone-900">Direktbearbeitung</h3>
-                        <p className="text-sm text-stone-600">Hier entfernst du die nÃ¤chsten EintrÃ¤ge direkt. FÃ¼r die GesamtÃ¼bersicht bleibt das Raster oben die wichtigste Ansicht.</p>
+                        <p className="text-sm text-stone-600">Hier entfernst du die n?chsten EintrÃ¤ge direkt. FÃ¼r die GesamtÃ¼bersicht bleibt das Raster oben die wichtigste Ansicht.</p>
                       </div>
 
                       <div className="grid gap-4 lg:grid-cols-2">
@@ -1397,7 +1402,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                                     <input name="ruleId" type="hidden" value={rule.id} />
                                     <ConfirmSubmitButton
                                       className={buttonVariants("secondary", "w-full text-sm")}
-                                      confirmMessage="MÃ¶chtest du dieses VerfÃ¼gbarkeitsfenster wirklich entfernen?"
+                                      confirmMessage="M?chtest du dieses VerfÃ¼gbarkeitsfenster wirklich entfernen?"
                                       idleLabel="Entfernen"
                                       pendingLabel="Wird entfernt..."
                                     />
@@ -1429,7 +1434,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                                     <input name="blockId" type="hidden" value={block.id} />
                                     <ConfirmSubmitButton
                                       className={buttonVariants("secondary", "w-full text-sm")}
-                                      confirmMessage="MÃ¶chtest du diese Kalender-Sperre wirklich entfernen?"
+                                      confirmMessage="M?chtest du diese Kalender-Sperre wirklich entfernen?"
                                       idleLabel="Entfernen"
                                       pendingLabel="Wird entfernt..."
                                     />
@@ -1611,7 +1616,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         ) : null}
 
         {!profile ? (
-          <SectionCard subtitle={"Melde dich an, um VerfÃ¼gbarkeiten, Anfragen und deinen eigenen Status zu sehen."} title="Kalender nutzen">
+          <SectionCard subtitle={"Melde dich an, um Verf?gbarkeiten, Anfragen und deinen eigenen Status zu sehen."} title="Kalender nutzen">
             <Link className={buttonVariants("primary", "w-full sm:w-auto")} href="/login">
               Anmelden, um den Kalender zu nutzen
             </Link>

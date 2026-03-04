@@ -100,7 +100,7 @@ Wichtige Regel:
 ## Workflow 5: Probe anfragen
 
 1. Reiter waehlt einen konkreten Probetermin-Slot.
-2. Falls kein Slot gepflegt ist, kann eine generische Probeanfrage gesendet werden.
+2. In R1 kann nur ein konkret gepflegter Probetermin angefragt werden.
 3. Optional kann der Reiter eine Nachricht mitsenden.
 4. Beim Anlegen der Probeanfrage wird eine Konversation vorbereitet bzw. genutzt.
 
