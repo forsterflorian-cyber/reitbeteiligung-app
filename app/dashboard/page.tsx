@@ -61,9 +61,9 @@ export default async function DashboardPage({
       approvedRiderCount: activeRelationships.length,
       horseCount: horses.length
     };
-    const ownerPlan = getOwnerPlan(profile, ownerPlanUsage);
-    const ownerPlanUsageSummary = getOwnerPlanUsageSummary(ownerPlan, ownerPlanUsage);
-    const showStartTrial = canStartOwnerTrial(profile);
+    const ownerPlan = OWNER_PLAN_LIMITS_ENABLED ? getOwnerPlan(profile, ownerPlanUsage) : null;
+    const ownerPlanUsageSummary = ownerPlan ? getOwnerPlanUsageSummary(ownerPlan, ownerPlanUsage) : null;
+    const showStartTrial = OWNER_PLAN_LIMITS_ENABLED ? canStartOwnerTrial(profile) : false;
     const upgradeHref = `mailto:${PAID_PLAN_CONTACT_EMAIL}?subject=${encodeURIComponent("Bezahlten Tarif anfragen")}`;
 
     const ownerStats: StatItem[] = [
@@ -189,7 +189,7 @@ export default async function DashboardPage({
         {OWNER_PLAN_LIMITS_ENABLED ? (
           <SectionCard
             action={
-              ownerPlan.key !== "paid" || showStartTrial ? (
+              (ownerPlan?.key !== "paid" || showStartTrial) ? (
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   {showStartTrial ? (
                     <form action={startOwnerTrialAction}>
@@ -199,7 +199,7 @@ export default async function DashboardPage({
                       </Button>
                     </form>
                   ) : null}
-                  {ownerPlan.key !== "paid" ? (
+                  {ownerPlan?.key !== "paid" ? (
                     <a className={buttonVariants(showStartTrial ? "ghost" : "secondary")} href={upgradeHref}>
                       Bezahlten Tarif anfragen
                     </a>
@@ -215,10 +215,10 @@ export default async function DashboardPage({
           >
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
-                <Badge tone={ownerPlan.key === "paid" ? "approved" : ownerPlan.key === "trial" ? "pending" : "neutral"}>{ownerPlan.label}</Badge>
+                <Badge tone={ownerPlan?.key === "paid" ? "approved" : ownerPlan?.key === "trial" ? "pending" : "neutral"}>{ownerPlan?.label}</Badge>
               </div>
-              <p className="text-sm leading-6 text-stone-600">{ownerPlan.summary}</p>
-              {ownerPlan.key !== "paid" ? <p className="text-sm leading-6 text-stone-600">{ownerPlanUsageSummary}</p> : null}
+              <p className="text-sm leading-6 text-stone-600">{ownerPlan?.summary}</p>
+              {ownerPlan?.key !== "paid" ? <p className="text-sm leading-6 text-stone-600">{ownerPlanUsageSummary}</p> : null}
             </div>
           </SectionCard>
         ) : null}
@@ -239,13 +239,15 @@ export default async function DashboardPage({
       .order("created_at", { ascending: false })
       .limit(5),
     supabase.from("approvals").select("horse_id, rider_id, status, created_at").eq("rider_id", user.id).eq("status", "approved"),
-    supabase
-      .from("bookings")
-      .select("id, booking_request_id, availability_rule_id, slot_id, horse_id, rider_id, start_at, end_at, created_at")
-      .eq("rider_id", user.id)
-      .gte("start_at", new Date().toISOString())
-      .order("start_at", { ascending: true })
-      .limit(4)
+    !R1_CORE_MODE
+      ? supabase
+          .from("bookings")
+          .select("id, booking_request_id, availability_rule_id, slot_id, horse_id, rider_id, start_at, end_at, created_at")
+          .eq("rider_id", user.id)
+          .gte("start_at", new Date().toISOString())
+          .order("start_at", { ascending: true })
+          .limit(4)
+      : Promise.resolve({ data: [] as Booking[] | null })
   ]);
 
   const riderProfile = (riderProfileData as Pick<RiderProfile, "user_id"> | null) ?? null;
@@ -256,7 +258,7 @@ export default async function DashboardPage({
   const activeRelationshipKeys = new Set(activeApprovals.map((approval) => `${approval.horse_id}:${approval.rider_id}`));
   const openTrials = trials.filter((trial) => (trial.status === "requested" || trial.status === "accepted") && !activeRelationshipKeys.has(`${trial.horse_id}:${trial.rider_id}`));
   const openTrialCount = openTrials.length;
-  const riderHorseIds = [...new Set([...trials.map((trial) => trial.horse_id), ...upcomingBookings.map((booking) => booking.horse_id)])];
+  const riderHorseIds = [...new Set([...trials.map((trial) => trial.horse_id), ...(!R1_CORE_MODE ? upcomingBookings.map((booking) => booking.horse_id) : [])])];
   let riderHorseMap = new Map<string, Pick<Horse, "id" | "title" | "plz">>();
 
   if (riderHorseIds.length > 0) {
