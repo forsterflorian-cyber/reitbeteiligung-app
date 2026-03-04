@@ -22,6 +22,7 @@ import {
   sortHorseImages
 } from "@/lib/horses";
 import { readSearchParam } from "@/lib/search-params";
+import { R1_CORE_MODE } from "@/lib/release-stage";
 import { createClient } from "@/lib/supabase/server";
 import type { AvailabilityRule, Horse, HorseImage, TrialRequest, TrialRequestStatus } from "@/types/database";
 
@@ -182,9 +183,11 @@ export default async function PferdDetailPage({
                 Anmelden um anzufragen
               </Link>
             ) : null}
-            <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href={calendarHref}>
-              Kalender ansehen
-            </Link>
+            {!R1_CORE_MODE || profile?.role === "owner" ? (
+              <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href={calendarHref}>
+                Kalender ansehen
+              </Link>
+            ) : null}
           </>
         }
         subtitle={`${horse.location_address ?? `PLZ ${horse.plz}`}. Probetermine, Freischaltung und spaetere Terminbuchung laufen ueber einen klaren Ablauf.`}

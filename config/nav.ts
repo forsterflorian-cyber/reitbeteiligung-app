@@ -25,9 +25,9 @@ const riderNav = [
   },
   {
     href: "/anfragen" as Route,
-    label: "Proben & Planung",
+    label: "Proben & Chats",
     match: ["/anfragen", "/chat"],
-    mobileLabel: "Planen"
+    mobileLabel: "Proben"
   },
   {
     href: "/profil" as Route,

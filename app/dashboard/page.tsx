@@ -18,6 +18,7 @@ import { hasUnreadOwnerMessage, loadOwnerWorkspaceData } from "@/lib/owner-works
 import { PAID_PLAN_CONTACT_EMAIL, canStartOwnerTrial, getOwnerPlan, getOwnerPlanUsageSummary } from "@/lib/plans";
 import { getProfileDisplayName } from "@/lib/profiles";
 import { readSearchParam } from "@/lib/search-params";
+import { R1_CORE_MODE } from "@/lib/release-stage";
 import type { Approval, Booking, Horse, RiderProfile, TrialRequest } from "@/types/database";
 
 function formatDate(value: string) {
@@ -50,7 +51,7 @@ export default async function DashboardPage({
     const ownerRelationshipsHref = "/owner/reitbeteiligungen" as Route;
     const ownerMessagesHref = "/owner/nachrichten" as Route;
 
-    const { activeRelationships, bookingItems, horses, latestMessages, trialPipelineItems } = await loadOwnerWorkspaceData(supabase, user.id);
+    const { activeRelationships, horses, latestMessages, trialPipelineItems } = await loadOwnerWorkspaceData(supabase, user.id);
     const unreadCount = activeRelationships.reduce((count, item) => {
       const latestMessage = item.conversation ? (latestMessages.get(item.conversation.id) ?? null) : null;
       return hasUnreadOwnerMessage(item.conversation, latestMessage, user.id) ? count + 1 : count;
@@ -88,9 +89,10 @@ export default async function DashboardPage({
       }
     ];
 
-    const pendingCards = [
-      ...trialPipelineItems.slice(0, 3).map((request) => ({
-        ctaLabel: "Probetermine öffnen",
+    const pendingCards = trialPipelineItems
+      .slice(0, 4)
+      .map((request) => ({
+        ctaLabel: "Probetermine \u00f6ffnen",
         description:
           formatDateTimeRange(request.requested_start_at, request.requested_end_at) ??
           request.message?.trim() ??
@@ -101,18 +103,8 @@ export default async function DashboardPage({
         sortValue: Date.parse(request.created_at),
         status: request.status,
         title: request.horse?.title ?? "Pferdeprofil"
-      })),
-      ...bookingItems.slice(0, 3).map((request) => ({
-        ctaLabel: "Reitbeteiligungen öffnen",
-        description: formatDateTimeRange(request.requested_start_at, request.requested_end_at) ?? "Zeitpunkt wird noch geprüft.",
-        eyebrow: "Terminanfrage",
-        href: ownerRelationshipsHref,
-        meta: formatDate(request.created_at),
-        sortValue: Date.parse(request.created_at),
-        status: request.status,
-        title: request.horse?.title ?? "Pferdeprofil"
       }))
-    ].sort((left, right) => right.sortValue - left.sortValue);
+      .sort((left, right) => right.sortValue - left.sortValue);
 
     return (
       <AppPageShell>
@@ -131,7 +123,7 @@ export default async function DashboardPage({
             </>
           }
           backdropVariant="hero"
-          subtitle={`Hallo ${displayName}. Von hier springst du direkt in Pferde, Probetermine und dein laufendes Tagesgeschäft.`}
+          subtitle={`Hallo ${displayName}. Von hier springst du direkt in Pferde, Probetermine und dein laufendes Tagesgesch\u00e4ft.`}
           surface
           title="Übersicht"
         />
@@ -258,7 +250,7 @@ export default async function DashboardPage({
   const trials = (trialRequestsData as TrialRequest[] | null) ?? [];
   const activeApprovals = (riderApprovalsData as Approval[] | null) ?? [];
   const upcomingBookings = (upcomingBookingsData as Booking[] | null) ?? [];
-  const nextBooking = upcomingBookings[0] ?? null;
+  const nextBooking = !R1_CORE_MODE ? upcomingBookings[0] ?? null : null;
   const activeRelationshipKeys = new Set(activeApprovals.map((approval) => `${approval.horse_id}:${approval.rider_id}`));
   const openTrials = trials.filter((trial) => (trial.status === "requested" || trial.status === "accepted") && !activeRelationshipKeys.has(`${trial.horse_id}:${trial.rider_id}`));
   const openTrialCount = openTrials.length;
@@ -290,7 +282,7 @@ export default async function DashboardPage({
     {
       label: "Aktive Reitbeteiligungen",
       value: activeApprovals.length,
-      helper: activeApprovals.length > 0 ? "Diese Reitbeteiligungen können jetzt offene Zeiten buchen." : "Nach der Freischaltung erscheinen aktive Reitbeteiligungen hier."
+      helper: activeApprovals.length > 0 ? "Diese Reitbeteiligungen sind bereits aktiv freigeschaltet." : "Nach der Freischaltung erscheinen aktive Reitbeteiligungen hier."
     }
   ];
 
@@ -303,7 +295,7 @@ export default async function DashboardPage({
               Pferde finden
             </Link>
             <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href={riderRequestsHref}>
-              Proben & Planung
+              Proben & Chats
             </Link>
             <Link className={buttonVariants("ghost", "w-full sm:w-auto")} href={riderProfileHref}>
               Profil bearbeiten
@@ -311,15 +303,15 @@ export default async function DashboardPage({
           </>
         }
         backdropVariant="hero"
-        subtitle={`Hallo ${displayName}. Hier stehen offene Probetermine oder deine nächste Buchung direkt im Fokus.`}
+        subtitle={`Hallo ${displayName}. Hier stehen offene Probetermine, Freischaltungen und deine Chats direkt im Fokus.`}
         surface
         title="Übersicht"
       />
       <Notice text={message} tone="success" />
-      <SectionCard subtitle="Entweder dein nächster Probetermin oder deine nächste konkrete Buchung." title="Als Nächstes">
+      <SectionCard subtitle="Dein n\u00e4chster Probetermin oder der schnellste Einstieg in deine aktiven Reitbeteiligungen." title="Als N\u00e4chstes">
         {focusTrial ? (
           <RequestCard
-            ctaLabel="Zur Planung"
+            ctaLabel="Zur Anfrage"
             description={formatDateTimeRange(focusTrial.requested_start_at, focusTrial.requested_end_at) ?? focusTrial.message?.trim() ?? "Keine Nachricht hinterlegt."}
             eyebrow={riderHorseMap.get(focusTrial.horse_id)?.plz ? `PLZ ${riderHorseMap.get(focusTrial.horse_id)?.plz}` : "Probetermin"}
             href={riderRequestsHref}
@@ -344,16 +336,16 @@ export default async function DashboardPage({
         ) : (
           <EmptyState
             action={<Link className={buttonVariants("primary")} href={riderSearchHref}>Passende Pferde finden</Link>}
-            description="Sobald du einen Probetermin anfragst oder eine Buchung ansteht, erscheint sie hier oben zuerst."
+            description="Sobald du einen Probetermin anfragst oder als Reitbeteiligung aufgenommen wirst, erscheint es hier zuerst."
             title="Noch nichts geplant"
           />
         )}
       </SectionCard>
-      {upcomingBookings.length > 0 ? (
+      {!R1_CORE_MODE && upcomingBookings.length > 0 ? (
         <SectionCard
           action={<Link className={buttonVariants("secondary")} href={riderRequestsHref}>Zur Planung</Link>}
           subtitle="Deine n?chsten bereits best?tigten Termine als aktive Reitbeteiligung."
-          title="N?chste Termine"
+          title="N\u00e4chste Termine"
         >
           <div className="grid gap-3">
             {upcomingBookings.slice(0, 3).map((booking) => {
@@ -363,7 +355,7 @@ export default async function DashboardPage({
                 <Card className="p-4" key={booking.id}>
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge tone="approved">Best?tigt</Badge>
+                      <Badge tone="approved">Best\u00e4tigt</Badge>
                       <p className="text-sm text-stone-500">{formatDate(booking.start_at)}</p>
                     </div>
                     <p className="font-semibold text-stone-900">{horse?.title ?? "Reitbeteiligung"}</p>

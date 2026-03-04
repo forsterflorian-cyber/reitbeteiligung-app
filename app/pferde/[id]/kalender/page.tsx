@@ -34,6 +34,7 @@ import { getViewerContext } from "@/lib/auth";
 import { formatWeeklyHoursLimit } from "@/lib/booking-limits";
 import { HORSE_SELECT_FIELDS } from "@/lib/horses";
 import { getOwnerPlan, getOwnerPlanUsage } from "@/lib/plans";
+import { R1_CORE_MODE } from "@/lib/release-stage";
 import { readSearchParam } from "@/lib/search-params";
 import type { AvailabilityRule, BookingRequest, CalendarBlock, Horse, Profile, RiderBookingLimit, TrialRequest } from "@/types/database";
 
@@ -415,8 +416,8 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const ownerPlanUsage = isOwner && user ? await getOwnerPlanUsage(supabase, user.id) : { approvedRiderCount: 0, horseCount: 1 };
   const ownerPlan = getOwnerPlan(ownerProfile, ownerPlanUsage);
   const riderApproved = isRider && user ? await isApproved(horse.id, user.id, supabase) : false;
-  const canUseCalendar = isOwner || riderApproved;
-  const { data: riderBookingLimitData } = isRider && riderApproved && user
+  const canUseCalendar = isOwner || (!R1_CORE_MODE && riderApproved);
+  const { data: riderBookingLimitData } = !R1_CORE_MODE && isRider && riderApproved && user
     ? await supabase
         .from("rider_booking_limits")
         .select("horse_id, rider_id, weekly_hours_limit, created_at, updated_at")
@@ -443,7 +444,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           .eq("horse_id", horse.id)
           .order("start_at", { ascending: true })
       : Promise.resolve({ data: [] as CalendarBlock[] | null }),
-    isOwner
+    isOwner && !R1_CORE_MODE
       ? supabase
           .from("booking_requests")
           .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, recurrence_rrule, created_at")
@@ -451,7 +452,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           .order("created_at", { ascending: false })
           .limit(20)
       : Promise.resolve({ data: [] as BookingRequest[] | null }),
-    isRider && user
+    !R1_CORE_MODE && isRider && user
       ? supabase
           .from("booking_requests")
           .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, recurrence_rrule, created_at")
@@ -638,7 +639,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const restrictedCalendarTitle = profile?.role === "rider" ? "Kalender erst nach Freischaltung" : profile ? "Kalender aktuell nicht verf\u00fcgbar" : "Kalender nutzen";
   const restrictedCalendarSubtitle =
     profile?.role === "rider"
-      ? "Das Tagesgesch\u00e4ft im Kalender startet erst, wenn du f\u00fcr dieses Pferd als Reitbeteiligung freigeschaltet bist."
+      ? "Der Kalender f\u00fcr laufende Reitbeteiligungen folgt erst nach dem ersten Release. In R1 bleiben Probetermine, Chat und Freischaltung im Fokus."
       : profile
         ? "F\u00fcr dieses Pferd ist der operative Kalender nur f\u00fcr den Pferdehalter und aktive Reitbeteiligungen sichtbar."
         : "Melde dich an, um Verf\u00fcgbarkeiten, Anfragen und deinen eigenen Status zu sehen.";
@@ -1312,6 +1313,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
               </div>
             </SectionCard>
 
+            {!R1_CORE_MODE ? (
             <SectionCard id="offene-terminanfragen" subtitle="Nimm angefragte Termine an oder lehne sie ab." title="Offene Terminanfragen">
               <div className="space-y-4">
                 {requestedOwnerBookingItems.length === 0 ? (
@@ -1360,6 +1362,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                 )}
               </div>
             </SectionCard>
+            ) : null}
           </>
         ) : null}
 
