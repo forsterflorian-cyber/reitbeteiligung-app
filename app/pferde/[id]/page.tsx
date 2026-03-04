@@ -54,7 +54,7 @@ function horseFacts(horse: Horse) {
   const age = getHorseAge(horse.birth_year ?? null);
 
   return [
-    horse.height_cm ? `${horse.height_cm} cm Stockmass` : null,
+    horse.height_cm ? `${horse.height_cm} cm Stockma?` : null,
     horse.breed ? `Rasse: ${horse.breed}` : null,
     horse.color ? `Farbe: ${horse.color}` : null,
     horse.sex ? `Geschlecht: ${horse.sex}` : null,
@@ -190,7 +190,7 @@ export default async function PferdDetailPage({
             ) : null}
           </>
         }
-        subtitle={`${horse.location_address ?? `PLZ ${horse.plz}`}. Probetermine, Freischaltung und spaetere Terminbuchung laufen ueber einen klaren Ablauf.`}
+        subtitle={`${horse.location_address ?? `PLZ ${horse.plz}`}. Probetermine, Freischaltung und sp?tere Terminbuchung laufen ?ber einen klaren Ablauf.`}
         title={horse.title}
       />
 
@@ -198,7 +198,7 @@ export default async function PferdDetailPage({
       <Notice text={message} tone="success" />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-        <SectionCard subtitle="Bilder und erste Eindruecke auf einen Blick." title="Galerie">
+        <SectionCard subtitle="Bilder und erste Eindr?cke auf einen Blick." title="Galerie">
           <div className="space-y-4">
             {images.length > 0 ? (
               <>
@@ -261,7 +261,7 @@ export default async function PferdDetailPage({
         </SectionCard>
       </div>
 
-      <SectionCard subtitle="Das Pferdeprofil in ganzen Saetzen, ohne dass du dich durch Nachrichten suchen musst." title="Beschreibung">
+      <SectionCard subtitle="Das Pferdeprofil in ganzen S?tzen, ohne dass du dich durch Nachrichten suchen musst." title="Beschreibung">
         <p className="text-sm leading-7 text-stone-600 sm:text-base">
           {horse.description?.trim() || "Für dieses Pferdeprofil liegt noch keine Beschreibung vor."}
         </p>
@@ -302,7 +302,7 @@ export default async function PferdDetailPage({
               <input name="horseId" type="hidden" value={horse.id} />
               {hasExplicitTrialSlots ? (
                 <div className="space-y-2">
-                  <label>Die naechsten freien Probetermine</label>
+                  <label>Die n?chsten freien Probetermine</label>
                   <div className="space-y-2">
                     {trialSlots.map((slot, index) => (
                       <label className="block" key={slot.availabilityRuleId}>
@@ -316,16 +316,16 @@ export default async function PferdDetailPage({
                         />
                         <span className="flex min-h-[52px] items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">
                           <span>{formatTrialSlotRange(slot.startAt, slot.endAt)}</span>
-                          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500 peer-checked:text-forest">Auswaehlen</span>
+                          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500 peer-checked:text-forest">Ausw?hlen</span>
                         </span>
                       </label>
                     ))}
                   </div>
-                  <p className="text-sm text-stone-600">Die naechsten 10 explizit freigegebenen Probetermine werden direkt aus dem Kalender uebernommen.</p>
+                  <p className="text-sm text-stone-600">Die n?chsten 10 explizit freigegebenen Probetermine werden direkt aus dem Kalender ?bernommen.</p>
                 </div>
               ) : (
                 <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4 text-sm leading-6 text-stone-600">
-                  Fuer dieses Pferd sind aktuell keine festen Probetermine gepflegt. Du kannst stattdessen eine allgemeine Probeanfrage senden.
+                  F?r dieses Pferd sind aktuell keine festen Probetermine gepflegt. Du kannst stattdessen eine allgemeine Probeanfrage senden.
                 </div>
               )}
               <div>
@@ -345,7 +345,7 @@ export default async function PferdDetailPage({
           ) : null}
 
           {canSelectTrialSlot && !hasExplicitTrialSlots ? (
-            <p className="text-sm text-stone-500">Der Pferdehalter kann spaeter konkrete Probetermine im Kalender freigeben. Bis dahin geht eine allgemeine Anfrage ein.</p>
+            <p className="text-sm text-stone-500">Der Pferdehalter kann sp?ter konkrete Probetermine im Kalender freigeben. Bis dahin geht eine allgemeine Anfrage ein.</p>
           ) : null}
         </SectionCard>
       ) : null}

@@ -7,8 +7,34 @@ import { getViewerContext } from "@/lib/auth";
 import { getUnreadMessageCount } from "@/lib/chat-notifications";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://reitbeteiligung.app"),
   title: "reitbeteiligung.app",
-  description: "Reitbeteiligungen mit klaren Rollen, mobilen Abl\u00e4ufen und einfacher \u00dcbersicht."
+  description: "Reitbeteiligungen von der Probeanfrage bis zur Aufnahme klar organisieren: Probetermine, Freischaltung und Chat an einem Ort.",
+  applicationName: "reitbeteiligung.app",
+  keywords: [
+    "Reitbeteiligung",
+    "Pferdehalter",
+    "Probetermin",
+    "Pferd finden",
+    "Reitbeteiligung finden",
+    "Pferdeorganisation"
+  ],
+  robots: {
+    follow: true,
+    index: true
+  },
+  openGraph: {
+    type: "website",
+    locale: "de_DE",
+    siteName: "reitbeteiligung.app",
+    title: "reitbeteiligung.app",
+    description: "Reitbeteiligungen von der Probeanfrage bis zur Aufnahme klar organisieren: Probetermine, Freischaltung und Chat an einem Ort."
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "reitbeteiligung.app",
+    description: "Reitbeteiligungen von der Probeanfrage bis zur Aufnahme klar organisieren."
+  }
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

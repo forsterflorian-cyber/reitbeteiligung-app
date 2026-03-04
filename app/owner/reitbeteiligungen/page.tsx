@@ -151,9 +151,9 @@ export default async function OwnerRelationshipsPage({
                       <input name="riderId" type="hidden" value={approval.rider_id} />
                       <input name="redirectTo" type="hidden" value="/owner/reitbeteiligungen" />
                       <ConfirmSubmitButton
-                        confirmMessage="Moechtest du diese Reitbeteiligung wirklich loeschen? Die Beziehung wird vollstaendig entfernt."
-                        idleLabel="Reitbeteiligung loeschen"
-                        pendingLabel="Wird geloescht..."
+                        confirmMessage="M?chtest du diese Reitbeteiligung wirklich l?schen? Die Beziehung wird vollst?ndig entfernt."
+                        idleLabel="Reitbeteiligung l?schen"
+                        pendingLabel="Wird gel?scht..."
                       />
                     </form>
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
