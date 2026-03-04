@@ -740,87 +740,128 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
 
       {isOwner ? (
         <SectionCard
-          subtitle={"Pflege fÃ¼r R1 zuerst deine Probetermine, Standardzeiten und Ausnahmen als Liste. Die Wochenplanung kommt darunter nur noch als optionaler visueller Check."}
-          title="Listenansicht zuerst"
+          id="kalender-liste"
+          subtitle={"F?r R1 pflegst du hier nur explizite Probetermine. Standardzeiten, Ausnahmen und die gro?e Wochenplanung bleiben vorerst ausgeblendet."}
+          title="Probetermine pflegen"
         >
-          <div className="grid gap-5 xl:grid-cols-3">
-            <Card className="p-5">
-              <div className="space-y-4">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
+            <Card className="p-5 sm:p-6">
+              <div className="space-y-5">
                 <div className="space-y-1">
-                  <p className="ui-eyebrow">Probetermine</p>
-                  <p className="text-sm text-stone-600">Nur diese Slots sind fÃ¼r Reiter sichtbar und anfragbar.</p>
+                  <p className="ui-eyebrow">Eingestellte Probetermine</p>
+                  <p className="text-sm text-stone-600">Nur diese Termine sehen Reiter in der Suche und auf dem Pferdeprofil.</p>
                 </div>
-                <Badge tone="pending">{trialSlotCount} aktive Slots</Badge>
+                <div className="flex flex-wrap gap-2">
+                  <Badge tone="pending">{trialSlotCount} aktive Probetermine</Badge>
+                  <Badge tone="neutral">R1-Kernfunktion</Badge>
+                </div>
                 {prioritizedRules.filter((rule) => rule.is_trial_slot).length === 0 ? (
                   <p className="text-sm text-stone-500">Noch keine Probetermine eingestellt.</p>
                 ) : (
                   <div className="space-y-2">
-                    {prioritizedRules.filter((rule) => rule.is_trial_slot).slice(0, 4).map((rule) => (
-                      <div className="rounded-2xl border border-stone-200 bg-white px-3 py-3" key={rule.id}>
-                        <p className="text-sm font-semibold text-stone-900">{ruleLabel(rule)}</p>
-                        <a className={buttonVariants("ghost", "mt-3 w-full justify-center text-sm")} href={`/pferde/${horse.id}/kalender?${currentViewQuery}&day=${rule.start_at.slice(0, 10)}&focusRule=${rule.id}#tagesfenster`}>
-                          Bearbeiten
-                        </a>
-                      </div>
-                    ))}
+                    {prioritizedRules
+                      .filter((rule) => rule.is_trial_slot)
+                      .slice(0, 6)
+                      .map((rule) => (
+                        <div className="rounded-2xl border border-stone-200 bg-white px-3 py-3" key={rule.id}>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-stone-900">{ruleLabel(rule)}</p>
+                              <p className="text-xs text-stone-500">Direkt als Probetermin sichtbar</p>
+                            </div>
+                            <form action={deleteAvailabilityRuleAction} className="w-full sm:w-auto">
+                              <input name="ruleId" type="hidden" value={rule.id} />
+                              <ConfirmSubmitButton
+                                className={buttonVariants("secondary", "w-full text-sm sm:w-auto")}
+                                confirmMessage="M?chtest du diesen Probetermin wirklich entfernen?"
+                                idleLabel="Entfernen"
+                                pendingLabel="Wird entfernt..."
+                              />
+                            </form>
+                          </div>
+                        </div>
+                      ))}
+                    {prioritizedRules.filter((rule) => rule.is_trial_slot).length > 6 ? (
+                      <p className="text-xs text-stone-500">+ {prioritizedRules.filter((rule) => rule.is_trial_slot).length - 6} weitere Probetermine sind bereits aktiv.</p>
+                    ) : null}
                   </div>
                 )}
-                <a className={buttonVariants("secondary", "w-full justify-center text-sm")} href="#serienfreigaben-form">
-                  Probetermin hinzufÃ¼gen
-                </a>
+
+                <div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
+                  <form action={createAvailabilityRuleAction} className="space-y-4">
+                    <input name="horseId" type="hidden" value={horse.id} />
+                    <input name="selectedDate" type="hidden" value={selectedDayKey} />
+                    <input name="weekOffset" type="hidden" value={String(weekOffset)} />
+                    <input name="monthOffset" type="hidden" value={String(monthOffset)} />
+                    <input name="availabilityPreset" type="hidden" value="custom" />
+                    <input name="isTrialSlot" type="hidden" value="on" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-stone-900">Neuen Probetermin anlegen</p>
+                      <p className="text-sm text-stone-600">W?hle Tage und Uhrzeit. Daraus werden f?r die n?chsten 8 Wochen konkrete Probetermine erzeugt.</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+                      <label className="block">
+                        <input className="peer sr-only" name="weekday" type="checkbox" value="1" />
+                        <span className="flex min-h-[52px] items-center justify-center rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">Mo</span>
+                      </label>
+                      <label className="block">
+                        <input className="peer sr-only" name="weekday" type="checkbox" value="2" />
+                        <span className="flex min-h-[52px] items-center justify-center rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">Di</span>
+                      </label>
+                      <label className="block">
+                        <input className="peer sr-only" name="weekday" type="checkbox" value="3" />
+                        <span className="flex min-h-[52px] items-center justify-center rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">Mi</span>
+                      </label>
+                      <label className="block">
+                        <input className="peer sr-only" name="weekday" type="checkbox" value="4" />
+                        <span className="flex min-h-[52px] items-center justify-center rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">Do</span>
+                      </label>
+                      <label className="block">
+                        <input className="peer sr-only" name="weekday" type="checkbox" value="5" />
+                        <span className="flex min-h-[52px] items-center justify-center rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">Fr</span>
+                      </label>
+                      <label className="block">
+                        <input className="peer sr-only" name="weekday" type="checkbox" value="6" />
+                        <span className="flex min-h-[52px] items-center justify-center rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">Sa</span>
+                      </label>
+                      <label className="block">
+                        <input className="peer sr-only" name="weekday" type="checkbox" value="0" />
+                        <span className="flex min-h-[52px] items-center justify-center rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-medium text-stone-700 transition peer-checked:border-forest peer-checked:bg-sand peer-checked:text-stone-900">So</span>
+                      </label>
+                    </div>
+                    <div className="ui-field-grid sm:grid-cols-2">
+                      <div>
+                        <label htmlFor="trialStartTime">Von</label>
+                        <input defaultValue="17:00" id="trialStartTime" name="startTime" required step={900} type="time" />
+                      </div>
+                      <div>
+                        <label htmlFor="trialEndTime">Bis</label>
+                        <input defaultValue="18:00" id="trialEndTime" name="endTime" required step={900} type="time" />
+                      </div>
+                    </div>
+                    <SubmitButton idleLabel="Probetermine speichern" pendingLabel="Wird gespeichert..." />
+                  </form>
+                </div>
               </div>
             </Card>
-            <Card className="p-5">
+
+            <Card className="p-5 sm:p-6">
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <p className="ui-eyebrow">Standardzeiten</p>
-                  <p className="text-sm text-stone-600">Dein Grundmuster fÃ¼r wiederkehrende VerfÃ¼gbarkeit.</p>
+                  <p className="ui-eyebrow">Was in R1 live ist</p>
+                  <p className="text-sm text-stone-600">F?r den ersten Release bleibt diese Seite bewusst klein und klar.</p>
                 </div>
-                <Badge tone="approved">{Math.max(0, rules.length - trialSlotCount)} weitere Fenster</Badge>
-                {prioritizedRules.filter((rule) => !rule.is_trial_slot).length === 0 ? (
-                  <p className="text-sm text-stone-500">Noch keine Standardzeiten gepflegt.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {prioritizedRules.filter((rule) => !rule.is_trial_slot).slice(0, 4).map((rule) => (
-                      <div className="rounded-2xl border border-stone-200 bg-white px-3 py-3" key={rule.id}>
-                        <p className="text-sm font-semibold text-stone-900">{ruleLabel(rule)}</p>
-                        <a className={buttonVariants("ghost", "mt-3 w-full justify-center text-sm")} href={`/pferde/${horse.id}/kalender?${currentViewQuery}&day=${rule.start_at.slice(0, 10)}&focusRule=${rule.id}#tagesfenster`}>
-                          Bearbeiten
-                        </a>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <a className={buttonVariants("secondary", "w-full justify-center text-sm")} href="#serienfreigaben-form">
-                  Standardzeiten pflegen
-                </a>
-              </div>
-            </Card>
-            <Card className="p-5">
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <p className="ui-eyebrow">Ausnahmen</p>
-                  <p className="text-sm text-stone-600">Kurzfristige Sperren getrennt vom Grundmuster.</p>
-                </div>
-                <Badge tone="rejected">{ownerBlocks.length} Ausnahmen</Badge>
-                {ownerBlocks.length === 0 ? (
-                  <p className="text-sm text-stone-500">Noch keine Ausnahmen hinterlegt.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {prioritizedBlocks.slice(0, 4).map((block) => (
-                      <div className="rounded-2xl border border-stone-200 bg-white px-3 py-3" key={block.id}>
-                        <p className="text-sm font-semibold text-stone-900">{block.title?.trim() || "Sperre"}</p>
-                        <p className="mt-1 text-sm text-stone-600">{formatDateRange(block.start_at, block.end_at)}</p>
-                        <a className={buttonVariants("ghost", "mt-3 w-full justify-center text-sm")} href={`/pferde/${horse.id}/kalender?${currentViewQuery}&day=${block.start_at.slice(0, 10)}&focusBlock=${block.id}#tagesfenster`}>
-                          Bearbeiten
-                        </a>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <a className={buttonVariants("secondary", "w-full justify-center text-sm")} href="#ausnahmen-form">
-                  Ausnahme hinzufügen
-                </a>
+                <ul className="space-y-2 text-sm text-stone-700">
+                  <li>- Reiter finden nur Pferde mit echten Probeterminen.</li>
+                  <li>- Du stellst Probetermine hier gezielt ein und entfernst sie wieder.</li>
+                  <li>- Standardzeiten, Ausnahmen und gro?e Kalenderplanung folgen sp?ter.</li>
+                </ul>
+                <Link className={buttonVariants("secondary", "w-full justify-center text-sm")} href={detailHref}>
+                  Zum Pferdeprofil
+                </Link>
+                <Link className={buttonVariants("ghost", "w-full justify-center text-sm")} href={"/owner/anfragen" as Route}>
+                  Zu den Probeanfragen
+                </Link>
               </div>
             </Card>
           </div>
@@ -1075,7 +1116,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
       ) : null}
 
       <div className="space-y-5">
-        {isOwner ? (
+        {isOwner && !R1_CORE_MODE ? (
           <>
             <SectionCard
               subtitle={"PrÃ¼fe zuerst bestehende Standardzeiten und Ausnahmen. Ã„nderungen nimmst du erst im nÃ¤chsten Abschnitt vor."}

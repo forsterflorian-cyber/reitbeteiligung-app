@@ -23,6 +23,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { MAX_WEEKLY_HOURS_LIMIT, MIN_WEEKLY_HOURS_LIMIT, formatWeeklyHoursLimit } from "@/lib/booking-limits";
 import { canApproveRider, canCreateHorseProfile, canStartOwnerTrial, getOwnerPlan, getOwnerPlanUsage } from "@/lib/plans";
+import { R1_CORE_MODE } from "@/lib/release-stage";
 import { isTrialRuleBlocked } from "@/lib/trial-slots";
 import type { Approval, AvailabilityRule, Booking, BookingRequest, CalendarBlock, Horse, HorseImage, RiderBookingLimit, TrialRequest } from "@/types/database";
 
@@ -2071,7 +2072,7 @@ export async function createCalendarBlockAction(formData: FormData) {
 
   const horse = await getOwnedHorse(supabase, horseId, user.id);
   const selectedDate = asString(formData.get("selectedDate")) || new Date().toISOString().slice(0, 10);
-  const redirectPath = getCalendarRedirectPath(formData, horseId, selectedDate, { anchor: "kalender-bearbeiten" });
+  const redirectPath = getCalendarRedirectPath(formData, horseId, selectedDate, { anchor: R1_CORE_MODE ? "kalender-liste" : "kalender-bearbeiten" });
 
   if (!horse) {
     redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Kalender-Sperren verwalten.");
@@ -2280,7 +2281,7 @@ export async function createAvailabilityRuleAction(formData: FormData) {
 
   const horse = await getOwnedHorse(supabase, horseId, user.id);
   const selectedDate = asString(formData.get("selectedDate")) || new Date().toISOString().slice(0, 10);
-  const redirectPath = getCalendarRedirectPath(formData, horseId, selectedDate, { anchor: "kalender-bearbeiten" });
+  const redirectPath = getCalendarRedirectPath(formData, horseId, selectedDate, { anchor: R1_CORE_MODE ? "kalender-liste" : "kalender-bearbeiten" });
 
   if (!horse) {
     redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verfügbarkeiten verwalten.");
@@ -2477,7 +2478,7 @@ export async function deleteAvailabilityRuleAction(formData: FormData) {
     redirectWithMessage("/owner/horses", "error", "Du kannst nur eigene Verfügbarkeitsfenster löschen.");
   }
 
-  const redirectPath = `/pferde/${rule.horse_id}/kalender`;
+  const redirectPath = `/pferde/${rule.horse_id}/kalender#kalender-liste`;
   const { error } = await supabase.from("availability_slots").delete().eq("id", rule.slot_id).eq("horse_id", rule.horse_id);
 
   if (error) {
