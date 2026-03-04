@@ -1,4 +1,4 @@
-﻿import type { Approval, TrialRequest } from "@/types/database";
+import type { Approval, TrialRequest } from "@/types/database";
 
 export function canCancelTrialRequest(status: TrialRequest["status"]) {
   return status === "requested" || status === "accepted";

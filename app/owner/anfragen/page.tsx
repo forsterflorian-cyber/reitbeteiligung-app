@@ -1,4 +1,4 @@
-﻿import { OwnerTrialsWorkspace, type OwnerTrialPipelineCard, type OwnerTrialSlotCard } from "@/components/owner/owner-trials-workspace";
+import { OwnerTrialsWorkspace, type OwnerTrialPipelineCard, type OwnerTrialSlotCard } from "@/components/owner/owner-trials-workspace";
 import { AppPageShell } from "@/components/ui/app-page-shell";
 import { requireProfile } from "@/lib/auth";
 import { hasUnreadOwnerMessage, loadOwnerWorkspaceData } from "@/lib/owner-workspace";

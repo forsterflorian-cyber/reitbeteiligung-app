@@ -1,4 +1,4 @@
-﻿import { RiderRequestsWorkspace, type RiderRelationshipCard, type RiderTrialCard } from "@/components/rider/rider-requests-workspace";
+import { RiderRequestsWorkspace, type RiderRelationshipCard, type RiderTrialCard } from "@/components/rider/rider-requests-workspace";
 import { AppPageShell } from "@/components/ui/app-page-shell";
 import { requireProfile } from "@/lib/auth";
 import { readSearchParam } from "@/lib/search-params";

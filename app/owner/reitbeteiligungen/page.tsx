@@ -1,4 +1,4 @@
-﻿import { OwnerRelationshipsWorkspace } from "@/components/owner/owner-relationships-workspace";
+import { OwnerRelationshipsWorkspace } from "@/components/owner/owner-relationships-workspace";
 import { AppPageShell } from "@/components/ui/app-page-shell";
 import { requireProfile } from "@/lib/auth";
 import { hasUnreadOwnerMessage, loadOwnerWorkspaceData } from "@/lib/owner-workspace";
