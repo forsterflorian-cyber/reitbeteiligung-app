@@ -26,6 +26,14 @@ import { canApproveRider, canCreateHorseProfile, canStartOwnerTrial, getOwnerPla
 import { R1_CORE_MODE } from "@/lib/release-stage";
 import { redirectWithFlash } from "@/lib/server-flash";
 import { isTrialRuleBlocked } from "@/lib/trial-slots";
+import {
+  getTrialConversationFailureMessage,
+  getTrialRequestDuplicateError,
+  getTrialRequestSuccessMessage,
+  getTrialSlotSelectionError,
+  getTrialStatusTransitionError
+} from "@/lib/server-actions/trial";
+import { getApprovalSavedMessage, getApprovalTransitionError, getDeleteRelationshipError } from "@/lib/server-actions/relationships";
 import type { Approval, AvailabilityRule, Booking, BookingRequest, CalendarBlock, Horse, HorseImage, RiderBookingLimit, TrialRequest } from "@/types/database";
 
 const PASSWORD_RESET_REDIRECT_URL = "https://reitbeteiligung.app/passwort-zuruecksetzen";
@@ -944,16 +952,7 @@ export async function requestTrialAction(formData: FormData) {
 
   if (existingOwnRequest) {
     const existingRequestStatus = (existingOwnRequest as Pick<TrialRequest, "id" | "status">).status;
-
-    if (existingRequestStatus === TRIAL_REQUEST_STATUS.requested || existingRequestStatus === TRIAL_REQUEST_STATUS.accepted) {
-      redirectWithMessage(
-        redirectPath,
-        "error",
-        "Du hast f\u00fcr dieses Pferd bereits eine offene Probeanfrage. Ziehe sie unter Proben & Planung zur\u00fcck, bevor du erneut anfragst."
-      );
-    }
-
-    redirectWithMessage(redirectPath, "error", "Du hast f\u00fcr dieses Pferd bereits einen laufenden oder abgeschlossenen Probetermin.");
+    redirectWithMessage(redirectPath, "error", getTrialRequestDuplicateError(existingRequestStatus));
   }
 
   const nowIso = new Date().toISOString();
@@ -1008,8 +1007,12 @@ export async function requestTrialAction(formData: FormData) {
     if (isTrialRuleBlocked(selectedRule, occupiedRanges, reservedRequests)) {
       redirectWithMessage(redirectPath, "error", "Dieser Probetermin ist nicht mehr verfügbar.");
     }
-  } else if (hasExplicitTrialSlots) {
-    redirectWithMessage(redirectPath, "error", "Bitte wähle einen verfügbaren Probetermin aus.");
+  } else {
+    const trialSlotSelectionError = getTrialSlotSelectionError(hasExplicitTrialSlots, Boolean(selectedRule));
+
+    if (trialSlotSelectionError) {
+      redirectWithMessage(redirectPath, "error", trialSlotSelectionError);
+    }
   }
 
   const trialInsert = {
@@ -1050,9 +1053,7 @@ export async function requestTrialAction(formData: FormData) {
     redirectWithMessage(
       `/pferde/${horseId}`,
       "error",
-      hasExplicitTrialSlots
-        ? "Deine Anfrage f?r den Probetermin wurde gesendet. Der Chat konnte nicht erstellt werden."
-        : "Deine allgemeine Probeanfrage wurde gesendet. Der Chat konnte nicht erstellt werden."
+      getTrialConversationFailureMessage(hasExplicitTrialSlots)
     );
   }
 
@@ -1063,7 +1064,7 @@ export async function requestTrialAction(formData: FormData) {
   redirectWithMessage(
     `/pferde/${horseId}`,
     "message",
-    hasExplicitTrialSlots ? "Deine Anfrage für den Probetermin wurde gesendet." : "Deine allgemeine Probeanfrage wurde gesendet."
+    getTrialRequestSuccessMessage(hasExplicitTrialSlots)
   );
 }
 
@@ -1127,15 +1128,10 @@ export async function updateTrialRequestStatusAction(formData: FormData) {
     redirectWithMessage("/owner/anfragen", "error", "Die Anfrage konnte nicht gefunden werden.");
   }
 
-  if (nextStatus === TRIAL_REQUEST_STATUS.completed && record.request.status !== TRIAL_REQUEST_STATUS.accepted) {
-    redirectWithMessage("/owner/anfragen", "error", "Nur angenommene Probetermine können als durchgeführt markiert werden.");
-  }
+  const trialStatusTransitionError = getTrialStatusTransitionError(record.request.status, nextStatus);
 
-  if (
-    (nextStatus === TRIAL_REQUEST_STATUS.accepted || nextStatus === TRIAL_REQUEST_STATUS.declined) &&
-    record.request.status !== TRIAL_REQUEST_STATUS.requested
-  ) {
-    redirectWithMessage("/owner/anfragen", "error", "Diese Anfrage kann nicht mehr geaendert werden.");
+  if (trialStatusTransitionError) {
+    redirectWithMessage("/owner/anfragen", "error", trialStatusTransitionError);
   }
 
   const { error } = await record.supabase.from("trial_requests").update({ status: nextStatus }).eq("id", requestId);
@@ -1165,8 +1161,10 @@ export async function updateApprovalAction(formData: FormData) {
     redirectWithMessage("/owner/anfragen", "error", "Die Anfrage konnte nicht gefunden werden.");
   }
 
-  if (record.request.status !== TRIAL_REQUEST_STATUS.completed) {
-    redirectWithMessage("/owner/anfragen", "error", "Nur durchgeführte Probetermine können freigeschaltet werden.");
+  const approvalTransitionError = getApprovalTransitionError(record.request.status);
+
+  if (approvalTransitionError) {
+    redirectWithMessage("/owner/anfragen", "error", approvalTransitionError);
   }
 
   if (nextStatus === APPROVAL_STATUS.approved) {
@@ -1215,8 +1213,7 @@ export async function updateApprovalAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath(`/pferde/${record.request.horse_id}`);
   revalidatePath(`/pferde/${record.request.horse_id}/gruppenchat`);
-  const successMessage = nextStatus === APPROVAL_STATUS.approved ? "Die Reitbeteiligung wurde freigeschaltet." : "Die Freischaltung wurde entzogen.";
-  redirectWithMessage("/owner/anfragen", "message", successMessage);
+  redirectWithMessage("/owner/anfragen", "message", getApprovalSavedMessage(nextStatus));
 }
 
 export async function saveRiderBookingLimitAction(formData: FormData) {
@@ -1325,8 +1322,10 @@ export async function deleteRiderRelationshipAction(formData: FormData) {
 
   const approval = (approvalData as ApprovalRecord | null) ?? null;
 
-  if (!approval) {
-    redirectWithMessage("/owner/anfragen", "error", "Für diese Reitbeteiligung gibt es nichts mehr zu löschen.");
+  const deleteRelationshipError = getDeleteRelationshipError(Boolean(approval));
+
+  if (deleteRelationshipError) {
+    redirectWithMessage("/owner/anfragen", "error", deleteRelationshipError);
   }
 
   const { error: riderLimitDeleteError } = await supabase

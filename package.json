@@ -9,7 +9,7 @@
     "lint": "next lint",
     "test": "npm run test:encoding && npm run test:unit",
     "test:encoding": "node --no-warnings ./scripts/check-encoding.mjs",
-    "test:unit": "node --no-warnings --test --experimental-strip-types tests/r1-core.test.mjs tests/flash.test.mjs tests/trial-lifecycle.test.mjs"
+    "test:unit": "node --no-warnings --test --experimental-strip-types tests/r1-core.test.mjs tests/flash.test.mjs tests/trial-lifecycle.test.mjs tests/release-lifecycle.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

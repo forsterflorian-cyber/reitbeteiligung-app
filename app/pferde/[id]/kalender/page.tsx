@@ -762,7 +762,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
       {isOwner ? (
         <SectionCard
           id="kalender-liste"
-          subtitle={"Für R1 pflegst du hier nur explizite Probetermine. Standardzeiten, Ausnahmen und die große Wochenplanung bleiben vorerst ausgeblendet."}
+          subtitle={"Hier pflegst du nur explizite Probetermine. Standardzeiten, Ausnahmen und die gro?e Wochenplanung bleiben bewusst ausgeblendet."}
           title="Probetermine pflegen"
         >
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
@@ -774,7 +774,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Badge tone="pending">{trialSlotCount} aktive Probetermine</Badge>
-                  <Badge tone="neutral">R1-Kernfunktion</Badge>
+                  <Badge tone="neutral">Direkt aktiv</Badge>
                 </div>
                 {prioritizedRules.filter((rule) => rule.is_trial_slot).length === 0 ? (
                   <p className="text-sm text-stone-500">Noch keine Probetermine eingestellt.</p>
@@ -869,8 +869,8 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
             <Card className="p-5 sm:p-6">
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <p className="ui-eyebrow">Was in R1 live ist</p>
-                  <p className="text-sm text-stone-600">Für den ersten Release bleibt diese Seite bewusst klein und klar.</p>
+                  <p className="ui-eyebrow">So funktioniert diese Seite</p>
+                  <p className="text-sm text-stone-600">Diese Seite bleibt bewusst klein und klar, damit du Probetermine schnell pflegen kannst.</p>
                 </div>
                 <ul className="space-y-2 text-sm text-stone-700">
                   <li>- Reiter finden nur Pferde mit echten Probeterminen.</li>
