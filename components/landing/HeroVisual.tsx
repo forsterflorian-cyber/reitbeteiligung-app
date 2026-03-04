@@ -98,11 +98,11 @@ export function HeroVisual() {
             subtext="Chat bleibt intern bis zur Freigabe"
           />
           <WorkflowCard
-            title="Terminbuchung"
-            statusLabel="Bestätigt"
+            title="Reitbeteiligung"
+            statusLabel="Aktiv"
             tone="approved"
-            meta="Mi, 18:00 - 19:00"
-            subtext="Einzeltermin"
+            meta="Pferde-Chat ist freigeschaltet"
+            subtext="Weitere Abstimmung bleibt gemeinsam an einem Ort"
           />
 
           <div className="rounded-2xl border border-stone-200 bg-white/95 p-4 shadow-sm">

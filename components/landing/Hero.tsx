@@ -27,7 +27,7 @@ export function Hero() {
               Reitbeteiligungen strukturiert organisieren.
             </h1>
             <p className="max-w-2xl text-base leading-8 text-stone-600 sm:text-lg">
-              Probetermine, Freischaltungen und Terminbuchung - klarer Ablauf statt Nachrichten-Chaos.
+              Probetermine, Freischaltungen und Plattform-Chats - klarer Ablauf statt Nachrichten-Chaos.
             </p>
           </div>
 
@@ -42,7 +42,7 @@ export function Hero() {
 
           <div className="flex flex-wrap gap-2">
             <TrustChip label="Kontaktdaten erst nach Freischaltung" />
-            <TrustChip label="Chat vor Freigabe nur intern" />
+            <TrustChip label="Chat vor Freischaltung nur intern" />
             <TrustChip label="Mobil optimiert" />
           </div>
 

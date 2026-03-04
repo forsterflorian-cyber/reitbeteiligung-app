@@ -63,7 +63,7 @@ export function RoleCards() {
           bullets={[
             "Pferdeprofile verwalten",
             "Anfragen prüfen und freischalten",
-            "Verfügbarkeiten und Termine im Blick"
+            "Probetermine einstellen und Reiter aufnehmen"
           ]}
           ctaLabel="Als Pferdehalter starten"
           previewMeta="Neue Probeanfrage für Apollo"
@@ -76,13 +76,13 @@ export function RoleCards() {
           bullets={[
             "Passende Pferde finden",
             "Probetermine anfragen",
-            "Nach Freischaltung Termine buchen"
+            "Nach Freischaltung im Chat verbunden bleiben"
           ]}
           ctaLabel="Als Reiter starten"
-          previewMeta="Nächster Termin: Mittwoch, 18:00"
-          previewStatus="Bestätigt"
+          previewMeta="Freigeschaltet und im Pferde-Chat"
+          previewStatus="Aktiv"
           previewTone="info"
-          subtitle="Du siehst sofort, was offen ist, was bestätigt wurde und wann der nächste Termin ansteht."
+          subtitle="Du siehst sofort, welche Probetermine offen sind, was freigeschaltet wurde und wo der Chat weitergeht."
           title="Für Reiter"
         />
       </div>

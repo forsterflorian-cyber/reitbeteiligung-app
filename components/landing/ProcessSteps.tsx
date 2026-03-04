@@ -28,11 +28,11 @@ const steps: readonly Step[] = [
     tone: "approved"
   },
   {
-    description: "Nach der Freigabe laufen weitere Termine geordnet über Verfügbarkeiten und Buchungen.",
-    meta: "Bestätigte Termine bleiben sauber im Überblick.",
+    description: "Nach der Freigabe bleibt die Abstimmung im direkten und gemeinsamen Chat geordnet an einem Ort.",
+    meta: "Die weitere Abstimmung zum Pferd bleibt transparent und nachvollziehbar.",
     number: "03",
-    status: "Bestätigt",
-    title: "Termine buchen",
+    status: "Aktiv",
+    title: "Als Reitbeteiligung verbunden",
     tone: "info"
   }
 ];
