@@ -12,6 +12,10 @@ export const metadata: Metadata = {
   title: "reitbeteiligung.app",
   description: "Reitbeteiligungen von der Probeanfrage bis zur Aufnahme klar organisieren: Probetermine, Freischaltung und Chat an einem Ort.",
   applicationName: "reitbeteiligung.app",
+  icons: {
+    icon: "/brand/logo-mark.svg",
+    shortcut: "/brand/logo-mark.svg"
+  },
   keywords: [
     "Reitbeteiligung",
     "Pferdehalter",
