@@ -24,7 +24,7 @@ function formatDateTime(value: string) {
 
 function formatDateRange(startAt: string | null | undefined, endAt: string | null | undefined) {
   if (!startAt || !endAt) {
-    return "Zeitpunkt wird noch geklärt.";
+    return "Zeitpunkt wird noch gekl?rt.";
   }
 
   return `${formatDateTime(startAt)} bis ${formatDateTime(endAt)}`;
@@ -64,7 +64,7 @@ export default async function OwnerRelationshipsPage({
         }
         backdropVariant="hero"
         eyebrow="Pferdehalter"
-        subtitle="Hier steht in R1 nur der Kern im Fokus: bestehende Reitbeteiligungen, der Pferde-Chat und das saubere Entfernen einer Beziehung."
+        subtitle="In R1 verwaltest du hier bestehende Beziehungen, erreichst 1:1- und Gruppenchat und kannst Reitbeteiligungen sauber wieder entfernen."
         surface
         title="Reitbeteiligungen"
       />
@@ -84,12 +84,12 @@ export default async function OwnerRelationshipsPage({
         <Card className="p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Ungelesen</p>
           <p className="mt-2 text-2xl font-semibold text-stone-900">{unreadCount}</p>
-          <p className="mt-1 text-sm text-stone-600">Diese Pferde-Chats warten aktuell auf deine Antwort.</p>
+          <p className="mt-1 text-sm text-stone-600">Diese 1:1-Chats warten aktuell auf deine Antwort.</p>
         </Card>
       </div>
       <SectionCard
         id="aktive-reitbeteiligungen"
-        subtitle="In R1 verwaltest du hier bestehende Beziehungen, erreichst den Pferde-Chat und kannst die Freischaltung wieder entziehen."
+        subtitle="In R1 verwaltest du hier bestehende Beziehungen, erreichst den Pferde-Chat und kannst die Freischaltung wieder entziehen oder die Beziehung ganz entfernen."
         title="Aktive Reitbeteiligungen"
       >
         {activeRelationships.length === 0 ? (
@@ -123,16 +123,19 @@ export default async function OwnerRelationshipsPage({
                       {hasUnread ? <Badge tone="info">Neue Nachricht</Badge> : null}
                     </div>
                     <Notice text="Das laufende Pferde-Management folgt nach R1. Jetzt stehen Pferde-Chat und saubere Beziehungsverwaltung im Fokus." tone="success" />
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {conversation ? (
                         <Link className={buttonVariants("primary", "w-full justify-center")} href={`/chat/${conversation.id}` as Route}>
-                          Pferde-Chat ?ffnen
+                          1:1-Chat ?ffnen
                         </Link>
                       ) : (
                         <Link className={buttonVariants("primary", "w-full justify-center")} href={`/pferde/${approval.horse_id}` as Route}>
                           Pferdeprofil ?ffnen
                         </Link>
                       )}
+                      <Link className={buttonVariants("secondary", "w-full justify-center")} href={`/pferde/${approval.horse_id}/gruppenchat` as Route}>
+                        Gruppenchat ?ffnen
+                      </Link>
                       {latestTrial ? (
                         <form action={updateApprovalAction}>
                           <input name="requestId" type="hidden" value={latestTrial.id} />
@@ -141,17 +144,16 @@ export default async function OwnerRelationshipsPage({
                             Freischaltung entziehen
                           </Button>
                         </form>
-                      ) : (
-                        <div />
-                      )}
+                      ) : null}
                     </div>
                     <form action={deleteRiderRelationshipAction}>
                       <input name="horseId" type="hidden" value={approval.horse_id} />
                       <input name="riderId" type="hidden" value={approval.rider_id} />
+                      <input name="redirectTo" type="hidden" value="/owner/reitbeteiligungen" />
                       <ConfirmSubmitButton
-                        confirmMessage={"M?chtest du diese Reitbeteiligung wirklich l?schen? Die Beziehung wird vollst?ndig entfernt."}
-                        idleLabel={"Reitbeteiligung l?schen"}
-                        pendingLabel={"Wird gel?scht..."}
+                        confirmMessage="Moechtest du diese Reitbeteiligung wirklich loeschen? Die Beziehung wird vollstaendig entfernt."
+                        idleLabel="Reitbeteiligung loeschen"
+                        pendingLabel="Wird geloescht..."
                       />
                     </form>
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
@@ -161,9 +163,12 @@ export default async function OwnerRelationshipsPage({
                       <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={`/owner/reiter/${approval.rider_id}` as Route}>
                         Reiterprofil ansehen
                       </Link>
+                      <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={`/pferde/${approval.horse_id}/gruppenchat` as Route}>
+                        Zum Gruppenchat
+                      </Link>
                       {conversation ? (
                         <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={`/chat/${conversation.id}` as Route}>
-                          Zum Chat
+                          Zum 1:1-Chat
                         </Link>
                       ) : null}
                     </div>

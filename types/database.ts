@@ -86,6 +86,14 @@ export type Message = {
   created_at: string;
 };
 
+export type HorseGroupMessage = {
+  id: string;
+  horse_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+};
+
 export type AvailabilitySlot = {
   id: string;
   horse_id: string;

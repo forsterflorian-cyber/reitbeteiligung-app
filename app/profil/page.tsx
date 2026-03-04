@@ -47,7 +47,7 @@ export default async function ProfilPage({
     <AppPageShell>
       <PageHeader
         backdropVariant="hero"
-        subtitle={`Hallo ${displayName}. Hier pflegst du deine Kontaktdaten, deine Rolle und deinen aktuellen Tarif.`}
+        subtitle={`Hallo ${displayName}. Hier pflegst du deine Kontaktdaten und deine Rolle fuer den ersten Release.`}
         surface
         title="Mein Profil"
       />
@@ -84,7 +84,7 @@ export default async function ProfilPage({
         </div>
         <div className="space-y-5">
           {profile.role === "owner" ? (
-            <SectionCard subtitle="So viel ist in deinem aktuellen Tarif enthalten." title="Tarif & Kontingent">
+            <SectionCard subtitle="Im ersten Release sind die Kernfunktionen ohne Tarifstufen freigeschaltet." title="Status im ersten Release">
               <div className="space-y-4">
                 <div className="flex flex-wrap gap-2">
                   <Badge tone={ownerPlan?.key === "paid" ? "approved" : ownerPlan?.key === "trial" ? "pending" : "neutral"}>{ownerPlan?.label}</Badge>

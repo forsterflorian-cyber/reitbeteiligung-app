@@ -8,6 +8,7 @@ export type OwnerPlanUsage = {
   horseCount: number;
 };
 
+export const OWNER_PLAN_LIMITS_ENABLED = false;
 export const FREE_OWNER_HORSE_LIMIT = 1;
 export const FREE_OWNER_APPROVAL_LIMIT = 1;
 export const TRIAL_OWNER_HORSE_LIMIT = 1;
@@ -31,6 +32,17 @@ const EMPTY_USAGE: OwnerPlanUsage = {
   horseCount: 0
 };
 
+const R1_ACTIVE_PLAN: OwnerPlan = {
+  bookingFeaturesEnabled: true,
+  key: "paid",
+  label: "Freigeschaltet",
+  maxApprovedRiders: null,
+  maxHorses: null,
+  remainingApprovalSlots: null,
+  remainingHorseSlots: null,
+  summary: "Fuer den ersten Release sind die Kernfunktionen fuer dich ohne Tarifstufen freigeschaltet."
+};
+
 const PAID_PLAN: OwnerPlan = {
   bookingFeaturesEnabled: true,
   key: "paid",
@@ -39,7 +51,7 @@ const PAID_PLAN: OwnerPlan = {
   maxHorses: null,
   remainingApprovalSlots: null,
   remainingHorseSlots: null,
-  summary: "Mehrere Pferde und mehrere Reitbeteiligungen sind für dich freigeschaltet."
+  summary: "Mehrere Pferde und mehrere Reitbeteiligungen sind fuer dich freigeschaltet."
 };
 
 function getRemainingTrialDays(anchor: string) {
@@ -96,7 +108,7 @@ const getFreePlan = buildLimitedPlan({
   label: "Kostenlos",
   maxApprovedRiders: FREE_OWNER_APPROVAL_LIMIT,
   maxHorses: FREE_OWNER_HORSE_LIMIT,
-  summary: "1 Pferd und 1 Reitbeteiligung sind vollständig kostenlos enthalten."
+  summary: "1 Pferd und 1 Reitbeteiligung sind vollstaendig kostenlos enthalten."
 });
 
 function getTrialPlan(profile: Pick<Profile, "created_at" | "trial_started_at">, usage: OwnerPlanUsage) {
@@ -142,6 +154,10 @@ export function getOwnerPlan(
   profile: Pick<Profile, "role" | "is_premium" | "created_at" | "trial_started_at"> | null | undefined,
   usage: OwnerPlanUsage = EMPTY_USAGE
 ): OwnerPlan {
+  if (!OWNER_PLAN_LIMITS_ENABLED) {
+    return R1_ACTIVE_PLAN;
+  }
+
   if (!profile || profile.role !== "owner") {
     return getFreePlan(usage);
   }
@@ -158,6 +174,10 @@ export function getOwnerPlan(
 }
 
 export function canStartOwnerTrial(profile: Pick<Profile, "role" | "is_premium" | "created_at" | "trial_started_at"> | null | undefined) {
+  if (!OWNER_PLAN_LIMITS_ENABLED) {
+    return false;
+  }
+
   if (!profile || profile.role !== "owner" || profile.is_premium) {
     return false;
   }
@@ -170,8 +190,12 @@ export function canStartOwnerTrial(profile: Pick<Profile, "role" | "is_premium" 
 }
 
 export function getOwnerPlanUsageSummary(plan: OwnerPlan, usage: OwnerPlanUsage) {
+  if (!OWNER_PLAN_LIMITS_ENABLED) {
+    return `Aktuell ${usage.horseCount} Pferdeprofile und ${usage.approvedRiderCount} aktive Reitbeteiligungen im R1-Kern.`;
+  }
+
   if (plan.maxHorses === null || plan.maxApprovedRiders === null) {
-    return "Mehrere Pferdeprofile und mehrere Reitbeteiligungen sind in deinem Tarif verfügbar.";
+    return "Mehrere Pferdeprofile und mehrere Reitbeteiligungen sind in deinem Tarif verfuegbar.";
   }
 
   const horseLabel = plan.maxHorses === 1 ? "Pferdeprofil" : "Pferdeprofile";
@@ -188,6 +212,10 @@ export function canCreateHorseProfile(
     return false;
   }
 
+  if (!OWNER_PLAN_LIMITS_ENABLED) {
+    return true;
+  }
+
   const plan = getOwnerPlan(profile, usage);
   return plan.maxHorses === null || usage.horseCount < plan.maxHorses;
 }
@@ -199,6 +227,10 @@ export function canApproveRider(
 ) {
   if (!profile || profile.role !== "owner") {
     return false;
+  }
+
+  if (!OWNER_PLAN_LIMITS_ENABLED) {
+    return true;
   }
 
   if (currentStatus === "approved") {
@@ -213,5 +245,9 @@ export function canUseBookingFeatures(
   profile: Pick<Profile, "role" | "is_premium" | "created_at" | "trial_started_at"> | null | undefined,
   usage: OwnerPlanUsage = EMPTY_USAGE
 ) {
+  if (!OWNER_PLAN_LIMITS_ENABLED) {
+    return true;
+  }
+
   return getOwnerPlan(profile, usage).bookingFeaturesEnabled;
 }

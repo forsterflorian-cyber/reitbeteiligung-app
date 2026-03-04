@@ -113,7 +113,7 @@ export default async function OwnerHorsesPage({
             <SubmitButton idleLabel="Pferdeprofil speichern" pendingLabel="Wird gespeichert..." />
           </form>
         </SectionCard>
-        <SectionCard subtitle={"Dein aktueller Tarif und der nächste sinnvolle Schritt."} title={"Tarif & nächster Schritt"}>
+        <SectionCard subtitle={"Alles Wichtige fuer den ersten Release ohne Tarifstufen."} title={"Status im ersten Release"}>
           <div className="space-y-4 text-sm leading-6 text-stone-600">
             <div className="flex flex-wrap gap-2">
               <Badge tone={ownerPlan.key === "paid" ? "approved" : ownerPlan.key === "trial" ? "pending" : "neutral"}>{ownerPlan.label}</Badge>

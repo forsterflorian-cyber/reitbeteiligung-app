@@ -410,7 +410,7 @@ export default async function OwnerManageHorsesPage({
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Tarif & Kontingent</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Status im ersten Release</p>
               <div className="flex flex-wrap gap-2">
                 <Badge tone={ownerPlan.key === "paid" ? "approved" : ownerPlan.key === "trial" ? "pending" : "neutral"}>{ownerPlan.label}</Badge>
                 {showStartTrial ? <Badge tone="info">Start Trial verf\u00fcgbar</Badge> : null}

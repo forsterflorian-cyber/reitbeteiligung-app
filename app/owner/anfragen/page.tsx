@@ -14,6 +14,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { requireProfile } from "@/lib/auth";
 import { hasUnreadOwnerMessage, loadOwnerWorkspaceData } from "@/lib/owner-workspace";
 import { readSearchParam } from "@/lib/search-params";
+import type { AvailabilityRule } from "@/types/database";
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("de-DE", {
@@ -24,7 +25,7 @@ function formatDateTime(value: string) {
 
 function formatDateRange(startAt: string | null | undefined, endAt: string | null | undefined) {
   if (!startAt || !endAt) {
-    return "Zeitpunkt wird geprüft";
+    return "Zeitpunkt wird gepr?ft";
   }
 
   return `${formatDateTime(startAt)} bis ${formatDateTime(endAt)}`;
@@ -39,6 +40,28 @@ export default async function OwnerTrialRequestsPage({
   const error = readSearchParam(searchParams, "error");
   const message = readSearchParam(searchParams, "message");
   const { approvalMap, conversationInfo, conversationMap, horses, latestMessages, trialPipelineItems } = await loadOwnerWorkspaceData(supabase, user.id);
+  const horseIds = horses.map((horse) => horse.id);
+  const nowIso = new Date().toISOString();
+  const { data: trialSlotData } = horseIds.length > 0
+    ? await supabase
+        .from("availability_rules")
+        .select("id, horse_id, slot_id, start_at, end_at, active, is_trial_slot, created_at")
+        .in("horse_id", horseIds)
+        .eq("active", true)
+        .eq("is_trial_slot", true)
+        .gte("end_at", nowIso)
+        .order("start_at", { ascending: true })
+        .limit(200)
+    : { data: [] as AvailabilityRule[] };
+
+  const trialSlots = (trialSlotData as AvailabilityRule[] | null) ?? [];
+  const trialSlotsByHorse = new Map<string, AvailabilityRule[]>();
+
+  trialSlots.forEach((slot) => {
+    const existing = trialSlotsByHorse.get(slot.horse_id) ?? [];
+    existing.push(slot);
+    trialSlotsByHorse.set(slot.horse_id, existing);
+  });
 
   const requestedCount = trialPipelineItems.filter((item) => item.status === "requested").length;
   const acceptedCount = trialPipelineItems.filter((item) => item.status === "accepted").length;
@@ -62,7 +85,7 @@ export default async function OwnerTrialRequestsPage({
         }
         backdropVariant="hero"
         eyebrow="Pferdehalter"
-        subtitle="Hier landen ausschließlich Probetermine bis zur Entscheidung, ob daraus eine neue Reitbeteiligung wird."
+        subtitle="Hier pflegst du zuerst die eingestellten Probetermine und bearbeitest danach eingehende Anfragen bis zur Aufnahme."
         surface
         title="Probetermine"
       />
@@ -70,36 +93,71 @@ export default async function OwnerTrialRequestsPage({
       <Notice text={message} tone="success" />
       <div className="grid gap-4 sm:grid-cols-3">
         <Card className="p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Eingestellt</p>
+          <p className="mt-2 text-2xl font-semibold text-stone-900">{trialSlots.length}</p>
+          <p className="mt-1 text-sm text-stone-600">So viele kommende Probetermine sind aktuell aktiv.</p>
+        </Card>
+        <Card className="p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Neue Anfragen</p>
           <p className="mt-2 text-2xl font-semibold text-stone-900">{requestedCount}</p>
-          <p className="mt-1 text-sm text-stone-600">Diese Reiter warten auf deine erste Rückmeldung.</p>
+          <p className="mt-1 text-sm text-stone-600">Diese Reiter warten auf deine erste R?ckmeldung.</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Angenommen</p>
-          <p className="mt-2 text-2xl font-semibold text-stone-900">{acceptedCount}</p>
-          <p className="mt-1 text-sm text-stone-600">Diese Probetermine sind bestätigt und stehen noch aus.</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Durchgeführt</p>
-          <p className="mt-2 text-2xl font-semibold text-stone-900">{completedCount}</p>
-          <p className="mt-1 text-sm text-stone-600">Nach diesen Terminen entscheidest du über die Aufnahme.</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">N?chster Schritt</p>
+          <p className="mt-2 text-2xl font-semibold text-stone-900">{acceptedCount + completedCount}</p>
+          <p className="mt-1 text-sm text-stone-600">Angenommene oder durchgef?hrte Probetermine brauchen deine Folgeentscheidung.</p>
         </Card>
       </div>
-      <SectionCard subtitle="Von der ersten Anfrage bis zur Aufnahme als Reitbeteiligung." title="Alle Probetermine">
-        {trialPipelineItems.length === 0 ? (
+      <SectionCard subtitle="Bestehende Probetermine zuerst pr?fen. Neue oder ge?nderte Slots legst du direkt im Pferde-Kalender an." title="Eingestellte Probetermine">
+        {horses.length === 0 ? (
           <EmptyState
             action={
-              horses.length === 0 ? (
-                <Link className={buttonVariants("primary")} href="/owner/horses">
-                  Neues Pferd anlegen
-                </Link>
-              ) : (
-                <Link className={buttonVariants("secondary")} href="/owner/pferde-verwalten">
-                  Pferde verwalten
-                </Link>
-              )
+              <Link className={buttonVariants("primary")} href="/owner/horses">
+                Neues Pferd anlegen
+              </Link>
             }
-            description="Sobald Reiter einen Probetermin anfragen, erscheint er hier gesammelt mit allen nächsten Schritten."
+            description="Lege zuerst ein Pferdeprofil an. Danach kannst du dort konkrete Probetermine einstellen."
+            title="Noch kein Pferd vorhanden"
+          />
+        ) : (
+          <div className="space-y-3">
+            {horses.map((horse) => {
+              const slots = trialSlotsByHorse.get(horse.id) ?? [];
+              const nextSlot = slots[0] ?? null;
+
+              return (
+                <Card className="p-5" key={horse.id}>
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">Pferdeprofil</p>
+                      <p className="font-semibold text-ink">{horse.title}</p>
+                      <p className="text-sm text-stone-600">{slots.length > 0 ? `${slots.length} kommender Probetermin${slots.length === 1 ? "" : "e"}` : "Noch kein Probetermin eingestellt"}</p>
+                    </div>
+                    {nextSlot ? <p className="text-sm font-semibold text-ink">N?chster Slot: {formatDateRange(nextSlot.start_at, nextSlot.end_at)}</p> : null}
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      <Link className={buttonVariants("primary", "w-full justify-center")} href={`/pferde/${horse.id}` as Route}>
+                        Pferdeprofil ?ffnen
+                      </Link>
+                      <Link className={buttonVariants("secondary", "w-full justify-center")} href={`/pferde/${horse.id}/kalender?mode=edit#serienfreigaben-form` as Route}>
+                        Probetermine einstellen
+                      </Link>
+                      {slots.length > 0 ? (
+                        <Link className={buttonVariants("ghost", "w-full justify-center")} href={`/pferde/${horse.id}/kalender?day=${nextSlot.start_at.slice(0, 10)}#wochenplanung` as Route}>
+                          Kalender anzeigen
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </SectionCard>
+      <SectionCard subtitle="Von der ersten Anfrage bis zur Aufnahme als Reitbeteiligung." title="Eingehende Probeanfragen">
+        {trialPipelineItems.length === 0 ? (
+          <EmptyState
+            description="Sobald Reiter einen Probetermin anfragen, erscheint er hier gesammelt mit allen n?chsten Schritten."
             title="Noch keine Probetermine"
           />
         ) : (
@@ -150,7 +208,7 @@ export default async function OwnerTrialRequestsPage({
                         <input name="requestId" type="hidden" value={request.id} />
                         <input name="status" type="hidden" value="completed" />
                         <Button className="w-full" type="submit" variant="primary">
-                          Als durchgeführt markieren
+                          Als durchgef?hrt markieren
                         </Button>
                       </form>
                     ) : null}

@@ -209,8 +209,8 @@ export default async function DashboardPage({
               </div>
             ) : undefined
           }
-          subtitle="Tarifinfos stehen bewusst am Ende, damit vorher die operative Arbeit im Fokus bleibt."
-          title="Tarif & Kontingent"
+          subtitle="Der Release-Status steht bewusst am Ende, damit vorher die Kernarbeit im Fokus bleibt."
+          title="Status im ersten Release"
         >
           <div className="space-y-3">
             <div className="flex flex-wrap gap-2">

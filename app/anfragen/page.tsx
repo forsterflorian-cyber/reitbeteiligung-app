@@ -39,7 +39,7 @@ function formatDateTime(value: string) {
 
 function formatDateRange(startAt: string | null, endAt: string | null) {
   if (!startAt || !endAt) {
-    return "Zeitpunkt wird noch geklärt.";
+    return "Zeitpunkt wird noch gekl?rt.";
   }
 
   return `${formatDateTime(startAt)} bis ${formatDateTime(endAt)}`;
@@ -74,50 +74,51 @@ export default async function AnfragenPage({
       .select("id, horse_id, rider_id, status, message, availability_rule_id, requested_start_at, requested_end_at, created_at")
       .eq("rider_id", user.id)
       .order("created_at", { ascending: false })
-      .limit(12),
+      .limit(20),
     supabase.from("approvals").select("horse_id, rider_id, status, created_at").eq("rider_id", user.id).eq("status", "approved")
   ]);
 
   const requests = (trialData as TrialRequest[] | null) ?? [];
   const approvalsArray = (approvalsData as Approval[] | null) ?? [];
+  const approvalKeys = new Set(approvalsArray.map((approval) => `${approval.horse_id}:${approval.rider_id}`));
   const horseIds = [...new Set([...requests.map((request) => request.horse_id), ...approvalsArray.map((approval) => approval.horse_id)])];
 
-  const [{ data: horsesData }, { data: conversationsData }] = await Promise.all([
+  const [{ data: horseData }, { data: conversationsData }] = await Promise.all([
     horseIds.length > 0
       ? supabase.from("horses").select("id, owner_id, title, plz, description, active, created_at").in("id", horseIds)
-      : Promise.resolve({ data: [] as Horse[] }),
+      : Promise.resolve({ data: [] as Horse[] | null }),
     horseIds.length > 0
       ? supabase
           .from("conversations")
           .select("id, horse_id, rider_id, owner_id, owner_last_read_at, rider_last_read_at, created_at")
           .eq("rider_id", user.id)
           .in("horse_id", horseIds)
-      : Promise.resolve({ data: [] as Conversation[] })
+      : Promise.resolve({ data: [] as Conversation[] | null })
   ]);
 
+  const horses = new Map((((horseData as Horse[] | null) ?? [])).map((horse) => [horse.id, horse]));
   const conversationsArray = (conversationsData as Conversation[] | null) ?? [];
   const conversationIds = conversationsArray.map((conversation) => conversation.id);
-  const { data: latestMessagesData } = conversationIds.length > 0
-    ? await supabase
-        .from("messages")
-        .select("id, conversation_id, sender_id, content, created_at")
-        .in("conversation_id", conversationIds)
-        .order("created_at", { ascending: false })
-    : { data: [] as Message[] };
 
-  const contactInfoEntries = await Promise.all(
-    conversationsArray.map(async (conversation) => {
-      const { data } = await supabase.rpc("get_conversation_contact_info", {
-        p_conversation_id: conversation.id
-      });
-      const rows = Array.isArray(data) ? data : data ? [data] : [];
-      const record = (rows[0] as ContactInfoRecord | undefined) ?? null;
-      return [conversation.id, record] as const;
-    })
-  );
+  const [{ data: latestMessagesData }, contactInfoEntries] = await Promise.all([
+    conversationIds.length > 0
+      ? supabase
+          .from("messages")
+          .select("id, conversation_id, sender_id, content, created_at")
+          .in("conversation_id", conversationIds)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] as Message[] | null }),
+    Promise.all(
+      conversationsArray.map(async (conversation) => {
+        const { data } = await supabase.rpc("get_conversation_contact_info", {
+          p_conversation_id: conversation.id
+        });
+        const rows = Array.isArray(data) ? data : data ? [data] : [];
+        return [conversation.id, ((rows[0] as ContactInfoRecord | undefined) ?? null)] as const;
+      })
+    )
+  ]);
 
-  const horses = new Map(((horsesData as Horse[] | null) ?? []).map((horse) => [horse.id, horse]));
-  const approvalKeys = new Set(approvalsArray.map((approval) => `${approval.horse_id}:${approval.rider_id}`));
   const conversations = new Map(conversationsArray.map((conversation) => [`${conversation.horse_id}:${conversation.rider_id}`, conversation]));
   const conversationInfo = new Map(contactInfoEntries);
   const latestMessages = new Map<string, Message>();
@@ -174,7 +175,7 @@ export default async function AnfragenPage({
         }
         backdropVariant="hero"
         eyebrow="Reiter"
-        subtitle="In R1 stehen Probetermine, der Chat und deine aktiven Reitbeteiligungen im Fokus. Das volle Pferde-Management folgt sp?ter."
+        subtitle="In R1 stehen Probetermine, Freischaltungen und deine Chats im Fokus. Das laufende Pferde-Management folgt sp?ter."
         surface
         title="Proben & Reitbeteiligungen"
       />
@@ -199,7 +200,7 @@ export default async function AnfragenPage({
       </div>
       <SectionCard
         id="aktive-reitbeteiligungen"
-        subtitle="Nach der Aufnahme steht in R1 zuerst die Beziehung zum Pferd und der gemeinsame Chat im Fokus."
+        subtitle="Nach der Aufnahme stehen in R1 zuerst die Beziehung zum Pferd, der direkte Chat und der neue Gruppenchat im Fokus."
         title="Meine Reitbeteiligungen"
       >
         {activeRelationships.length === 0 ? (
@@ -231,27 +232,33 @@ export default async function AnfragenPage({
                       <Badge tone="approved">Aktive Reitbeteiligung</Badge>
                       {hasUnread ? <Badge tone="info">Neue Nachricht</Badge> : null}
                     </div>
-                    <Notice text="Das laufende Pferde-Management folgt nach R1. Jetzt stehen Beziehung und Pferde-Chat im Fokus." tone="success" />
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <Notice text="Das laufende Pferde-Management folgt nach R1. Jetzt stehen Beziehung, 1:1-Chat und Gruppenchat im Fokus." tone="success" />
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {conversation ? (
                         <Link className={buttonVariants("primary", "w-full justify-center")} href={`/chat/${conversation.id}` as Route}>
-                          Pferde-Chat ?ffnen
+                          1:1-Chat ?ffnen
                         </Link>
                       ) : (
                         <Link className={buttonVariants("primary", "w-full justify-center")} href={`/pferde/${approval.horse_id}` as Route}>
                           Pferdeprofil ?ffnen
                         </Link>
                       )}
-                      <Link className={buttonVariants("secondary", "w-full justify-center")} href={`/pferde/${approval.horse_id}` as Route}>
+                      <Link className={buttonVariants("secondary", "w-full justify-center")} href={`/pferde/${approval.horse_id}/gruppenchat` as Route}>
+                        Gruppenchat ?ffnen
+                      </Link>
+                      <Link className={buttonVariants("ghost", "w-full justify-center")} href={`/pferde/${approval.horse_id}` as Route}>
                         Pferdeprofil ansehen
                       </Link>
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
                       {conversation ? (
                         <Link className={inlineLinkClassName} href={`/chat/${conversation.id}` as Route}>
-                          Zum Chat
+                          Zum 1:1-Chat
                         </Link>
                       ) : null}
+                      <Link className={inlineLinkClassName} href={`/pferde/${approval.horse_id}/gruppenchat` as Route}>
+                        Zum Gruppenchat
+                      </Link>
                       <Link className={inlineLinkClassName} href={`/pferde/${approval.horse_id}` as Route}>
                         Pferdeprofil ansehen
                       </Link>
@@ -265,7 +272,7 @@ export default async function AnfragenPage({
       </SectionCard>
       <SectionCard
         id="meine-probetermine"
-        subtitle={"Hier siehst du den Status deiner Probetermin-Anfragen bis zur Entscheidung ?ber eine neue Reitbeteiligung."}
+        subtitle="Hier siehst du den Status deiner Probetermin-Anfragen bis zur Entscheidung ?ber eine neue Reitbeteiligung."
         title="Meine Probetermine"
       >
         {openTrialItems.length === 0 ? (
@@ -307,7 +314,7 @@ export default async function AnfragenPage({
                           Zum Chat
                         </Link>
                       ) : null}
-                      {request.status === "requested" || request.status === "accepted" ? (
+                      {(request.status === "requested" || request.status === "accepted") ? (
                         <form action={cancelTrialRequestAction}>
                           <input name="requestId" type="hidden" value={request.id} />
                           <button

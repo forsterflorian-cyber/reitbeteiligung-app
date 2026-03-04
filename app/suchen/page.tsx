@@ -1,4 +1,4 @@
-﻿import type { Route } from "next";
+import type { Route } from "next";
 import Link from "next/link";
 
 import { Notice } from "@/components/notice";
@@ -11,10 +11,15 @@ import { buttonVariants } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { HORSE_SELECT_FIELDS, getHorseAge } from "@/lib/horses";
 import { readSearchParam } from "@/lib/search-params";
-import type { Horse } from "@/types/database";
+import type { AvailabilityRule, Horse } from "@/types/database";
 
 type SuchenPageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
+};
+
+type HorseWithTrialInfo = Horse & {
+  nextTrialSlot: AvailabilityRule | null;
+  trialSlotCount: number;
 };
 
 const RADIUS_OPTIONS = [10, 25, 50, 100] as const;
@@ -48,6 +53,15 @@ function matchesPlzRadius(horsePlz: string, searchPlz: string, radiusKm: number)
   return horsePlz.slice(0, prefixLength) === searchPlz.slice(0, prefixLength);
 }
 
+function formatDateRange(startAt: string, endAt: string) {
+  return `${new Intl.DateTimeFormat("de-DE", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(new Date(startAt))} bis ${new Intl.DateTimeFormat("de-DE", {
+    timeStyle: "short"
+  }).format(new Date(endAt))}`;
+}
+
 export default async function SuchenPage({ searchParams }: SuchenPageProps) {
   const supabase = createClient();
   const {
@@ -60,34 +74,69 @@ export default async function SuchenPage({ searchParams }: SuchenPageProps) {
   const radiusKm = RADIUS_OPTIONS.includes(parsedRadius as (typeof RADIUS_OPTIONS)[number]) ? parsedRadius : 25;
   const invalidPlzFilter = typeof rawPlzFilter === "string" && rawPlzFilter.length > 0 && !isFiveDigitPlz(rawPlzFilter);
   const plzFilter = invalidPlzFilter ? null : rawPlzFilter ?? null;
+  const nowIso = new Date().toISOString();
 
-  const { data: horsesData, error: horsesError } = await supabase
-    .from("horses")
-    .select(HORSE_SELECT_FIELDS)
-    .eq("active", true)
-    .order("created_at", { ascending: false })
-    .limit(60);
+  const [{ data: horsesData, error: horsesError }, { data: trialRulesData, error: trialRulesError }] = await Promise.all([
+    supabase
+      .from("horses")
+      .select(HORSE_SELECT_FIELDS)
+      .eq("active", true)
+      .order("created_at", { ascending: false })
+      .limit(60),
+    supabase
+      .from("availability_rules")
+      .select("id, horse_id, slot_id, start_at, end_at, active, is_trial_slot, created_at")
+      .eq("active", true)
+      .eq("is_trial_slot", true)
+      .gte("end_at", nowIso)
+      .order("start_at", { ascending: true })
+      .limit(240)
+  ]);
 
   const allHorses = Array.isArray(horsesData) ? (horsesData as Horse[]) : [];
-  const horses = plzFilter ? allHorses.filter((horse) => matchesPlzRadius(horse.plz, plzFilter, radiusKm)) : allHorses;
-  const horsesLoadErrorMessage = horsesError ? `Pferdeprofile konnten nicht geladen werden: ${horsesError.message}` : null;
+  const trialRules = (trialRulesData as AvailabilityRule[] | null) ?? [];
+  const nextTrialSlotByHorse = new Map<string, AvailabilityRule>();
+  const trialSlotCountByHorse = new Map<string, number>();
+
+  trialRules.forEach((rule) => {
+    if (!nextTrialSlotByHorse.has(rule.horse_id)) {
+      nextTrialSlotByHorse.set(rule.horse_id, rule);
+    }
+
+    trialSlotCountByHorse.set(rule.horse_id, (trialSlotCountByHorse.get(rule.horse_id) ?? 0) + 1);
+  });
+
+  const horsesWithTrialSlots: HorseWithTrialInfo[] = allHorses
+    .filter((horse) => nextTrialSlotByHorse.has(horse.id))
+    .map((horse) => ({
+      ...horse,
+      nextTrialSlot: nextTrialSlotByHorse.get(horse.id) ?? null,
+      trialSlotCount: trialSlotCountByHorse.get(horse.id) ?? 0
+    }));
+
+  const horses = plzFilter
+    ? horsesWithTrialSlots.filter((horse) => matchesPlzRadius(horse.plz, plzFilter, radiusKm))
+    : horsesWithTrialSlots;
+
+  const loadError = horsesError ?? trialRulesError;
+  const horsesLoadErrorMessage = loadError ? `Pferdeprofile konnten nicht geladen werden: ${loadError.message}` : null;
 
   return (
     <AppPageShell>
       <PageHeader
         backdropVariant="hero"
-        subtitle="Finde Pferdeprofile, filtere nach einer vereinfachten PLZ-Umkreissuche und springe direkt in den Probetermin-Flow."
+        subtitle="Hier erscheinen nur Pferde mit kommenden Probeterminen. So kommst du direkt in den Anfrage-Flow."
         surface
         title="Reitbeteiligung finden"
       />
-      {!user ? <Notice text="Melde dich an, um einen Probetermin anzufragen und spaeter freigeschaltet zu werden." /> : null}
-      {invalidPlzFilter ? <Notice text="Bitte gib fuer die Suche eine 5-stellige PLZ ein." tone="error" /> : null}
+      {!user ? <Notice text="Melde dich an, um einen Probetermin anzufragen und sp?ter freigeschaltet zu werden." /> : null}
+      {invalidPlzFilter ? <Notice text="Bitte gib f?r die Suche eine 5-stellige PLZ ein." tone="error" /> : null}
       <Notice text={horsesLoadErrorMessage} tone="error" />
-      {horsesError ? (
-        <Notice text="Die Pferdeprofile konnten derzeit nicht geladen werden. Bitte pruefe spaeter erneut oder oeffne /diagnose." tone="error" />
+      {loadError ? (
+        <Notice text="Die Pferdeprofile konnten derzeit nicht geladen werden. Bitte pr?fe sp?ter erneut oder ?ffne /diagnose." tone="error" />
       ) : null}
 
-      <SectionCard subtitle="Die Umkreissuche arbeitet aktuell als leichter PLZ-Bereichsfilter, bis echte Distanzdaten verfuegbar sind." title="PLZ-Umkreissuche">
+      <SectionCard subtitle="Die Umkreissuche arbeitet aktuell als leichter PLZ-Bereichsfilter, bis echte Distanzdaten verf?gbar sind." title="PLZ-Umkreissuche">
         <form className="space-y-4" method="get">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_220px_auto] lg:items-end">
             <div>
@@ -121,16 +170,18 @@ export default async function SuchenPage({ searchParams }: SuchenPageProps) {
         </form>
       </SectionCard>
 
-      <SectionCard subtitle="Alle aktuell aktiven Pferdeprofile mit den wichtigsten Basisdaten auf einen Blick." title="Pferdeprofile">
-        {horsesError ? null : horses.length === 0 ? (
+      <SectionCard subtitle="Nur Pferde mit mindestens einem kommenden Probetermin werden hier f?r R1 gelistet." title="Pferde mit Probeterminen">
+        {loadError ? null : horses.length === 0 ? (
           <EmptyState
-            description={plzFilter ? "Im gewaelten PLZ-Bereich sind aktuell keine passenden Pferdeprofile aktiv." : "Sobald neue Pferdeprofile veroeffentlicht werden, erscheinen sie hier automatisch."}
-            title="Aktuell keine Pferdeprofile sichtbar"
+            description={plzFilter ? "Im gew?hlten PLZ-Bereich sind aktuell keine Pferde mit kommenden Probeterminen sichtbar." : "Sobald Pferdehalter neue Probetermine einstellen, erscheinen die Pferde hier automatisch."}
+            title="Aktuell keine Probetermine sichtbar"
           />
         ) : (
           <div className="space-y-4">
             {horses.map((horse) => {
               const age = getHorseAge(horse.birth_year ?? null);
+              const nextTrialSlot = horse.nextTrialSlot;
+              const horseHref = `/pferde/${horse.id}` as Route;
 
               return (
                 <Card className="p-5" key={horse.id}>
@@ -142,15 +193,22 @@ export default async function SuchenPage({ searchParams }: SuchenPageProps) {
                       {horse.location_address ? <p className="text-sm text-stone-600">{horse.location_address}</p> : null}
                     </div>
                     <div className="grid gap-2 text-sm text-stone-600 sm:grid-cols-2 xl:grid-cols-3">
-                      {horse.height_cm ? <div>Stockmass: {horse.height_cm} cm</div> : null}
+                      {horse.height_cm ? <div>Stockma?: {horse.height_cm} cm</div> : null}
                       {horse.breed ? <div>Rasse: {horse.breed}</div> : null}
                       {horse.color ? <div>Farbe: {horse.color}</div> : null}
                       {horse.sex ? <div>Geschlecht: {horse.sex}</div> : null}
                       {age !== null ? <div>Alter: {age} Jahre</div> : null}
                     </div>
+                    {nextTrialSlot ? (
+                      <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-4">
+                        <p className="text-sm font-semibold text-stone-900">N?chster Probetermin</p>
+                        <p className="mt-1 text-sm text-stone-600">{formatDateRange(nextTrialSlot.start_at, nextTrialSlot.end_at)}</p>
+                        <p className="mt-1 text-xs text-stone-500">{horse.trialSlotCount} kommender Probetermin{horse.trialSlotCount === 1 ? "" : "e"} eingestellt.</p>
+                      </div>
+                    ) : null}
                     <p className="text-sm leading-6 text-stone-600">{horse.description ?? "Noch keine Beschreibung vorhanden."}</p>
-                    <Link className={buttonVariants("primary", "w-full sm:w-auto")} href={`/pferde/${horse.id}` as Route}>
-                      Pferdeprofil ansehen
+                    <Link className={buttonVariants("primary", "w-full sm:w-auto")} href={horseHref}>
+                      Probetermine ansehen
                     </Link>
                   </div>
                 </Card>

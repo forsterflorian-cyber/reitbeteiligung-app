@@ -1208,7 +1208,12 @@ export async function updateApprovalAction(formData: FormData) {
   }
 
   revalidatePath("/owner/anfragen");
+  revalidatePath("/owner/reitbeteiligungen");
+  revalidatePath("/owner/nachrichten");
+  revalidatePath("/anfragen");
+  revalidatePath("/dashboard");
   revalidatePath(`/pferde/${record.request.horse_id}`);
+  revalidatePath(`/pferde/${record.request.horse_id}/gruppenchat`);
   const successMessage = nextStatus === APPROVAL_STATUS.approved ? "Die Reitbeteiligung wurde freigeschaltet." : "Die Freischaltung wurde entzogen.";
   redirectWithMessage("/owner/anfragen", "message", successMessage);
 }
@@ -1298,9 +1303,10 @@ export async function deleteRiderRelationshipAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
   const horseId = asString(formData.get("horseId"));
   const riderId = asString(formData.get("riderId"));
+  const redirectPath = getOwnerRedirectPath(formData, "/owner/reitbeteiligungen");
 
   if (!horseId || !riderId) {
-    redirectWithMessage("/owner/anfragen", "error", "Die Reitbeteiligung konnte nicht zugeordnet werden.");
+    redirectWithMessage(redirectPath, "error", "Die Reitbeteiligung konnte nicht zugeordnet werden.");
   }
 
   const horse = await getOwnedHorse(supabase, horseId, user.id);
