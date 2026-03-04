@@ -92,7 +92,7 @@ export default async function DashboardPage({
     const pendingCards = trialPipelineItems
       .slice(0, 4)
       .map((request) => ({
-        ctaLabel: "Probetermine \u00f6ffnen",
+        ctaLabel: "Probetermine öffnen",
         description:
           formatDateTimeRange(request.requested_start_at, request.requested_end_at) ??
           request.message?.trim() ??
@@ -123,7 +123,7 @@ export default async function DashboardPage({
             </>
           }
           backdropVariant="hero"
-          subtitle={`Hallo ${displayName}. Von hier springst du direkt in Pferde, Probetermine und dein laufendes Tagesgesch\u00e4ft.`}
+          subtitle={`Hallo ${displayName}. Von hier springst du direkt in Pferde, Probetermine und dein laufendes Tagesgeschäft.`}
           surface
           title="Übersicht"
         />
@@ -312,7 +312,7 @@ export default async function DashboardPage({
         title="Übersicht"
       />
       <Notice text={message} tone="success" />
-      <SectionCard subtitle="Dein n\u00e4chster Probetermin oder der schnellste Einstieg in deine aktiven Reitbeteiligungen." title="Als N\u00e4chstes">
+      <SectionCard subtitle="Dein nächster Probetermin oder der schnellste Einstieg in deine aktiven Reitbeteiligungen." title="Als Nächstes">
         {focusTrial ? (
           <RequestCard
             ctaLabel="Zur Anfrage"
@@ -349,7 +349,7 @@ export default async function DashboardPage({
         <SectionCard
           action={<Link className={buttonVariants("secondary")} href={riderRequestsHref}>Zur Planung</Link>}
           subtitle="Deine nächsten bereits bestätigten Termine als aktive Reitbeteiligung."
-          title="N\u00e4chste Termine"
+          title="Nächste Termine"
         >
           <div className="grid gap-3">
             {upcomingBookings.slice(0, 3).map((booking) => {
@@ -359,7 +359,7 @@ export default async function DashboardPage({
                 <Card className="p-4" key={booking.id}>
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge tone="approved">Best\u00e4tigt</Badge>
+                      <Badge tone="approved">Bestätigt</Badge>
                       <p className="text-sm text-stone-500">{formatDate(booking.start_at)}</p>
                     </div>
                     <p className="font-semibold text-stone-900">{horse?.title ?? "Reitbeteiligung"}</p>
