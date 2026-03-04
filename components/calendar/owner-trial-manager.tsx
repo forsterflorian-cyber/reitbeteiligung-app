@@ -50,12 +50,12 @@ export function OwnerTrialManager({
   return (
     <div className="space-y-6 sm:space-y-8">
       <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={detailHref}>
-        Zur?ck zum Pferdeprofil
+        Zurück zum Pferdeprofil
       </Link>
 
       <PageHeader
-        subtitle={"Hier pflegst du konkrete Probetermine. Die gro?e Kalenderplanung folgt sp?ter."}
-        title={`Probetermine f?r ${horse.title}`}
+        subtitle={"Hier pflegst du konkrete Probetermine. Die große Kalenderplanung folgt später."}
+        title={`Probetermine für ${horse.title}`}
       />
 
       <div className="space-y-3" id="kalender-feedback">
@@ -70,7 +70,7 @@ export function OwnerTrialManager({
             <h2 className="font-serif text-2xl text-stone-900 sm:text-3xl">{horse.title}</h2>
             <p className="ui-inline-meta">{horse.location_address ?? `PLZ ${horse.plz}`} {horse.active ? "- Aktiv" : "- Inaktiv"}</p>
             <p className="text-sm leading-6 text-stone-600">
-              {horse.description?.trim() || "Hier pflegst du die Probetermine f?r den Start."}
+              {horse.description?.trim() || "Hier pflegst du die Probetermine für den Start."}
             </p>
           </div>
           <div className="flex flex-col gap-3 lg:items-end">
@@ -82,7 +82,7 @@ export function OwnerTrialManager({
               <Card className="w-full max-w-sm border-stone-200 bg-white/90 p-4">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-stone-900">N?chstes Probereiten</p>
+                    <p className="text-sm font-semibold text-stone-900">Nächstes Probereiten</p>
                     <StatusBadge status={nextTrialRequest.status} />
                   </div>
                   <p className="text-sm font-medium text-stone-800">
@@ -101,7 +101,7 @@ export function OwnerTrialManager({
               </Card>
             ) : null}
             <Link className={buttonVariants("secondary", "w-full lg:w-auto")} href={detailHref}>
-              Pferdeprofil ?ffnen
+              Pferdeprofil öffnen
             </Link>
           </div>
         </div>
@@ -117,7 +117,7 @@ export function OwnerTrialManager({
             <div className="space-y-5">
               <div className="space-y-1">
                 <p className="ui-eyebrow">Eingestellte Probetermine</p>
-                <p className="text-sm text-stone-600">Nur diese Termine sind f?r Reiter sichtbar.</p>
+                <p className="text-sm text-stone-600">Nur diese Termine sind für Reiter sichtbar.</p>
               </div>
               {ownerTrialRules.length === 0 ? (
                 <p className="text-sm text-stone-500">Noch keine Probetermine eingestellt.</p>
@@ -134,7 +134,7 @@ export function OwnerTrialManager({
                           <input name="ruleId" type="hidden" value={rule.id} />
                           <ConfirmSubmitButton
                             className={buttonVariants("secondary", "w-full text-sm sm:w-auto")}
-                            confirmMessage="M?chtest du diesen Probetermin wirklich entfernen?"
+                            confirmMessage="Möchtest du diesen Probetermin wirklich entfernen?"
                             idleLabel="Entfernen"
                             pendingLabel="Wird entfernt..."
                           />
@@ -160,7 +160,7 @@ export function OwnerTrialManager({
               <input name="isTrialSlot" type="hidden" value="on" />
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-stone-900">Neuen Probetermin anlegen</p>
-                <p className="text-sm text-stone-600">W?hle Tage und Uhrzeit. Daraus werden f?r die n?chsten 8 Wochen konkrete Probetermine erzeugt.</p>
+                <p className="text-sm text-stone-600">Wähle Tage und Uhrzeit. Daraus werden für die nächsten 8 Wochen konkrete Probetermine erzeugt.</p>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
                 {[["1", "Mo"], ["2", "Di"], ["3", "Mi"], ["4", "Do"], ["5", "Fr"], ["6", "Sa"], ["0", "So"]].map(([value, label]) => (

@@ -660,7 +660,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const restrictedCalendarTitle = profile?.role === "rider" ? "Kalender erst nach Freischaltung" : profile ? "Kalender aktuell nicht verf\u00fcgbar" : "Kalender nutzen";
   const restrictedCalendarSubtitle =
     profile?.role === "rider"
-      ? "Der Kalender f\u00fcr laufende Reitbeteiligungen folgt erst nach dem ersten Release. In R1 bleiben Probetermine, Chat und Freischaltung im Fokus."
+      ? "Der Kalender für laufende Reitbeteiligungen folgt später. Bis dahin bleiben Probetermine, Chat und Freischaltung im Fokus."
       : profile
         ? "F\u00fcr dieses Pferd ist der operative Kalender nur f\u00fcr den Pferdehalter und aktive Reitbeteiligungen sichtbar."
         : "Melde dich an, um Verf\u00fcgbarkeiten, Anfragen und deinen eigenen Status zu sehen.";

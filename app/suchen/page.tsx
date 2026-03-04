@@ -170,7 +170,7 @@ export default async function SuchenPage({ searchParams }: SuchenPageProps) {
         </form>
       </SectionCard>
 
-      <SectionCard subtitle="Nur Pferde mit mindestens einem kommenden Probetermin werden hier für R1 gelistet." title="Pferde mit Probeterminen">
+      <SectionCard subtitle="Nur Pferde mit mindestens einem kommenden Probetermin werden hier gelistet." title="Pferde mit Probeterminen">
         {loadError ? null : horses.length === 0 ? (
           <EmptyState
             description={plzFilter ? "Im gewählten PLZ-Bereich sind aktuell keine Pferde mit kommenden Probeterminen sichtbar." : "Sobald Pferdehalter neue Probetermine einstellen, erscheinen die Pferde hier automatisch."}
