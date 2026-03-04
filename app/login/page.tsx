@@ -3,25 +3,16 @@ import { redirect } from "next/navigation";
 
 import { loginAction } from "@/app/actions";
 import { AuthPanel } from "@/components/blocks/auth-panel";
-import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
 import { buttonVariants } from "@/components/ui/button";
 import { getPostAuthDestination } from "@/lib/auth";
-import { readSearchParam } from "@/lib/search-params";
 
-type LoginPageProps = {
-  searchParams?: Record<string, string | string[] | undefined>;
-};
-
-export default async function LoginPage({ searchParams }: LoginPageProps) {
+export default async function LoginPage() {
   const destination = await getPostAuthDestination();
 
   if (destination) {
     redirect(destination);
   }
-
-  const error = readSearchParam(searchParams, "error");
-  const message = readSearchParam(searchParams, "message");
 
   return (
     <AuthPanel
@@ -37,8 +28,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </p>
       }
     >
-      <Notice text={error} tone="error" />
-      <Notice text={message} tone="success" />
       <form action={loginAction} className="space-y-4">
         <div>
           <label htmlFor="email">E-Mail</label>
@@ -48,7 +37,13 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <label htmlFor="password">Passwort</label>
           <input autoComplete="current-password" id="password" name="password" required type="password" />
         </div>
-        <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href="/passwort-vergessen">
+        <Link
+          className={buttonVariants(
+            "ghost",
+            "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay"
+          )}
+          href="/passwort-vergessen"
+        >
           Passwort vergessen?
         </Link>
         <SubmitButton idleLabel="Anmelden" pendingLabel="Anmeldung läuft..." />

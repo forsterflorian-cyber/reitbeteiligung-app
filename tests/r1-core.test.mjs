@@ -78,5 +78,8 @@ test("getOwnerPlan schaltet im R1 alle Kernfunktionen frei", () => {
   assert.equal(plan.label, "Freigeschaltet");
   assert.equal(plan.maxHorses, null);
   assert.equal(plan.maxApprovedRiders, null);
-  assert.match(getOwnerPlanUsageSummary(plan, { horseCount: 4, approvedRiderCount: 9 }), /R1-Kern/);
+  assert.equal(
+    getOwnerPlanUsageSummary(plan, { horseCount: 4, approvedRiderCount: 9 }),
+    "Aktuell 4 Pferdeprofile und 9 aktive Reitbeteiligungen aktiv."
+  );
 });

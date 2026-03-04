@@ -123,7 +123,7 @@ export default async function OwnerMessagesPage() {
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
                       <Link className={buttonVariants("primary", "w-full sm:w-auto")} href={`/pferde/${horseId}/gruppenchat` as Route}>
-                        Gruppenchat ?ffnen
+                        Gruppenchat \u00f6ffnen
                       </Link>
                       <Link className={buttonVariants("ghost", "w-full sm:w-auto")} href={`/pferde/${horseId}` as Route}>
                         Pferdeprofil ansehen
@@ -138,7 +138,7 @@ export default async function OwnerMessagesPage() {
       </SectionCard>
       <SectionCard subtitle="Neue Nachrichten stehen oben. Ungelesene Chats sind klar markiert." title="1:1-Chats zum Probetermin">
         {items.length === 0 ? (
-          <EmptyState description="Sobald ein Probetermin einen Chat ?ffnet, erscheint die Unterhaltung hier." title="Noch keine Nachrichten" />
+          <EmptyState description="Sobald ein Probetermin einen Chat \u00f6ffnet, erscheint die Unterhaltung hier." title="Noch keine Nachrichten" />
         ) : (
           <div className="space-y-3">
             {items.map((item) => (
@@ -161,7 +161,7 @@ export default async function OwnerMessagesPage() {
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
                     <Link className={buttonVariants("primary", "w-full sm:w-auto")} href={`/chat/${item.conversation.id}` as Route}>
-                      Chat ?ffnen
+                      Chat \u00f6ffnen
                     </Link>
                     <Link className={buttonVariants("ghost", "w-full sm:w-auto")} href={`/owner/reiter/${item.conversation.rider_id}` as Route}>
                       Reiterprofil ansehen

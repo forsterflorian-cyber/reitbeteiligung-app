@@ -191,11 +191,11 @@ export function canStartOwnerTrial(profile: Pick<Profile, "role" | "is_premium" 
 
 export function getOwnerPlanUsageSummary(plan: OwnerPlan, usage: OwnerPlanUsage) {
   if (!OWNER_PLAN_LIMITS_ENABLED) {
-    return `Aktuell ${usage.horseCount} Pferdeprofile und ${usage.approvedRiderCount} aktive Reitbeteiligungen im R1-Kern.`;
+    return `Aktuell ${usage.horseCount} Pferdeprofile und ${usage.approvedRiderCount} aktive Reitbeteiligungen aktiv.`;
   }
 
   if (plan.maxHorses === null || plan.maxApprovedRiders === null) {
-    return "Mehrere Pferdeprofile und mehrere Reitbeteiligungen sind in deinem Tarif verfuegbar.";
+    return "Mehrere Pferdeprofile und mehrere Reitbeteiligungen sind in deinem Tarif verf?gbar.";
   }
 
   const horseLabel = plan.maxHorses === 1 ? "Pferdeprofil" : "Pferdeprofile";

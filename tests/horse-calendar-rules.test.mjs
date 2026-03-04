@@ -29,27 +29,27 @@ test("Pferde-Regeln pruefen Validierung, Tarifgrenzen und Loeschschutz direkt", 
   );
   assert.equal(
     getHorseCreateLimitError("Kostenlos", 1),
-    "Im Tarif Kostenlos sind 1 Pferd enthalten. F?r weitere Pferde brauchst du sp?ter den bezahlten Tarif."
+    "Im Tarif Kostenlos sind 1 Pferd enthalten. Für weitere Pferde brauchst du später den bezahlten Tarif."
   );
   assert.equal(
     getHorseDeleteError("active_relationships"),
-    "Pferdeprofile mit aktiven Reitbeteiligungen k?nnen nicht gel?scht werden."
+    "Pferdeprofile mit aktiven Reitbeteiligungen können nicht gelöscht werden."
   );
 });
 
 test("Kalender-Regeln pruefen Konflikte, Planergrenzen und Nachrichten direkt", () => {
   assert.equal(
     getAvailabilityConflictError("update"),
-    "Ein anderes Zeitfenster ?berschneidet sich bereits mit diesem Zeitraum."
+    "Ein anderes Zeitfenster überschneidet sich bereits mit diesem Zeitraum."
   );
   assert.equal(
     getAvailabilityPlannerDayError("move"),
-    "Im Planer l?sst sich das Zeitfenster nur innerhalb dieses Tages verschieben."
+    "Im Planer lässt sich das Zeitfenster nur innerhalb dieses Tages verschieben."
   );
   assert.equal(
     getAvailabilitySaveError("planner_adjust"),
     "Das Zeitfenster konnte nicht im Planer angepasst werden."
   );
-  assert.equal(getCalendarBlockQuarterHourError(), "Bitte nutze f?r Sperren ein 15-Minuten-Raster.");
+  assert.equal(getCalendarBlockQuarterHourError(), "Bitte nutze für Sperren ein 15-Minuten-Raster.");
   assert.equal(getCalendarBlockSavedMessage("delete"), "Die Kalender-Sperre wurde entfernt.");
 });

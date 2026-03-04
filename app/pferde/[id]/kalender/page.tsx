@@ -18,6 +18,8 @@ import { RequestCard } from "@/components/blocks/request-card";
 import { DayRangePicker } from "@/components/calendar/day-range-picker";
 import { DraggableTimelineSegment } from "@/components/calendar/draggable-timeline-segment";
 import { InteractiveTimelineLane } from "@/components/calendar/interactive-timeline-lane";
+import { HorseCalendarHero } from "@/components/calendar/horse-calendar-hero";
+import { HorseCalendarRestrictedState } from "@/components/calendar/horse-calendar-restricted-state";
 import { OwnerTrialManager } from "@/components/calendar/owner-trial-manager";
 import { RiderBookingWindowForm } from "@/components/calendar/rider-booking-window-form";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
@@ -657,56 +659,43 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     }))
   }));
 
-  const restrictedCalendarTitle = profile?.role === "rider" ? "Kalender erst nach Freischaltung" : profile ? "Kalender aktuell nicht verf\u00fcgbar" : "Kalender nutzen";
   const restrictedCalendarSubtitle =
     profile?.role === "rider"
-      ? "Der Kalender für laufende Reitbeteiligungen folgt später. Bis dahin bleiben Probetermine, Chat und Freischaltung im Fokus."
+      ? "Der Kalender f\u00fcr laufende Reitbeteiligungen folgt sp\u00e4ter. Bis dahin bleiben Probetermine, Chat und Freischaltung im Fokus."
       : profile
         ? "F\u00fcr dieses Pferd ist der operative Kalender nur f\u00fcr den Pferdehalter und aktive Reitbeteiligungen sichtbar."
         : "Melde dich an, um Verf\u00fcgbarkeiten, Anfragen und deinen eigenen Status zu sehen.";
+  const nextTrialRangeLabel = nextTrialRequest
+    ? formatDateRange(nextTrialRequest.requested_start_at as string, nextTrialRequest.requested_end_at as string)
+    : null;
+  const horseDescription =
+    horse.description?.trim() || "Hier steuerst du Verf\u00fcgbarkeiten, Sperren und eingehende Terminanfragen f\u00fcr dieses Pferd.";
+  const horseLocationLine = (horse.location_address ?? "PLZ " + horse.plz) + " " + (horse.active ? "- Aktiv" : "- Inaktiv");
+  const ownerPlanTone = ownerPlan.key === "paid" ? "approved" : ownerPlan.key === "trial" ? "pending" : "neutral";
 
   if (!canUseCalendar) {
     return (
-      <div className="space-y-6 sm:space-y-8">
-        <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={detailHref}>
-          {"Zur\u00fcck zum Pferdeprofil"}
-        </Link>
-
-        <PageHeader
-          subtitle={"Kalender, Verf\u00fcgbarkeiten und Terminanfragen auf einen Blick."}
-          title={`Kalender f\u00fcr ${horse.title}`}
-        />
-
-        <div className="space-y-3" id="kalender-feedback">
-          <Notice text={error} tone="error" />
-          <Notice text={message} tone="success" />
-          {occupancyError ? <Notice text="Der Kalender konnte nicht geladen werden." tone="error" /> : null}
-        </div>
-
-        <SectionCard subtitle={restrictedCalendarSubtitle} title={restrictedCalendarTitle}>
-          {profile ? (
-            <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href={detailHref}>
-              {"Zur\u00fcck zum Pferdeprofil"}
-            </Link>
-          ) : (
-            <Link className={buttonVariants("primary", "w-full sm:w-auto")} href="/login">
-              Anmelden, um den Kalender zu nutzen
-            </Link>
-          )}
-        </SectionCard>
-      </div>
+      <HorseCalendarRestrictedState
+        detailHref={detailHref}
+        error={error}
+        isAuthenticated={Boolean(profile)}
+        message={message}
+        showLoadError={Boolean(occupancyError)}
+        subtitle={restrictedCalendarSubtitle}
+        title={"Kalender f\u00fcr " + horse.title}
+      />
     );
   }
 
   return (
     <div className="space-y-6 sm:space-y-8">
       <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={detailHref}>
-        Zurück zum Pferdeprofil
+        {"Zur\u00fcck zum Pferdeprofil"}
       </Link>
 
       <PageHeader
-        subtitle="Kalender, Verfügbarkeiten und Terminanfragen auf einen Blick."
-        title={`Kalender für ${horse.title}`}
+        subtitle="Kalender, Verf\u00fcgbarkeiten und Terminanfragen auf einen Blick."
+        title={`Kalender f\u00fcr ${horse.title}`}
       />
 
       <div className="space-y-3" id="kalender-feedback">
@@ -715,54 +704,23 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         {occupancyError ? <Notice text="Der Kalender konnte nicht geladen werden." tone="error" /> : null}
       </div>
 
-      <div className="ui-horse-context">
-        <div className="ui-horse-context-grid">
-          <div className="space-y-2">
-            <p className="ui-eyebrow">Pferdeprofil</p>
-            <h2 className="font-serif text-2xl text-stone-900 sm:text-3xl">{horse.title}</h2>
-            <p className="ui-inline-meta">{horse.location_address ?? `PLZ ${horse.plz}`} {horse.active ? "- Aktiv" : "- Inaktiv"}</p>
-            <p className="text-sm leading-6 text-stone-600">
-              {horse.description?.trim() || "Hier steuerst du Verfügbarkeiten, Sperren und eingehende Terminanfragen für dieses Pferd."}
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 lg:items-end">
-            <div className="ui-kpi-row">
-              <Badge tone={horse.active ? "approved" : "neutral"}>{horse.active ? "Aktiv" : "Inaktiv"}</Badge>
-              <Badge tone={ownerPlan.key === "paid" ? "approved" : ownerPlan.key === "trial" ? "pending" : "neutral"}>{ownerPlan.label}</Badge>
-            </div>
-            {isOwner && nextTrialRequest ? (
-              <Card className="w-full max-w-sm border-stone-200 bg-white/90 p-4">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-stone-900">{"N\u00e4chstes Probereiten"}</p>
-                    <StatusBadge status={nextTrialRequest.status} />
-                  </div>
-                  <p className="text-sm font-medium text-stone-800">
-                    {formatDateRange(nextTrialRequest.requested_start_at as string, nextTrialRequest.requested_end_at as string)}
-                  </p>
-                  <p className="text-xs leading-5 text-stone-600">
-                    {nextTrialRiderName ? `Mit ${nextTrialRiderName}` : "Mit einem Reiter aus deinen offenen Probeterminen"}
-                  </p>
-                  <Link
-                    className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent")}
-                    href={"/owner/anfragen" as Route}
-                  >
-                    Zu den Probeterminen
-                  </Link>
-                </div>
-              </Card>
-            ) : null}
-            <Link className={buttonVariants("secondary", "w-full lg:w-auto")} href={detailHref}>
-              {"Pferdeprofil \u00f6ffnen"}
-            </Link>
-          </div>
-        </div>
-      </div>
+      <HorseCalendarHero
+        description={horseDescription}
+        detailHref={detailHref}
+        isOwner={isOwner}
+        locationLine={horseLocationLine}
+        nextTrialRangeLabel={nextTrialRangeLabel}
+        nextTrialRiderName={nextTrialRiderName}
+        nextTrialStatus={nextTrialRequest?.status ?? null}
+        ownerPlanLabel={ownerPlan.label}
+        ownerPlanTone={ownerPlanTone}
+        title={horse.title}
+      />
 
       {isOwner ? (
         <SectionCard
           id="kalender-liste"
-          subtitle={"Hier pflegst du nur explizite Probetermine. Standardzeiten, Ausnahmen und die gro?e Wochenplanung bleiben bewusst ausgeblendet."}
+          subtitle={"Hier pflegst du nur explizite Probetermine. Standardzeiten, Ausnahmen und die gro\u00dfe Wochenplanung bleiben bewusst ausgeblendet."}
           title="Probetermine pflegen"
         >
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
@@ -897,7 +855,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         <div className="space-y-4">
           <div className="rounded-2xl border border-stone-200 bg-white/80 px-4 py-4">
             <div className="grid gap-2 sm:grid-cols-4">
-              <Link className={buttonVariants(selectedRange === 1 ? "primary" : "secondary", "w-full justify-center text-sm")} href={nextDayHref}>{"N?chster Tag"}</Link>
+              <Link className={buttonVariants(selectedRange === 1 ? "primary" : "secondary", "w-full justify-center text-sm")} href={nextDayHref}>{"N\u00e4chster Tag"}</Link>
               <Link className={buttonVariants(selectedRange === 7 ? "primary" : "secondary", "w-full justify-center text-sm")} href={nextSevenDaysHref}>{"Nächste 7 Tage"}</Link>
               <Link className={buttonVariants(selectedRange === 30 ? "primary" : "secondary", "w-full justify-center text-sm")} href={nextThirtyDaysHref}>{"Nächste 30 Tage"}</Link>
               
@@ -913,7 +871,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                 Vorheriger Monat
               </Link>
               <Link className={buttonVariants("secondary", "min-h-[40px] px-4 py-2 text-sm")} href={nextMonthHref}>
-                {"N?chster Monat"}
+                {"N\u00e4chster Monat"}
               </Link>
               <Link className={buttonVariants("ghost", "min-h-[40px] px-4 py-2 text-sm")} href={todayHref}>
                 Heute
@@ -1632,7 +1590,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         ) : null}
 
         {!profile ? (
-          <SectionCard subtitle={"Melde dich an, um Verf?gbarkeiten, Anfragen und deinen eigenen Status zu sehen."} title="Kalender nutzen">
+          <SectionCard subtitle={"Melde dich an, um Verf\u00fcgbarkeiten, Anfragen und deinen eigenen Status zu sehen."} title="Kalender nutzen">
             <Link className={buttonVariants("primary", "w-full sm:w-auto")} href="/login">
               Anmelden, um den Kalender zu nutzen
             </Link>

@@ -1,17 +1,10 @@
-"use client";
-
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-
 import { buttonVariants } from "@/components/ui/button";
 
 // The public landing nav stays deliberately slim: brand on the left,
 // auth actions on the right, no app-internal navigation for guests.
 export function LandingNav() {
-  const pathname = usePathname();
-  const isLogin = pathname === "/login";
-
   const brandLink = (
     <Link className="header-left flex min-w-0 items-center" href="/">
       <Image
@@ -34,23 +27,6 @@ export function LandingNav() {
     </Link>
   );
 
-  if (isLogin) {
-    return (
-      <header className="sticky top-0 z-40 border-b border-stone-200/80 bg-stone-50/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-stone-50/90">
-        <div className="mx-auto flex min-h-[72px] max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5 lg:px-8">
-          {brandLink}
-          <div className="flex flex-wrap justify-end gap-2 sm:items-center sm:gap-3">
-            <Link className={buttonVariants("ghost")} href="/login">
-              Anmelden
-            </Link>
-            <Link className={buttonVariants("primary")} href="/signup">
-              Konto erstellen
-            </Link>
-          </div>
-        </div>
-      </header>
-    );
-  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-stone-200/80 bg-stone-50/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-stone-50/90">

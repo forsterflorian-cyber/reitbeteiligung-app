@@ -33,13 +33,22 @@ import {
   getTrialStatusTransitionError
 } from "@/lib/server-actions/trial";
 import { getApprovalSavedMessage, getApprovalTransitionError, getDeleteRelationshipError } from "@/lib/server-actions/relationships";
-import { getHorseCreateLimitError, getHorseDeleteError, getHorseValidationError } from "@/lib/server-actions/horse";
+import {
+  getHorseCreateLimitError,
+  getHorseDeleteError,
+  getHorseDeleteRevalidationPaths,
+  getHorseSaveRevalidationPaths,
+  getHorseValidationError,
+  getOwnedHorse,
+  getOwnerRedirectPath
+} from "@/lib/server-actions/horse";
 import {
   getAvailabilityAccessError,
   getAvailabilityConflictError,
   getAvailabilityInvalidWindowError,
   getAvailabilityLoadError,
   getAvailabilityPlannerDayError,
+  getAvailabilityRevalidationPaths,
   getAvailabilitySaveError,
   getAvailabilitySavedMessage,
   getAvailabilityTimeError,
@@ -47,9 +56,13 @@ import {
   getCalendarBlockInvalidWindowError,
   getCalendarBlockPlannerDayError,
   getCalendarBlockQuarterHourError,
+  getCalendarBlockRevalidationPaths,
+  getCalendarRedirectPath,
   getCalendarBlockSavedMessage,
   getCalendarBlockSaveError,
-  getCalendarBlockTimeError
+  getCalendarBlockTimeError,
+  getOwnedAvailabilityRule,
+  getOwnedCalendarBlock
 } from "@/lib/server-actions/calendar";
 import type { Approval, AvailabilityRule, Booking, BookingRequest, CalendarBlock, Horse, HorseImage, RiderBookingLimit, TrialRequest } from "@/types/database";
 
@@ -119,65 +132,6 @@ function logSupabaseError(context: string, error: SupabaseErrorLike) {
     details: error.details ?? null,
     hint: error.hint ?? null
   });
-}
-
-function getOwnerRedirectPath(formData: FormData, fallback = '/owner/horses') {
-  const redirectTo = asString(formData.get('redirectTo'));
-
-  if (!redirectTo.startsWith('/owner/')) {
-    return fallback;
-  }
-
-  return redirectTo;
-}
-
-function getCalendarRedirectPath(
-  formData: FormData,
-  horseId: string,
-  selectedDate: string,
-  options?: {
-    anchor?: string;
-    focusBlockId?: string;
-    focusRuleId?: string;
-  }
-) {
-  const params = new URLSearchParams();
-  const weekOffset = asString(formData.get("weekOffset"));
-  const monthOffset = asString(formData.get("monthOffset"));
-  const mode = asString(formData.get("mode"));
-  const range = asString(formData.get("range"));
-
-  if (/^-?\d{1,3}$/.test(weekOffset)) {
-    params.set("weekOffset", weekOffset);
-  }
-
-  if (/^-?\d{1,3}$/.test(monthOffset)) {
-    params.set("monthOffset", monthOffset);
-  }
-
-  if (selectedDate) {
-    params.set("day", selectedDate);
-  }
-
-  if (mode === "edit") {
-    params.set("mode", mode);
-  }
-
-  if (/^(1|7|30)$/.test(range)) {
-    params.set("range", range);
-  }
-
-  if (options?.focusRuleId) {
-    params.set("focusRule", options.focusRuleId);
-  }
-
-  if (options?.focusBlockId) {
-    params.set("focusBlock", options.focusBlockId);
-  }
-
-  const query = params.toString();
-  const hash = options?.anchor ? `#${options.anchor}` : "";
-  return `/pferde/${horseId}/kalender${query ? `?${query}` : ""}${hash}`;
 }
 
 function addDaysUtc(date: Date, days: number) {
@@ -724,55 +678,6 @@ function getRecurrenceErrorMessage(error: Error) {
     default:
       return "Die Wiederholung ist ungültig. Nutze zum Beispiel FREQ=WEEKLY;INTERVAL=1;COUNT=6.";
   }
-}
-
-async function getOwnedHorse(supabase: ReturnType<typeof createClient>, horseId: string, ownerId: string) {
-  const { data } = await supabase.from("horses").select("id, owner_id").eq("id", horseId).eq("owner_id", ownerId).maybeSingle();
-
-  return (data as HorseOwnerRecord | null) ?? null;
-}
-
-async function getOwnedCalendarBlock(supabase: ReturnType<typeof createClient>, blockId: string, ownerId: string) {
-  const { data } = await supabase
-    .from("calendar_blocks")
-    .select("id, horse_id, title, start_at, end_at, created_at")
-    .eq("id", blockId)
-    .maybeSingle();
-
-  const block = (data as CalendarBlockRecord | null) ?? null;
-
-  if (!block) {
-    return null;
-  }
-
-  const horse = await getOwnedHorse(supabase, block.horse_id, ownerId);
-
-  if (!horse) {
-    return null;
-  }
-
-  return block;
-}
-async function getOwnedAvailabilityRule(supabase: ReturnType<typeof createClient>, ruleId: string, ownerId: string) {
-  const { data } = await supabase
-    .from("availability_rules")
-    .select("id, horse_id, slot_id, start_at, end_at, active, is_trial_slot, created_at")
-    .eq("id", ruleId)
-    .maybeSingle();
-
-  const rule = (data as AvailabilityRuleRecord | null) ?? null;
-
-  if (!rule) {
-    return null;
-  }
-
-  const horse = await getOwnedHorse(supabase, rule.horse_id, ownerId);
-
-  if (!horse) {
-    return null;
-  }
-
-  return rule;
 }
 
 async function getManagedBookingRequest(supabase: ReturnType<typeof createClient>, requestId: string, ownerId: string) {
@@ -1553,10 +1458,10 @@ export async function saveHorseAction(formData: FormData) {
     }
   }
 
-  revalidatePath("/owner/horses");
-  revalidatePath("/owner/pferde-verwalten");
-  revalidatePath("/dashboard");
-  revalidatePath("/suchen");
+  for (const path of getHorseSaveRevalidationPaths()) {
+    revalidatePath(path);
+  }
+
   redirectWithMessage(successRedirectPath, "message", "Das Pferdeprofil wurde gespeichert.");
 }
 
@@ -1806,10 +1711,9 @@ export async function createAvailabilityDayAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", getAvailabilitySaveError("create"));
   }
 
-  revalidatePath(`/pferde/${horseId}/kalender`);
-  revalidatePath(`/pferde/${horseId}`);
-  revalidatePath("/owner/anfragen");
-  revalidatePath("/anfragen");
+  for (const path of getAvailabilityRevalidationPaths(horseId)) {
+    revalidatePath(path);
+  }
   redirectWithMessage(successRedirectPath, "message", getAvailabilitySavedMessage("create"));
 }
 export async function updateAvailabilityDayAction(formData: FormData) {
@@ -1897,10 +1801,9 @@ export async function updateAvailabilityDayAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", getAvailabilitySaveError("update"));
   }
 
-  revalidatePath(`/pferde/${rule.horse_id}/kalender`);
-  revalidatePath(`/pferde/${rule.horse_id}`);
-  revalidatePath("/owner/anfragen");
-  revalidatePath("/anfragen");
+  for (const path of getAvailabilityRevalidationPaths(rule.horse_id)) {
+    revalidatePath(path);
+  }
   redirectWithMessage(successRedirectPath, "message", getAvailabilitySavedMessage("update"));
 }
 export async function resizeAvailabilityRuleAction(formData: FormData) {
@@ -1978,10 +1881,9 @@ export async function resizeAvailabilityRuleAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", getAvailabilitySaveError("planner_adjust"));
   }
 
-  revalidatePath(`/pferde/${rule.horse_id}/kalender`);
-  revalidatePath(`/pferde/${rule.horse_id}`);
-  revalidatePath("/owner/anfragen");
-  revalidatePath("/anfragen");
+  for (const path of getAvailabilityRevalidationPaths(rule.horse_id)) {
+    revalidatePath(path);
+  }
   redirectWithMessage(redirectPath, "message", getAvailabilitySavedMessage("planner_adjust"));
 }
 
@@ -2060,10 +1962,9 @@ export async function moveAvailabilityRuleAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", getAvailabilitySaveError("planner_move"));
   }
 
-  revalidatePath(`/pferde/${rule.horse_id}/kalender`);
-  revalidatePath(`/pferde/${rule.horse_id}`);
-  revalidatePath("/owner/anfragen");
-  revalidatePath("/anfragen");
+  for (const path of getAvailabilityRevalidationPaths(rule.horse_id)) {
+    revalidatePath(path);
+  }
   redirectWithMessage(redirectPath, "message", getAvailabilitySavedMessage("planner_move"));
 }
 
@@ -2113,8 +2014,9 @@ export async function createCalendarBlockAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", getCalendarBlockSaveError("create"));
   }
 
-  revalidatePath(redirectPath);
-  revalidatePath(`/pferde/${horseId}`);
+  for (const path of getCalendarBlockRevalidationPaths(horseId)) {
+    revalidatePath(path);
+  }
   redirectWithMessage(redirectPath, "message", getCalendarBlockSavedMessage("create"));
 }
 
@@ -2164,8 +2066,9 @@ export async function updateCalendarBlockAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", getCalendarBlockSaveError("update"));
   }
 
-  revalidatePath(`/pferde/${block.horse_id}/kalender`);
-  revalidatePath(`/pferde/${block.horse_id}`);
+  for (const path of getCalendarBlockRevalidationPaths(block.horse_id)) {
+    revalidatePath(path);
+  }
   redirectWithMessage(successRedirectPath, "message", getCalendarBlockSavedMessage("update"));
 }
 export async function resizeCalendarBlockAction(formData: FormData) {
@@ -2204,8 +2107,9 @@ export async function resizeCalendarBlockAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", getCalendarBlockSaveError("planner_adjust"));
   }
 
-  revalidatePath(`/pferde/${block.horse_id}/kalender`);
-  revalidatePath(`/pferde/${block.horse_id}`);
+  for (const path of getCalendarBlockRevalidationPaths(block.horse_id)) {
+    revalidatePath(path);
+  }
   redirectWithMessage(redirectPath, "message", getCalendarBlockSavedMessage("planner_adjust"));
 }
 
@@ -2245,8 +2149,9 @@ export async function moveCalendarBlockAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", getCalendarBlockSaveError("planner_move"));
   }
 
-  revalidatePath(`/pferde/${block.horse_id}/kalender`);
-  revalidatePath(`/pferde/${block.horse_id}`);
+  for (const path of getCalendarBlockRevalidationPaths(block.horse_id)) {
+    revalidatePath(path);
+  }
   redirectWithMessage(redirectPath, "message", getCalendarBlockSavedMessage("planner_move"));
 }
 
@@ -2431,8 +2336,9 @@ export async function createAvailabilityRuleAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", "Die Standardzeiten konnten nicht gespeichert werden.");
   }
 
-  revalidatePath(redirectPath);
-  revalidatePath(`/pferde/${horseId}`);
+  for (const path of getCalendarBlockRevalidationPaths(horseId)) {
+    revalidatePath(path);
+  }
   revalidatePath("/owner/anfragen");
   revalidatePath("/anfragen");
 
@@ -2915,14 +2821,10 @@ export async function deleteHorseAction(formData: FormData) {
     redirectWithMessage(redirectPath, "error", getHorseDeleteError("failed"));
   }
 
-  revalidatePath("/owner/horses");
-  revalidatePath("/owner/pferde-verwalten");
-  revalidatePath("/owner/reitbeteiligungen");
-  revalidatePath("/dashboard");
-  revalidatePath("/suchen");
-  revalidatePath("/owner/anfragen");
-  revalidatePath("/anfragen");
-  revalidatePath("/pferde/" + horseId);
+  for (const path of getHorseDeleteRevalidationPaths(horseId)) {
+    revalidatePath(path);
+  }
+
   redirectWithMessage(redirectPath, "message", "Das Pferdeprofil wurde gel?scht.");
 }
 
