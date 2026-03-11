@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createClient } from "@supabase/supabase-js";
 import pg from "pg";
 
 const { Client } = pg;
@@ -402,25 +401,10 @@ function printRows(rows) {
 
 async function runLiveSmoke(dbConfig) {
   printSection("Live-Smoke nach Migration");
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
-    process.exitCode = EXIT_CODES.missingPrerequisite;
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL oder NEXT_PUBLIC_SUPABASE_ANON_KEY fehlen fuer den Live-Smoke.");
-  }
-
-  const authClient = createClient(url, anonKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  });
   const db = createDbClient(dbConfig);
   await db.connect();
 
-  const namespace = `codex-smoke-${Date.now()}-${randomUUID().slice(0, 8)}`;
-  const password = process.env.SUPABASE_SMOKE_PASSWORD ?? `Codex!${randomUUID().slice(0, 10)}`;
+  const namespace = `cv1${Date.now().toString(36)}${randomUUID().slice(0, 4)}`.toLowerCase();
   const ownerEmail = `${namespace}-owner@example.com`;
   const riderEmail = `${namespace}-rider@example.com`;
   let ownerId = null;
@@ -429,10 +413,12 @@ async function runLiveSmoke(dbConfig) {
 
   try {
     await db.query("set role postgres");
-    ownerId = await signUpUser(authClient, ownerEmail, password);
-    riderId = await signUpUser(authClient, riderEmail, password);
+    ownerId = randomUUID();
+    riderId = randomUUID();
     horseId = randomUUID();
 
+    await insertAuthUser(db, ownerId, ownerEmail);
+    await insertAuthUser(db, riderId, riderEmail);
     await db.query("insert into public.profiles (id, role, is_premium) values ($1, 'owner', false), ($2, 'rider', false)", [ownerId, riderId]);
     await db.query(
       "insert into public.horses (id, owner_id, title, plz, description, active) values ($1, $2, $3, $4, $5, true)",
@@ -615,17 +601,36 @@ async function runLiveSmoke(dbConfig) {
   }
 }
 
-async function signUpUser(authClient, email, password) {
-  const { data, error } = await authClient.auth.signUp({
-    email,
-    password
-  });
-
-  if (error || !data.user?.id) {
-    throw new Error(`Auth-Signup fehlgeschlagen fuer ${email}: ${error?.message ?? "kein user id"}`);
-  }
-
-  return data.user.id;
+async function insertAuthUser(client, userId, email) {
+  await client.query(
+    `
+      insert into auth.users (
+        id,
+        aud,
+        role,
+        email,
+        encrypted_password,
+        email_confirmed_at,
+        raw_app_meta_data,
+        raw_user_meta_data,
+        created_at,
+        updated_at
+      )
+      values (
+        $1,
+        'authenticated',
+        'authenticated',
+        $2,
+        '',
+        timezone('utc'::text, now()),
+        '{"provider":"email","providers":["email"]}'::jsonb,
+        '{}'::jsonb,
+        timezone('utc'::text, now()),
+        timezone('utc'::text, now())
+      )
+    `,
+    [userId, email]
+  );
 }
 
 async function createOperationalRule(client, horseId, startAt, endAt) {
