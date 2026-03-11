@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { isActiveRelationship } from "./relationship-state.ts";
 import type { Approval, Horse, Profile } from "@/types/database";
 
 export type OwnerPlanKey = "free" | "trial" | "paid";
@@ -233,7 +234,7 @@ export function canApproveRider(
     return true;
   }
 
-  if (currentStatus === "approved") {
+  if (isActiveRelationship(currentStatus)) {
     return true;
   }
 

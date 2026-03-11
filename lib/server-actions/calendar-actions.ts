@@ -3,6 +3,9 @@ import { R1_CORE_MODE } from "../release-stage";
 import type { createClient } from "../supabase/server";
 import { getOwnedHorse } from "./horse";
 import {
+  buildAvailabilityWindows,
+  buildSingleAvailabilityWindow,
+  getActiveAvailabilityRanges,
   getAvailabilityAccessError,
   getAvailabilityConflictError,
   getAvailabilityInvalidWindowError,
@@ -22,7 +25,17 @@ import {
   getCalendarBlockTimeError,
   getCalendarRedirectPath,
   getOwnedAvailabilityRule,
-  getOwnedCalendarBlock
+  getOwnedCalendarBlock,
+  hasWindowConflict,
+  isAvailabilityPreset,
+  isMoveDirection,
+  isQuarterHourAligned,
+  isResizeDirection,
+  parseClockTime,
+  resolveAvailabilityDays,
+  shiftRangeBoundary,
+  shiftWholeRange,
+  type CalendarBookingWindow
 } from "./calendar";
 
 type SupabaseClient = ReturnType<typeof createClient>;
@@ -33,26 +46,6 @@ type SupabaseErrorLike = {
   message: string;
 };
 type LogSupabaseError = (context: string, error: SupabaseErrorLike) => void;
-
-type ParsedClockTime = {
-  hours: number;
-  minutes: number;
-};
-
-type BookingWindow = {
-  endAt: string;
-  startAt: string;
-};
-
-type TimeRangeRecord = {
-  end_at: string;
-  start_at: string;
-};
-
-type AvailabilityRangeRecord = {
-  end_at: string;
-  start_at: string;
-};
 
 type CalendarActionResult =
   | {
@@ -66,8 +59,6 @@ type CalendarActionResult =
       redirectPath: string;
       successMessage: string;
     };
-
-const CALENDAR_STEP_MINUTES = 15;
 
 type CalendarDeleteActionResult =
   | {
@@ -95,168 +86,6 @@ function successResult(redirectPath: string, successMessage: string, paths: read
     paths,
     redirectPath,
     successMessage
-  };
-}
-
-function parseClockTime(value: string) {
-  if (!/^\d{2}:\d{2}$/.test(value)) {
-    return null;
-  }
-
-  const [hoursValue, minutesValue] = value.split(":");
-  const hours = Number.parseInt(hoursValue, 10);
-  const minutes = Number.parseInt(minutesValue, 10);
-
-  if (
-    !Number.isInteger(hours) ||
-    !Number.isInteger(minutes) ||
-    hours < 0 ||
-    hours > 23 ||
-    minutes < 0 ||
-    minutes > 59 ||
-    minutes % CALENDAR_STEP_MINUTES !== 0
-  ) {
-    return null;
-  }
-
-  return {
-    hours,
-    minutes
-  } satisfies ParsedClockTime;
-}
-
-function buildSingleAvailabilityWindow(dayValue: string, startTime: ParsedClockTime, endTime: ParsedClockTime) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dayValue)) {
-    return null;
-  }
-
-  const [yearValue, monthValue, dayNumberValue] = dayValue.split("-");
-  const year = Number.parseInt(yearValue, 10);
-  const month = Number.parseInt(monthValue, 10);
-  const dayNumber = Number.parseInt(dayNumberValue, 10);
-
-  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(dayNumber)) {
-    return null;
-  }
-
-  const startAt = new Date(year, month - 1, dayNumber, startTime.hours, startTime.minutes, 0, 0);
-  const endAt = new Date(year, month - 1, dayNumber, endTime.hours, endTime.minutes, 0, 0);
-
-  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || endAt <= startAt || endAt <= new Date()) {
-    return null;
-  }
-
-  return {
-    endAt: endAt.toISOString(),
-    startAt: startAt.toISOString()
-  } satisfies BookingWindow;
-}
-
-function isQuarterHourAligned(value: Date) {
-  return value.getMinutes() % CALENDAR_STEP_MINUTES === 0 && value.getSeconds() === 0 && value.getMilliseconds() === 0;
-}
-
-function isResizeDirection(value: string): value is "start-earlier" | "start-later" | "end-earlier" | "end-later" {
-  return value === "start-earlier" || value === "start-later" || value === "end-earlier" || value === "end-later";
-}
-
-function isMoveDirection(value: string): value is "earlier" | "later" {
-  return value === "earlier" || value === "later";
-}
-
-function shiftRangeBoundary(
-  startAtValue: string,
-  endAtValue: string,
-  direction: "start-earlier" | "start-later" | "end-earlier" | "end-later"
-) {
-  const startAt = new Date(startAtValue);
-  const endAt = new Date(endAtValue);
-
-  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
-    return null;
-  }
-
-  if (direction === "start-earlier") {
-    startAt.setMinutes(startAt.getMinutes() - CALENDAR_STEP_MINUTES, 0, 0);
-  }
-
-  if (direction === "start-later") {
-    startAt.setMinutes(startAt.getMinutes() + CALENDAR_STEP_MINUTES, 0, 0);
-  }
-
-  if (direction === "end-earlier") {
-    endAt.setMinutes(endAt.getMinutes() - CALENDAR_STEP_MINUTES, 0, 0);
-  }
-
-  if (direction === "end-later") {
-    endAt.setMinutes(endAt.getMinutes() + CALENDAR_STEP_MINUTES, 0, 0);
-  }
-
-  if (endAt <= startAt) {
-    return null;
-  }
-
-  return {
-    endAt: endAt.toISOString(),
-    startAt: startAt.toISOString()
-  } satisfies BookingWindow;
-}
-
-function shiftWholeRange(startAtValue: string, endAtValue: string, direction: "earlier" | "later") {
-  const startAt = new Date(startAtValue);
-  const endAt = new Date(endAtValue);
-
-  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
-    return null;
-  }
-
-  startAt.setMinutes(startAt.getMinutes() + (direction === "earlier" ? -CALENDAR_STEP_MINUTES : CALENDAR_STEP_MINUTES), 0, 0);
-  endAt.setMinutes(endAt.getMinutes() + (direction === "earlier" ? -CALENDAR_STEP_MINUTES : CALENDAR_STEP_MINUTES), 0, 0);
-
-  if (endAt <= startAt) {
-    return null;
-  }
-
-  return {
-    endAt: endAt.toISOString(),
-    startAt: startAt.toISOString()
-  } satisfies BookingWindow;
-}
-
-function windowsOverlap(left: BookingWindow, right: BookingWindow) {
-  return left.startAt < right.endAt && left.endAt > right.startAt;
-}
-
-function hasWindowConflict(windows: BookingWindow[], existingRanges: TimeRangeRecord[]) {
-  return windows.some((window) =>
-    existingRanges.some((existingRange) =>
-      windowsOverlap(window, {
-        endAt: existingRange.end_at,
-        startAt: existingRange.start_at
-      })
-    )
-  );
-}
-
-async function getActiveAvailabilityRanges(
-  supabase: SupabaseClient,
-  horseId: string,
-  excludeRuleId?: string
-) {
-  let query = supabase.from("availability_rules").select("id, start_at, end_at").eq("horse_id", horseId).eq("active", true);
-
-  if (excludeRuleId) {
-    query = query.neq("id", excludeRuleId);
-  }
-
-  const { data, error } = await query;
-
-  return {
-    error,
-    ranges: ((data as AvailabilityRangeRecord[] | null) ?? []).map((range) => ({
-      end_at: range.end_at,
-      start_at: range.start_at
-    }))
   };
 }
 
@@ -797,6 +626,191 @@ export async function moveCalendarBlockForOwner(input: {
   }
 
   return successResult(redirectPath, getCalendarBlockSavedMessage("planner_move"), getCalendarBlockRevalidationPaths(block.horse_id));
+}
+
+export async function createAvailabilityRuleForOwner(input: {
+  formData: FormData;
+  logSupabaseError: LogSupabaseError;
+  ownerId: string;
+  supabase: SupabaseClient;
+}): Promise<CalendarActionResult> {
+  const horseId = asString(input.formData.get("horseId"));
+
+  if (!horseId) {
+    return errorResult("/owner/horses", getAvailabilityAccessError("missing_horse"));
+  }
+
+  const horse = await getOwnedHorse(input.supabase, horseId, input.ownerId);
+  const selectedDate = asString(input.formData.get("selectedDate")) || new Date().toISOString().slice(0, 10);
+  const redirectPath = getCalendarRedirectPath(input.formData, horseId, selectedDate, {
+    anchor: R1_CORE_MODE ? "kalender-liste" : "kalender-bearbeiten"
+  });
+
+  if (!horse) {
+    return errorResult("/owner/horses", getAvailabilityAccessError("forbidden_manage"));
+  }
+
+  const presetValue = asString(input.formData.get("availabilityPreset"));
+
+  if (!isAvailabilityPreset(presetValue)) {
+    return errorResult(redirectPath, "Bitte w\u00e4hle ein g\u00fcltiges Wochenmuster aus.");
+  }
+
+  const selectedWeekdays = input.formData
+    .getAll("weekday")
+    .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+    .filter(Boolean);
+  const isTrialSlot = input.formData.get("isTrialSlot") === "on";
+  const days = resolveAvailabilityDays(presetValue, selectedWeekdays);
+
+  if (days.length === 0) {
+    return errorResult(redirectPath, "Bitte w\u00e4hle mindestens einen Wochentag aus.");
+  }
+
+  const startTime = parseClockTime(asString(input.formData.get("startTime")));
+  const endTime = parseClockTime(asString(input.formData.get("endTime")));
+
+  if (!startTime || !endTime) {
+    return errorResult(redirectPath, getAvailabilityTimeError());
+  }
+
+  if (endTime.hours < startTime.hours || (endTime.hours === startTime.hours && endTime.minutes <= startTime.minutes)) {
+    return errorResult(redirectPath, "Das Ende muss nach dem Beginn liegen.");
+  }
+
+  const candidateWindows = buildAvailabilityWindows(days, startTime, endTime);
+
+  if (candidateWindows.length === 0) {
+    return errorResult(redirectPath, "Mit dieser Auswahl entstehen in den n\u00e4chsten 8 Wochen keine zuk\u00fcnftigen Zeitfenster.");
+  }
+
+  const { ranges: existingRanges, error: existingRulesError } = await getActiveAvailabilityRanges(input.supabase, horseId);
+
+  if (existingRulesError) {
+    input.logSupabaseError("Availability rule lookup failed", existingRulesError);
+    return errorResult(redirectPath, getAvailabilityLoadError());
+  }
+
+  const existingRuleKeys = new Set(existingRanges.map((rule) => rule.start_at + "|" + rule.end_at));
+  const windowsToCreate: CalendarBookingWindow[] = [];
+  let skippedCount = 0;
+  let overlapSkippedCount = 0;
+
+  for (const window of candidateWindows) {
+    if (existingRuleKeys.has(window.startAt + "|" + window.endAt)) {
+      skippedCount += 1;
+      continue;
+    }
+
+    if (hasWindowConflict([window], existingRanges)) {
+      overlapSkippedCount += 1;
+      continue;
+    }
+
+    windowsToCreate.push(window);
+    existingRanges.push({
+      end_at: window.endAt,
+      start_at: window.startAt
+    });
+  }
+
+  if (windowsToCreate.length === 0) {
+    if (overlapSkippedCount > 0) {
+      return errorResult(redirectPath, "Die neuen Standardzeiten \u00fcberschneiden sich mit bestehenden Verf\u00fcgbarkeiten.");
+    }
+
+    return errorResult(redirectPath, "Diese Standardzeiten sind bereits hinterlegt.");
+  }
+
+  let createdCount = 0;
+  let failedCount = 0;
+
+  for (const window of windowsToCreate) {
+    const { data: slotData, error: slotError } = await input.supabase
+      .from("availability_slots")
+      .insert({
+        active: true,
+        end_at: window.endAt,
+        horse_id: horseId,
+        start_at: window.startAt
+      })
+      .select("id")
+      .maybeSingle();
+
+    if (slotError || !slotData?.id) {
+      if (slotError) {
+        input.logSupabaseError("Availability slot insert failed", slotError);
+      }
+
+      failedCount += 1;
+      continue;
+    }
+
+    const slotId = slotData.id;
+    const { error } = await input.supabase.from("availability_rules").insert({
+      active: true,
+      end_at: window.endAt,
+      horse_id: horseId,
+      is_trial_slot: isTrialSlot,
+      slot_id: slotId,
+      start_at: window.startAt
+    });
+
+    if (error) {
+      input.logSupabaseError("Availability rule insert failed", error);
+      failedCount += 1;
+
+      const { error: cleanupError } = await input.supabase.from("availability_slots").delete().eq("id", slotId).eq("horse_id", horseId);
+
+      if (cleanupError) {
+        input.logSupabaseError("Availability slot cleanup failed", cleanupError);
+      }
+
+      continue;
+    }
+
+    createdCount += 1;
+  }
+
+  if (createdCount === 0) {
+    return errorResult(redirectPath, "Die Standardzeiten konnten nicht gespeichert werden.");
+  }
+
+  const messageParts = [
+    createdCount === 1
+      ? "1 Verf\u00fcgbarkeitsfenster wurde gespeichert."
+      : createdCount + " Verf\u00fcgbarkeitsfenster wurden gespeichert."
+  ];
+
+  if (skippedCount > 0) {
+    messageParts.push(
+      skippedCount === 1
+        ? "1 bereits vorhandenes Fenster wurde \u00fcbersprungen."
+        : skippedCount + " bereits vorhandene Fenster wurden \u00fcbersprungen."
+    );
+  }
+
+  if (overlapSkippedCount > 0) {
+    messageParts.push(
+      overlapSkippedCount === 1
+        ? "1 \u00fcberlappendes Fenster wurde \u00fcbersprungen."
+        : overlapSkippedCount + " \u00fcberlappende Fenster wurden \u00fcbersprungen."
+    );
+  }
+
+  if (failedCount > 0) {
+    messageParts.push(
+      failedCount === 1
+        ? "1 Fenster konnte nicht angelegt werden."
+        : failedCount + " Fenster konnten nicht angelegt werden."
+    );
+  }
+
+  return successResult(
+    redirectPath,
+    messageParts.join(" "),
+    [...getCalendarBlockRevalidationPaths(horseId), "/owner/anfragen", "/anfragen"]
+  );
 }
 
 export async function deleteCalendarBlockForOwner(input: {

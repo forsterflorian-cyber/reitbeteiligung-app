@@ -279,3 +279,266 @@ export async function getOwnedAvailabilityRule(
 
   return rule;
 }
+
+const CALENDAR_STEP_MINUTES = 15;
+const AVAILABILITY_GENERATION_WEEKS = 8;
+const AVAILABILITY_PRESET_DAYS = {
+  custom: [] as number[],
+  daily: [0, 1, 2, 3, 4, 5, 6],
+  weekdays: [1, 2, 3, 4, 5],
+  weekends: [0, 6]
+} as const;
+
+export type CalendarAvailabilityPreset = keyof typeof AVAILABILITY_PRESET_DAYS;
+export type CalendarParsedClockTime = {
+  hours: number;
+  minutes: number;
+};
+
+export type CalendarBookingWindow = {
+  endAt: string;
+  startAt: string;
+};
+
+export type CalendarTimeRangeRecord = {
+  end_at: string;
+  start_at: string;
+};
+
+type CalendarAvailabilityRange = {
+  end_at: string;
+  start_at: string;
+};
+
+export function isAvailabilityPreset(value: string): value is CalendarAvailabilityPreset {
+  return value === "daily" || value === "weekdays" || value === "weekends" || value === "custom";
+}
+
+export function parseClockTime(value: string) {
+  if (!/^\d{2}:\d{2}$/.test(value)) {
+    return null;
+  }
+
+  const [hoursValue, minutesValue] = value.split(":");
+  const hours = Number.parseInt(hoursValue, 10);
+  const minutes = Number.parseInt(minutesValue, 10);
+
+  if (
+    !Number.isInteger(hours) ||
+    !Number.isInteger(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59 ||
+    minutes % CALENDAR_STEP_MINUTES !== 0
+  ) {
+    return null;
+  }
+
+  return {
+    hours,
+    minutes
+  } satisfies CalendarParsedClockTime;
+}
+
+export function resolveAvailabilityDays(preset: CalendarAvailabilityPreset, selectedValues: string[]) {
+  if (preset !== "custom") {
+    return [...AVAILABILITY_PRESET_DAYS[preset]];
+  }
+
+  return [...new Set(selectedValues)]
+    .map((value) => Number.parseInt(value, 10))
+    .filter((value) => Number.isInteger(value) && value >= 0 && value <= 6)
+    .sort((left, right) => left - right);
+}
+
+export function buildAvailabilityWindows(days: number[], startTime: CalendarParsedClockTime, endTime: CalendarParsedClockTime) {
+  const windows: CalendarBookingWindow[] = [];
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+
+  for (let dayOffset = 0; dayOffset < AVAILABILITY_GENERATION_WEEKS * 7; dayOffset += 1) {
+    const dayDate = new Date(
+      startOfToday.getFullYear(),
+      startOfToday.getMonth(),
+      startOfToday.getDate() + dayOffset,
+      0,
+      0,
+      0,
+      0
+    );
+
+    if (!days.includes(dayDate.getDay())) {
+      continue;
+    }
+
+    const startAt = new Date(
+      dayDate.getFullYear(),
+      dayDate.getMonth(),
+      dayDate.getDate(),
+      startTime.hours,
+      startTime.minutes,
+      0,
+      0
+    );
+    const endAt = new Date(
+      dayDate.getFullYear(),
+      dayDate.getMonth(),
+      dayDate.getDate(),
+      endTime.hours,
+      endTime.minutes,
+      0,
+      0
+    );
+
+    if (endAt <= startAt || endAt <= now) {
+      continue;
+    }
+
+    windows.push({
+      endAt: endAt.toISOString(),
+      startAt: startAt.toISOString()
+    });
+  }
+
+  return windows;
+}
+
+export function buildSingleAvailabilityWindow(
+  dayValue: string,
+  startTime: CalendarParsedClockTime,
+  endTime: CalendarParsedClockTime
+) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dayValue)) {
+    return null;
+  }
+
+  const [yearValue, monthValue, dayNumberValue] = dayValue.split("-");
+  const year = Number.parseInt(yearValue, 10);
+  const month = Number.parseInt(monthValue, 10);
+  const dayNumber = Number.parseInt(dayNumberValue, 10);
+
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(dayNumber)) {
+    return null;
+  }
+
+  const startAt = new Date(year, month - 1, dayNumber, startTime.hours, startTime.minutes, 0, 0);
+  const endAt = new Date(year, month - 1, dayNumber, endTime.hours, endTime.minutes, 0, 0);
+
+  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || endAt <= startAt || endAt <= new Date()) {
+    return null;
+  }
+
+  return {
+    endAt: endAt.toISOString(),
+    startAt: startAt.toISOString()
+  } satisfies CalendarBookingWindow;
+}
+
+export function isQuarterHourAligned(value: Date) {
+  return value.getMinutes() % CALENDAR_STEP_MINUTES === 0 && value.getSeconds() === 0 && value.getMilliseconds() === 0;
+}
+
+export function isResizeDirection(value: string): value is "start-earlier" | "start-later" | "end-earlier" | "end-later" {
+  return value === "start-earlier" || value === "start-later" || value === "end-earlier" || value === "end-later";
+}
+
+export function isMoveDirection(value: string): value is "earlier" | "later" {
+  return value === "earlier" || value === "later";
+}
+
+export function shiftRangeBoundary(
+  startAtValue: string,
+  endAtValue: string,
+  direction: "start-earlier" | "start-later" | "end-earlier" | "end-later"
+) {
+  const startAt = new Date(startAtValue);
+  const endAt = new Date(endAtValue);
+
+  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
+    return null;
+  }
+
+  if (direction === "start-earlier") {
+    startAt.setMinutes(startAt.getMinutes() - CALENDAR_STEP_MINUTES, 0, 0);
+  }
+
+  if (direction === "start-later") {
+    startAt.setMinutes(startAt.getMinutes() + CALENDAR_STEP_MINUTES, 0, 0);
+  }
+
+  if (direction === "end-earlier") {
+    endAt.setMinutes(endAt.getMinutes() - CALENDAR_STEP_MINUTES, 0, 0);
+  }
+
+  if (direction === "end-later") {
+    endAt.setMinutes(endAt.getMinutes() + CALENDAR_STEP_MINUTES, 0, 0);
+  }
+
+  if (endAt <= startAt) {
+    return null;
+  }
+
+  return {
+    endAt: endAt.toISOString(),
+    startAt: startAt.toISOString()
+  } satisfies CalendarBookingWindow;
+}
+
+export function shiftWholeRange(startAtValue: string, endAtValue: string, direction: "earlier" | "later") {
+  const startAt = new Date(startAtValue);
+  const endAt = new Date(endAtValue);
+
+  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
+    return null;
+  }
+
+  startAt.setMinutes(startAt.getMinutes() + (direction === "earlier" ? -CALENDAR_STEP_MINUTES : CALENDAR_STEP_MINUTES), 0, 0);
+  endAt.setMinutes(endAt.getMinutes() + (direction === "earlier" ? -CALENDAR_STEP_MINUTES : CALENDAR_STEP_MINUTES), 0, 0);
+
+  if (endAt <= startAt) {
+    return null;
+  }
+
+  return {
+    endAt: endAt.toISOString(),
+    startAt: startAt.toISOString()
+  } satisfies CalendarBookingWindow;
+}
+
+export function windowsOverlap(left: CalendarBookingWindow, right: CalendarBookingWindow) {
+  return left.startAt < right.endAt && left.endAt > right.startAt;
+}
+
+export function hasWindowConflict(windows: CalendarBookingWindow[], existingRanges: CalendarTimeRangeRecord[]) {
+  return windows.some((window) =>
+    existingRanges.some((existingRange) =>
+      windowsOverlap(window, {
+        endAt: existingRange.end_at,
+        startAt: existingRange.start_at
+      })
+    )
+  );
+}
+
+export async function getActiveAvailabilityRanges(
+  supabase: ReturnType<typeof createClient>,
+  horseId: string,
+  excludeRuleId?: string
+) {
+  let query = supabase.from("availability_rules").select("id, start_at, end_at").eq("horse_id", horseId).eq("active", true);
+
+  if (excludeRuleId) {
+    query = query.neq("id", excludeRuleId);
+  }
+
+  const { data, error } = await query;
+
+  return {
+    error,
+    ranges: ((data as CalendarAvailabilityRange[] | null) ?? []).map((range) => ({
+      end_at: range.end_at,
+      start_at: range.start_at
+    }))
+  };
+}

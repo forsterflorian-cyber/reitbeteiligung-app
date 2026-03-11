@@ -20,7 +20,9 @@ import { DraggableTimelineSegment } from "@/components/calendar/draggable-timeli
 import { InteractiveTimelineLane } from "@/components/calendar/interactive-timeline-lane";
 import { HorseCalendarHero } from "@/components/calendar/horse-calendar-hero";
 import { HorseCalendarRestrictedState } from "@/components/calendar/horse-calendar-restricted-state";
+import { OwnerHorseCalendarV1 } from "@/components/calendar/owner-horse-calendar-v1";
 import { OwnerTrialManager } from "@/components/calendar/owner-trial-manager";
+import { RiderOperationalCalendar } from "@/components/calendar/rider-operational-calendar";
 import { RiderBookingWindowForm } from "@/components/calendar/rider-booking-window-form";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
@@ -32,14 +34,16 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
-import { isApproved } from "@/lib/approvals";
+import { getApprovalStatus } from "@/lib/approvals";
 import { getViewerContext } from "@/lib/auth";
 import { formatWeeklyHoursLimit } from "@/lib/booking-limits";
 import { HORSE_SELECT_FIELDS } from "@/lib/horses";
+import { getUpcomingOperationalSlots, splitAvailabilityRulesByPhase, isTrialAvailabilityRule } from "@/lib/operational-slots";
 import { getOwnerPlan, getOwnerPlanUsage } from "@/lib/plans";
-import { R1_CORE_MODE } from "@/lib/release-stage";
+import { canAccessOperationalCalendar, isActiveRelationship } from "@/lib/relationship-state";
+import { ACTIVE_RELATIONSHIP_CALENDAR_V1, R1_CORE_MODE } from "@/lib/release-stage";
 import { readSearchParam } from "@/lib/search-params";
-import type { AvailabilityRule, BookingRequest, CalendarBlock, Horse, Profile, RiderBookingLimit, TrialRequest } from "@/types/database";
+import type { AvailabilityRule, Booking, BookingRequest, CalendarBlock, Horse, Profile, RiderBookingLimit, TrialRequest } from "@/types/database";
 
 type PferdKalenderPageProps = {
   params: { id: string };
@@ -410,17 +414,23 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const detailHref = `/pferde/${horse.id}` as Route;
   const isOwner = profile?.role === "owner" && user?.id === horse.owner_id;
   const isRider = profile?.role === "rider" && Boolean(user);
-  const ownerR1Mode = isOwner && R1_CORE_MODE;
+  const ownerTrialOnlyMode = isOwner && R1_CORE_MODE && !ACTIVE_RELATIONSHIP_CALENDAR_V1;
+  const simpleCalendarV1Mode = R1_CORE_MODE && ACTIVE_RELATIONSHIP_CALENDAR_V1;
   const { data: ownerProfileData } = await supabase
     .from("profiles")
     .select("id, role, is_premium, created_at, display_name, phone")
     .eq("id", horse.owner_id)
     .maybeSingle();
   const ownerProfile = ((ownerProfileData as Profile | null) ?? null) || (isOwner ? profile : null);
-  const ownerPlanUsage = !ownerR1Mode && isOwner && user ? await getOwnerPlanUsage(supabase, user.id) : { approvedRiderCount: 0, horseCount: 1 };
+  const ownerPlanUsage = !ownerTrialOnlyMode && isOwner && user ? await getOwnerPlanUsage(supabase, user.id) : { approvedRiderCount: 0, horseCount: 1 };
   const ownerPlan = getOwnerPlan(ownerProfile, ownerPlanUsage);
-  const riderApproved = isRider && user ? await isApproved(horse.id, user.id, supabase) : false;
-  const canUseCalendar = isOwner || (!R1_CORE_MODE && riderApproved);
+  const approvalStatus = isRider && user ? await getApprovalStatus(horse.id, user.id, supabase) : null;
+  const riderApproved = isActiveRelationship(approvalStatus);
+  const canUseCalendar = canAccessOperationalCalendar({
+    approvalStatus,
+    isHorseOwner: isOwner,
+    viewerRole: profile?.role
+  });
   const { data: riderBookingLimitData } = !R1_CORE_MODE && isRider && riderApproved && user
     ? await supabase
         .from("rider_booking_limits")
@@ -433,7 +443,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const nowIso = new Date().toISOString();
 
   const [occupancyResult, rulesResult, ownerBlocksResult, ownerBookingRequestsResult, riderBookingRequestsResult, ownerNextTrialResult] = await Promise.all([
-    ownerR1Mode
+    ownerTrialOnlyMode
       ? Promise.resolve({ data: [] as CalendarOccupancyRow[] | null, error: null })
       : supabase.rpc("get_horse_calendar_occupancy", {
           p_horse_id: horse.id
@@ -443,7 +453,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
       .select("id, horse_id, slot_id, start_at, end_at, active, is_trial_slot, created_at")
       .eq("horse_id", horse.id)
       .order("start_at", { ascending: true }),
-    isOwner && !ownerR1Mode
+    isOwner && !ownerTrialOnlyMode && !simpleCalendarV1Mode
       ? supabase
           .from("calendar_blocks")
           .select("id, horse_id, title, start_at, end_at, created_at")
@@ -491,7 +501,8 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const riderBookingRequests = (riderBookingRequestsResult.data as BookingRequest[] | null) ?? [];
   const nextTrialRequest = (ownerNextTrialResult.data as TrialRequest | null) ?? null;
   const quickRequestableRules = rules.slice(0, 6);
-  const trialSlotCount = rules.filter((rule) => rule.is_trial_slot).length;
+  const { operationalRules, trialRules } = splitAvailabilityRulesByPhase(rules);
+  const trialSlotCount = trialRules.length;
   const ruleMap = new Map(rules.map((rule) => [rule.id, rule]));
   const requestedOwnerBookingItems = ownerBookingRequests.filter((request) => request.status === "requested");
   const { data: nextTrialRiderData } = isOwner && nextTrialRequest
@@ -499,7 +510,39 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     : { data: null };
   const nextTrialRiderName = (((nextTrialRiderData as Pick<Profile, "display_name"> | null) ?? null)?.display_name ?? null)?.trim() || null;
 
-  if (ownerR1Mode) {
+  const [activeRelationshipCountResult, ownerUpcomingBookingsResult, riderUpcomingBookingsResult] = await Promise.all([
+    simpleCalendarV1Mode && isOwner
+      ? supabase.from("approvals").select("horse_id", { count: "exact", head: true }).eq("horse_id", horse.id).eq("status", "approved")
+      : Promise.resolve({ count: 0 as number | null }),
+    simpleCalendarV1Mode && isOwner
+      ? supabase
+          .from("bookings")
+          .select("id, booking_request_id, availability_rule_id, slot_id, horse_id, rider_id, start_at, end_at, created_at")
+          .eq("horse_id", horse.id)
+          .gte("end_at", nowIso)
+          .order("start_at", { ascending: true })
+          .limit(8)
+      : Promise.resolve({ data: [] as Booking[] | null }),
+    simpleCalendarV1Mode && isRider && riderApproved && user
+      ? supabase
+          .from("bookings")
+          .select("id, booking_request_id, availability_rule_id, slot_id, horse_id, rider_id, start_at, end_at, created_at")
+          .eq("horse_id", horse.id)
+          .eq("rider_id", user.id)
+          .gte("end_at", nowIso)
+          .order("start_at", { ascending: true })
+          .limit(8)
+      : Promise.resolve({ data: [] as Booking[] | null })
+  ]);
+  const openOperationalSlots = getUpcomingOperationalSlots({
+    occupiedRanges: occupancy,
+    rules: operationalRules
+  });
+  const activeRelationshipCount = activeRelationshipCountResult.count ?? 0;
+  const ownerUpcomingBookings = (ownerUpcomingBookingsResult.data as Booking[] | null) ?? [];
+  const riderUpcomingBookings = (riderUpcomingBookingsResult.data as Booking[] | null) ?? [];
+
+  if (ownerTrialOnlyMode) {
     return (
       <OwnerTrialManager
         defaultSlotDate={toDayKey(new Date())}
@@ -513,7 +556,61 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
       />
     );
   }
-  const timelineHours = ownerR1Mode ? [] : buildTimelineHours();
+
+  if (!canUseCalendar) {
+    const restrictedCalendarSubtitle =
+      profile?.role === "rider"
+        ? "Operative Slots sind nur fuer aktiv freigeschaltete Reitbeteiligungen sichtbar."
+        : profile
+          ? "Fuer dieses Pferd ist der operative Kalender nur fuer den Pferdehalter und aktive Reitbeteiligungen sichtbar."
+          : "Melde dich an, um Verfuegbarkeiten, Buchungen und deinen eigenen Status zu sehen.";
+
+    return (
+      <HorseCalendarRestrictedState
+        detailHref={detailHref}
+        error={error}
+        isAuthenticated={Boolean(profile)}
+        message={message}
+        showLoadError={Boolean(occupancyError)}
+        subtitle={restrictedCalendarSubtitle}
+        title={"Kalender fuer " + horse.title}
+      />
+    );
+  }
+
+  if (simpleCalendarV1Mode && isOwner) {
+    return (
+      <OwnerHorseCalendarV1
+        activeRelationshipCount={activeRelationshipCount}
+        defaultOperationalDate={toDayKey(new Date())}
+        defaultTrialDate={toDayKey(new Date())}
+        detailHref={detailHref}
+        error={error}
+        horse={horse}
+        message={message}
+        nextTrialRequest={nextTrialRequest}
+        nextTrialRiderName={nextTrialRiderName}
+        operationalRules={operationalRules}
+        trialRules={trialRules}
+        upcomingBookings={ownerUpcomingBookings}
+      />
+    );
+  }
+
+  if (simpleCalendarV1Mode && isRider && riderApproved) {
+    return (
+      <RiderOperationalCalendar
+        detailHref={detailHref}
+        error={error}
+        horse={horse}
+        message={message}
+        openSlots={openOperationalSlots}
+        upcomingBookings={riderUpcomingBookings}
+      />
+    );
+  }
+
+  const timelineHours = ownerTrialOnlyMode ? [] : buildTimelineHours();
   const weekOffset = parseRelativeOffset(readSearchParam(searchParams, "weekOffset"));
   const monthOffset = parseRelativeOffset(readSearchParam(searchParams, "monthOffset"));
   const selectedRange = parseCalendarRange(readSearchParam(searchParams, "range"));
@@ -525,7 +622,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const todayDayKey = toDayKey(new Date());
   const defaultSelectedDayKey = weekDays.some((day) => toDayKey(day) === todayDayKey) ? todayDayKey : toDayKey(fallbackDay);
   const selectedDayKey = weekDays.some((day) => toDayKey(day) === dayParam) ? (dayParam as string) : defaultSelectedDayKey;
-  const timelineRows = ownerR1Mode
+  const timelineRows = ownerTrialOnlyMode
     ? []
     : buildTimelineRows({
         days: weekDays,
@@ -535,7 +632,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         rules,
         selectedDayKey
       });
-  const monthOverview = ownerR1Mode ? { weekdayLabels: [] as string[], weeks: [] as MonthOverviewWeek[] } : buildMonthOverviewWeeks(viewedMonthStart, selectedDayKey);
+  const monthOverview = ownerTrialOnlyMode ? { weekdayLabels: [] as string[], weeks: [] as MonthOverviewWeek[] } : buildMonthOverviewWeeks(viewedMonthStart, selectedDayKey);
   const monthFormatter = new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" });
   const weekRangeFormatter = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "short" });
   const currentViewQuery = `weekOffset=${weekOffset}&monthOffset=${monthOffset}&range=${selectedRange}`;
@@ -550,7 +647,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const nextSevenDaysHref = `/pferde/${horse.id}/kalender?weekOffset=0&monthOffset=0&range=7&day=${toDayKey(new Date())}#wochenplanung` as Route;
   const nextThirtyDaysHref = `/pferde/${horse.id}/kalender?weekOffset=0&monthOffset=0&range=30&day=${toDayKey(new Date())}#wochenplanung` as Route;
   const timelineRowsLabel = `${weekRangeFormatter.format(weekDays[0] ?? viewedWeekStart)} - ${weekRangeFormatter.format(weekDays[weekDays.length - 1] ?? viewedWeekStart)}`;
-  const selectedTimelineRow = ownerR1Mode ? null : timelineRows.find((row) => row.dayKey === selectedDayKey) ?? timelineRows[0] ?? null;
+  const selectedTimelineRow = ownerTrialOnlyMode ? null : timelineRows.find((row) => row.dayKey === selectedDayKey) ?? timelineRows[0] ?? null;
   const selectedDayLabel = selectedTimelineRow ? `${selectedTimelineRow.label}, ${selectedTimelineRow.meta}` : "heute";
   const slotStartParam = parseTimelineHourParam(readSearchParam(searchParams, "slotStart"));
   const slotEndParam = parseTimelineHourParam(readSearchParam(searchParams, "slotEnd"));
@@ -573,6 +670,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     focusRuleId && rules.some((rule) => rule.id === focusRuleId)
       ? [...rules].sort((left, right) => Number(right.id === focusRuleId) - Number(left.id === focusRuleId))
       : rules;
+  const prioritizedTrialRules = prioritizedRules.filter((rule) => isTrialAvailabilityRule(rule));
   const prioritizedBlocks =
     focusBlockId && ownerBlocks.some((block) => block.id === focusBlockId)
       ? [...ownerBlocks].sort((left, right) => Number(right.id === focusBlockId) - Number(left.id === focusBlockId))
@@ -625,7 +723,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
       : "Tagesfenster speichern";
   const dayEditorPendingLabel = focusedRule || focusedBlock ? "Wird aktualisiert..." : "Wird gespeichert...";
   const resetEditorHref = `/pferde/${horse.id}/kalender?${currentViewQuery}&day=${selectedDayKey}#tagesfenster`;
-  const decoratedTimelineRows = ownerR1Mode ? [] : timelineRows.map((row) => ({
+  const decoratedTimelineRows = ownerTrialOnlyMode ? [] : timelineRows.map((row) => ({
     ...row,
     lanes: row.lanes.map((lane) => ({
       ...lane,
@@ -659,12 +757,6 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     }))
   }));
 
-  const restrictedCalendarSubtitle =
-    profile?.role === "rider"
-      ? "Der Kalender f\u00fcr laufende Reitbeteiligungen folgt sp\u00e4ter. Bis dahin bleiben Probetermine, Chat und Freischaltung im Fokus."
-      : profile
-        ? "F\u00fcr dieses Pferd ist der operative Kalender nur f\u00fcr den Pferdehalter und aktive Reitbeteiligungen sichtbar."
-        : "Melde dich an, um Verf\u00fcgbarkeiten, Anfragen und deinen eigenen Status zu sehen.";
   const nextTrialRangeLabel = nextTrialRequest
     ? formatDateRange(nextTrialRequest.requested_start_at as string, nextTrialRequest.requested_end_at as string)
     : null;
@@ -672,20 +764,6 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     horse.description?.trim() || "Hier steuerst du Verf\u00fcgbarkeiten, Sperren und eingehende Terminanfragen f\u00fcr dieses Pferd.";
   const horseLocationLine = (horse.location_address ?? "PLZ " + horse.plz) + " " + (horse.active ? "- Aktiv" : "- Inaktiv");
   const ownerPlanTone = ownerPlan.key === "paid" ? "approved" : ownerPlan.key === "trial" ? "pending" : "neutral";
-
-  if (!canUseCalendar) {
-    return (
-      <HorseCalendarRestrictedState
-        detailHref={detailHref}
-        error={error}
-        isAuthenticated={Boolean(profile)}
-        message={message}
-        showLoadError={Boolean(occupancyError)}
-        subtitle={restrictedCalendarSubtitle}
-        title={"Kalender f\u00fcr " + horse.title}
-      />
-    );
-  }
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -734,14 +812,11 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                   <Badge tone="pending">{trialSlotCount} aktive Probetermine</Badge>
                   <Badge tone="neutral">Direkt aktiv</Badge>
                 </div>
-                {prioritizedRules.filter((rule) => rule.is_trial_slot).length === 0 ? (
+                {prioritizedTrialRules.length === 0 ? (
                   <p className="text-sm text-stone-500">Noch keine Probetermine eingestellt.</p>
                 ) : (
                   <div className="space-y-2">
-                    {prioritizedRules
-                      .filter((rule) => rule.is_trial_slot)
-                      .slice(0, 6)
-                      .map((rule) => (
+                    {prioritizedTrialRules.slice(0, 6).map((rule) => (
                         <div className="rounded-2xl border border-stone-200 bg-white px-3 py-3" key={rule.id}>
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="space-y-1">
@@ -760,8 +835,8 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                           </div>
                         </div>
                       ))}
-                    {prioritizedRules.filter((rule) => rule.is_trial_slot).length > 6 ? (
-                      <p className="text-xs text-stone-500">+ {prioritizedRules.filter((rule) => rule.is_trial_slot).length - 6} weitere Probetermine sind bereits aktiv.</p>
+                    {prioritizedTrialRules.length > 6 ? (
+                      <p className="text-xs text-stone-500">+ {prioritizedTrialRules.length - 6} weitere Probetermine sind bereits aktiv.</p>
                     ) : null}
                   </div>
                 )}
@@ -1600,6 +1675,3 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     </div>
   );
 }
-
-
-

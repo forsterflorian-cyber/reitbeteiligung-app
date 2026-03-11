@@ -1,0 +1,589 @@
+import {
+  getAcceptBookingErrorMessage,
+  getBookingConflictMessage,
+  getDirectBookingErrorMessage,
+  isBookingWriteConflictError,
+  OPERATIONAL_RECURRENCE_NOT_ENABLED_MESSAGE,
+  shouldDirectBookOperationalSlot
+} from "../booking-guards.ts";
+import { asOptionalString, asString } from "../forms.ts";
+import { getApprovalStatus } from "../approvals.ts";
+import { isActiveRelationship } from "../relationship-state.ts";
+import type { createClient } from "../supabase/server.ts";
+import type { AvailabilityRule, Booking, BookingRequest, CalendarBlock, RiderBookingLimit } from "../../types/database";
+import { hasWindowConflict, isQuarterHourAligned, type CalendarBookingWindow as BookingWindow } from "./calendar.ts";
+import { getOwnedHorse } from "./horse.ts";
+
+const RECURRENCE_HORIZON_WEEKS = 12;
+const MAX_RECURRENCE_OCCURRENCES = 100;
+const RRULE_WEEKDAYS: Record<string, number> = {
+  FR: 5,
+  MO: 1,
+  SA: 6,
+  SU: 0,
+  TH: 4,
+  TU: 2,
+  WE: 3
+};
+
+type SupabaseClient = ReturnType<typeof createClient>;
+type SupabaseErrorLike = {
+  code?: string | null;
+  details?: string | null;
+  hint?: string | null;
+  message: string;
+};
+type LogSupabaseError = (context: string, error: SupabaseErrorLike) => void;
+type AvailabilityRuleRecord = Pick<AvailabilityRule, "id" | "horse_id" | "slot_id" | "start_at" | "end_at" | "active" | "is_trial_slot" | "created_at">;
+type BookingRequestRecord = Pick<
+  BookingRequest,
+  "id" | "slot_id" | "availability_rule_id" | "horse_id" | "rider_id" | "status" | "requested_start_at" | "requested_end_at" | "recurrence_rrule" | "created_at"
+>;
+type BookingRecord = Pick<Booking, "id" | "start_at" | "end_at">;
+type TimeRangeRecord = Pick<CalendarBlock, "start_at" | "end_at">;
+type ParsedRecurrenceRule = {
+  byDays: number[] | null;
+  count: number | null;
+  freq: "DAILY" | "WEEKLY";
+  interval: number;
+  until: Date | null;
+};
+
+type BookingMutationResult =
+  | {
+      message: string;
+      ok: false;
+      redirectPath: string;
+    }
+  | {
+      message: string;
+      ok: true;
+      paths: readonly string[];
+      redirectPath: string;
+    };
+
+function errorResult(redirectPath: string, message: string): BookingMutationResult {
+  return {
+    message,
+    ok: false,
+    redirectPath
+  };
+}
+
+function successResult(redirectPath: string, message: string, paths: readonly string[]): BookingMutationResult {
+  return {
+    message,
+    ok: true,
+    paths,
+    redirectPath
+  };
+}
+
+function addDaysUtc(date: Date, days: number) {
+  const next = new Date(date.getTime());
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function parseRruleDate(value: string) {
+  if (/^\d{8}$/.test(value)) {
+    const year = Number.parseInt(value.slice(0, 4), 10);
+    const month = Number.parseInt(value.slice(4, 6), 10) - 1;
+    const day = Number.parseInt(value.slice(6, 8), 10);
+
+    return new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+  }
+
+  if (/^\d{8}T\d{6}Z$/.test(value)) {
+    const year = Number.parseInt(value.slice(0, 4), 10);
+    const month = Number.parseInt(value.slice(4, 6), 10) - 1;
+    const day = Number.parseInt(value.slice(6, 8), 10);
+    const hours = Number.parseInt(value.slice(9, 11), 10);
+    const minutes = Number.parseInt(value.slice(11, 13), 10);
+    const seconds = Number.parseInt(value.slice(13, 15), 10);
+
+    return new Date(Date.UTC(year, month, day, hours, minutes, seconds, 0));
+  }
+
+  return null;
+}
+
+export function parseRecurrenceRule(value: string, baseStart: Date): ParsedRecurrenceRule {
+  const parts = value
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    throw new Error("INVALID_RRULE");
+  }
+
+  const options = new Map<string, string>();
+
+  for (const part of parts) {
+    const [rawKey, ...rawValueParts] = part.split("=");
+    const key = rawKey?.trim().toUpperCase();
+    const optionValue = rawValueParts.join("=").trim();
+
+    if (!key || !optionValue || options.has(key)) {
+      throw new Error("INVALID_RRULE");
+    }
+
+    if (!["FREQ", "INTERVAL", "COUNT", "UNTIL", "BYDAY"].includes(key)) {
+      throw new Error("UNSUPPORTED_RRULE");
+    }
+
+    options.set(key, optionValue.toUpperCase());
+  }
+
+  const freq = options.get("FREQ");
+
+  if (freq !== "DAILY" && freq !== "WEEKLY") {
+    throw new Error("UNSUPPORTED_RRULE");
+  }
+
+  const intervalRaw = options.get("INTERVAL");
+  const interval = intervalRaw ? Number.parseInt(intervalRaw, 10) : 1;
+
+  if (!Number.isInteger(interval) || interval < 1) {
+    throw new Error("INVALID_RRULE");
+  }
+
+  const countRaw = options.get("COUNT");
+  const count = countRaw ? Number.parseInt(countRaw, 10) : null;
+
+  if (count !== null && (!Number.isInteger(count) || count < 1)) {
+    throw new Error("INVALID_RRULE");
+  }
+
+  const untilRaw = options.get("UNTIL");
+  const until = untilRaw ? parseRruleDate(untilRaw) : null;
+
+  if (untilRaw && !until) {
+    throw new Error("INVALID_RRULE");
+  }
+
+  if (until && until.getTime() < baseStart.getTime()) {
+    throw new Error("INVALID_RRULE");
+  }
+
+  const byDayRaw = options.get("BYDAY");
+  let byDays: number[] | null = null;
+
+  if (byDayRaw) {
+    if (freq !== "WEEKLY") {
+      throw new Error("UNSUPPORTED_RRULE");
+    }
+
+    const dayValues = [...new Set(byDayRaw.split(",").map((part) => part.trim()).filter(Boolean))];
+
+    if (dayValues.length === 0) {
+      throw new Error("INVALID_RRULE");
+    }
+
+    byDays = dayValues
+      .map((dayValue) => RRULE_WEEKDAYS[dayValue])
+      .filter((dayValue): dayValue is number => Number.isInteger(dayValue))
+      .sort((left, right) => left - right);
+
+    if (byDays.length !== dayValues.length) {
+      throw new Error("INVALID_RRULE");
+    }
+
+    if (!byDays.includes(baseStart.getUTCDay())) {
+      throw new Error("INVALID_RRULE");
+    }
+  }
+
+  return {
+    byDays,
+    count,
+    freq,
+    interval,
+    until
+  };
+}
+
+export function buildBookingWindows(request: BookingRequestRecord): BookingWindow[] {
+  if (!request.requested_start_at || !request.requested_end_at) {
+    throw new Error("INVALID_RANGE");
+  }
+
+  const baseStart = new Date(request.requested_start_at);
+  const baseEnd = new Date(request.requested_end_at);
+
+  if (Number.isNaN(baseStart.getTime()) || Number.isNaN(baseEnd.getTime()) || baseEnd <= baseStart) {
+    throw new Error("INVALID_RANGE");
+  }
+
+  const durationMs = baseEnd.getTime() - baseStart.getTime();
+  const starts: Date[] = [baseStart];
+
+  if (request.recurrence_rrule) {
+    const recurrence = parseRecurrenceRule(request.recurrence_rrule, baseStart);
+    const horizonEnd = addDaysUtc(baseStart, RECURRENCE_HORIZON_WEEKS * 7).getTime();
+    const absoluteEnd = recurrence.until ? Math.min(horizonEnd, recurrence.until.getTime()) : horizonEnd;
+
+    if (recurrence.freq === "DAILY") {
+      for (let step = 1; starts.length < MAX_RECURRENCE_OCCURRENCES; step += 1) {
+        if (recurrence.count !== null && starts.length >= recurrence.count) {
+          break;
+        }
+
+        const next = addDaysUtc(baseStart, step * recurrence.interval);
+
+        if (next.getTime() > absoluteEnd) {
+          break;
+        }
+
+        starts.push(next);
+      }
+    } else {
+      const byDays = recurrence.byDays ?? [baseStart.getUTCDay()];
+      const seen = new Set<number>([baseStart.getTime()]);
+
+      for (let cycle = 0; starts.length < MAX_RECURRENCE_OCCURRENCES; cycle += 1) {
+        if (recurrence.count !== null && starts.length >= recurrence.count) {
+          break;
+        }
+
+        const cycleDayOffset = cycle * recurrence.interval * 7;
+        let hasFutureWindow = false;
+
+        for (const weekday of byDays) {
+          const dayOffset = weekday - baseStart.getUTCDay() + cycleDayOffset;
+
+          if (dayOffset <= 0) {
+            continue;
+          }
+
+          const next = addDaysUtc(baseStart, dayOffset);
+          const timestamp = next.getTime();
+
+          if (timestamp > absoluteEnd) {
+            continue;
+          }
+
+          hasFutureWindow = true;
+
+          if (seen.has(timestamp)) {
+            continue;
+          }
+
+          starts.push(next);
+          seen.add(timestamp);
+
+          if (recurrence.count !== null && starts.length >= recurrence.count) {
+            break;
+          }
+        }
+
+        const nextCycleStart = addDaysUtc(baseStart, (cycle + 1) * recurrence.interval * 7).getTime();
+
+        if (!hasFutureWindow && nextCycleStart > absoluteEnd) {
+          break;
+        }
+      }
+    }
+
+    if (recurrence.count !== null && starts.length !== recurrence.count && starts.length === MAX_RECURRENCE_OCCURRENCES) {
+      throw new Error("RECURRENCE_LIMIT");
+    }
+  }
+
+  const windows = starts
+    .sort((left, right) => left.getTime() - right.getTime())
+    .map((startDate) => ({
+      endAt: new Date(startDate.getTime() + durationMs).toISOString(),
+      startAt: startDate.toISOString()
+    }));
+
+  for (let index = 1; index < windows.length; index += 1) {
+    if (windows[index - 1].endAt > windows[index].startAt) {
+      throw new Error("TIME_UNAVAILABLE");
+    }
+  }
+
+  return windows;
+}
+
+export function getRecurrenceErrorMessage(error: Error) {
+  switch (error.message) {
+    case "UNSUPPORTED_RRULE":
+      return "Aktuell werden nur einfache RRULEs mit FREQ=DAILY oder FREQ=WEEKLY unterstuetzt.";
+    case "RECURRENCE_LIMIT":
+      return "Die Wiederholung ueberschreitet den maximalen Horizont von 12 Wochen.";
+    default:
+      return "Die Wiederholung ist ungueltig. Nutze zum Beispiel FREQ=WEEKLY;INTERVAL=1;COUNT=6.";
+  }
+}
+
+function getRiderBookingPaths(horseId: string) {
+  return [`/pferde/${horseId}/kalender`, "/anfragen", "/owner/reitbeteiligungen"] as const;
+}
+
+function getDirectBookingPaths(horseId: string) {
+  return [`/pferde/${horseId}/kalender`, "/anfragen", "/owner/reitbeteiligungen", "/dashboard", `/pferde/${horseId}`] as const;
+}
+
+function getOwnerBookingPaths(horseId: string) {
+  return ["/owner/reitbeteiligungen", "/anfragen", "/dashboard", `/pferde/${horseId}`, `/pferde/${horseId}/kalender`] as const;
+}
+
+async function getManagedBookingRequest(supabase: SupabaseClient, requestId: string, ownerId: string) {
+  const { data } = await supabase
+    .from("booking_requests")
+    .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, recurrence_rrule, created_at")
+    .eq("id", requestId)
+    .maybeSingle();
+
+  const request = (data as BookingRequestRecord | null) ?? null;
+
+  if (!request) {
+    return null;
+  }
+
+  const horse = await getOwnedHorse(supabase, request.horse_id, ownerId);
+
+  if (!horse) {
+    return null;
+  }
+
+  return request;
+}
+
+async function loadBookingPlanningData(
+  supabase: SupabaseClient,
+  horseId: string
+) {
+  const [{ data: existingBookingsData }, { data: blocksData }] = await Promise.all([
+    supabase.from("bookings").select("id, start_at, end_at").eq("horse_id", horseId),
+    supabase.from("calendar_blocks").select("start_at, end_at").eq("horse_id", horseId)
+  ]);
+
+  return {
+    existingBlocks: (blocksData as TimeRangeRecord[] | null) ?? [],
+    existingBookings: (existingBookingsData as BookingRecord[] | null) ?? []
+  };
+}
+
+async function loadOperationalAvailabilityRule(supabase: SupabaseClient, horseId: string, ruleId: string) {
+  const { data: ruleData } = await supabase
+    .from("availability_rules")
+    .select("id, horse_id, slot_id, start_at, end_at, active, is_trial_slot, created_at")
+    .eq("id", ruleId)
+    .eq("horse_id", horseId)
+    .maybeSingle();
+
+  return (ruleData as AvailabilityRuleRecord | null) ?? null;
+}
+
+export async function requestBookingForRider(input: {
+  formData: FormData;
+  logSupabaseError: LogSupabaseError;
+  supabase: SupabaseClient;
+  userId: string;
+}): Promise<BookingMutationResult> {
+  const horseId = asString(input.formData.get("horseId"));
+  const ruleId = asString(input.formData.get("ruleId"));
+  const recurrenceRrule = asOptionalString(input.formData.get("recurrenceRrule"));
+
+  if (!horseId || !ruleId) {
+    return errorResult("/suchen", "Das Verfuegbarkeitsfenster konnte nicht gefunden werden.");
+  }
+
+  const redirectPath = `/pferde/${horseId}/kalender`;
+  const startAtValue = asString(input.formData.get("startAt"));
+  const endAtValue = asString(input.formData.get("endAt"));
+  const startAt = new Date(startAtValue);
+  const endAt = new Date(endAtValue);
+
+  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
+    return errorResult(redirectPath, "Bitte gib einen gueltigen Termin an.");
+  }
+
+  if (!isQuarterHourAligned(startAt) || !isQuarterHourAligned(endAt)) {
+    return errorResult(redirectPath, "Bitte waehle Beginn und Ende im 15-Minuten-Raster.");
+  }
+
+  if (endAt <= startAt) {
+    return errorResult(redirectPath, "Das Ende muss nach dem Beginn liegen.");
+  }
+
+  if (recurrenceRrule) {
+    return errorResult(redirectPath, OPERATIONAL_RECURRENCE_NOT_ENABLED_MESSAGE);
+  }
+
+  const approvalStatus = await getApprovalStatus(horseId, input.userId, input.supabase);
+
+  if (!isActiveRelationship(approvalStatus)) {
+    return errorResult(redirectPath, "Nur freigeschaltete Reiter koennen einen Termin anfragen.");
+  }
+
+  const rule = await loadOperationalAvailabilityRule(input.supabase, horseId, ruleId);
+
+  if (!rule || !rule.active) {
+    return errorResult(redirectPath, "Dieses Verfuegbarkeitsfenster ist nicht mehr verfuegbar.");
+  }
+
+  if (rule.is_trial_slot) {
+    return errorResult(redirectPath, "Dieser Slot gehoert zur Probephase und kann nicht direkt operativ gebucht werden.");
+  }
+
+  const requestedStartIso = startAt.toISOString();
+  const requestedEndIso = endAt.toISOString();
+  const ruleStart = new Date(rule.start_at);
+  const ruleEnd = new Date(rule.end_at);
+
+  if (
+    Number.isNaN(ruleStart.getTime()) ||
+    Number.isNaN(ruleEnd.getTime()) ||
+    startAt.getTime() < ruleStart.getTime() ||
+    endAt.getTime() > ruleEnd.getTime()
+  ) {
+    return errorResult(redirectPath, "Der Termin muss komplett im Verfuegbarkeitsfenster liegen.");
+  }
+
+  let bookingWindows: BookingWindow[];
+
+  try {
+    bookingWindows = buildBookingWindows({
+      availability_rule_id: rule.id,
+      created_at: new Date().toISOString(),
+      horse_id: horseId,
+      id: "pending",
+      recurrence_rrule: recurrenceRrule,
+      requested_end_at: requestedEndIso,
+      requested_start_at: requestedStartIso,
+      rider_id: input.userId,
+      slot_id: rule.slot_id,
+      status: "requested"
+    });
+  } catch (error) {
+    if (error instanceof Error && (error.message === "INVALID_RRULE" || error.message === "UNSUPPORTED_RRULE" || error.message === "RECURRENCE_LIMIT")) {
+      return errorResult(redirectPath, getRecurrenceErrorMessage(error));
+    }
+
+    return errorResult(redirectPath, "Die Terminanfrage enthaelt einen ungueltigen Zeitraum.");
+  }
+
+  const { existingBlocks, existingBookings } = await loadBookingPlanningData(input.supabase, horseId);
+
+  if (hasWindowConflict(bookingWindows, existingBookings) || hasWindowConflict(bookingWindows, existingBlocks)) {
+    return errorResult(redirectPath, getBookingConflictMessage(recurrenceRrule));
+  }
+
+  if (shouldDirectBookOperationalSlot(recurrenceRrule)) {
+    const { error } = await input.supabase.rpc("direct_book_operational_slot", {
+      p_end_at: requestedEndIso,
+      p_horse_id: horseId,
+      p_rule_id: rule.id,
+      p_start_at: requestedStartIso
+    });
+
+    if (error) {
+      input.logSupabaseError("Direct operational booking failed", error);
+      return errorResult(redirectPath, getDirectBookingErrorMessage(error));
+    }
+
+    return successResult(redirectPath, "Der Slot wurde direkt gebucht.", getDirectBookingPaths(horseId));
+  }
+
+  const { error } = await input.supabase.from("booking_requests").insert({
+    availability_rule_id: rule.id,
+    horse_id: horseId,
+    recurrence_rrule: recurrenceRrule,
+    requested_end_at: requestedEndIso,
+    requested_start_at: requestedStartIso,
+    rider_id: input.userId,
+    slot_id: rule.slot_id,
+    status: "requested"
+  });
+
+  if (error) {
+    input.logSupabaseError("Booking request insert failed", error);
+    return errorResult(redirectPath, "Die Terminanfrage konnte nicht gespeichert werden.");
+  }
+
+  return successResult(redirectPath, "Die Terminanfrage wurde gesendet.", getRiderBookingPaths(horseId));
+}
+
+export async function acceptBookingRequestForOwner(input: {
+  logSupabaseError: LogSupabaseError;
+  ownerId: string;
+  requestId: string;
+  supabase: SupabaseClient;
+}): Promise<BookingMutationResult> {
+  const redirectPath = "/owner/reitbeteiligungen";
+  const request = await getManagedBookingRequest(input.supabase, input.requestId, input.ownerId);
+
+  if (!request) {
+    return errorResult(redirectPath, "Die Buchungsanfrage konnte nicht gefunden werden.");
+  }
+
+  if (request.status !== "requested") {
+    return errorResult(redirectPath, "Diese Buchungsanfrage wurde bereits bearbeitet.");
+  }
+
+  if (request.recurrence_rrule) {
+    return errorResult(redirectPath, OPERATIONAL_RECURRENCE_NOT_ENABLED_MESSAGE);
+  }
+
+  if (!request.availability_rule_id) {
+    return errorResult(redirectPath, "Dieses Verfuegbarkeitsfenster ist nicht mehr aktiv.");
+  }
+
+  const { error } = await input.supabase.rpc("accept_booking_request", {
+    p_request_id: input.requestId
+  });
+
+  if (error) {
+    input.logSupabaseError("Accept booking request RPC failed", error);
+    return errorResult(redirectPath, getAcceptBookingErrorMessage(error));
+  }
+
+  return successResult(
+    redirectPath,
+    request.recurrence_rrule ? "Die Buchungsanfrage wurde inklusive Wiederholung angenommen." : "Die Buchungsanfrage wurde angenommen.",
+    getOwnerBookingPaths(request.horse_id)
+  );
+}
+
+export async function declineBookingRequestForOwner(input: {
+  ownerId: string;
+  requestId: string;
+  supabase: SupabaseClient;
+}): Promise<BookingMutationResult> {
+  const redirectPath = "/owner/reitbeteiligungen";
+  const request = await getManagedBookingRequest(input.supabase, input.requestId, input.ownerId);
+
+  if (!request) {
+    return errorResult(redirectPath, "Die Buchungsanfrage konnte nicht gefunden werden.");
+  }
+
+  const { data: updatedRequest, error } = await input.supabase
+    .from("booking_requests")
+    .update({ status: "declined" })
+    .eq("id", input.requestId)
+    .eq("status", "requested")
+    .select("id")
+    .maybeSingle();
+
+  if (error || !updatedRequest) {
+    return errorResult(redirectPath, "Diese Buchungsanfrage wurde bereits bearbeitet.");
+  }
+
+  return successResult(redirectPath, "Die Buchungsanfrage wurde abgelehnt.", [
+    "/owner/reitbeteiligungen",
+    "/anfragen",
+    `/pferde/${request.horse_id}/kalender`
+  ]);
+}
+
+export function getWeeklyBookingLimitMessage(limit: Pick<RiderBookingLimit, "weekly_hours_limit"> | null) {
+  if (!limit || typeof limit.weekly_hours_limit !== "number") {
+    return null;
+  }
+
+  return limit.weekly_hours_limit;
+}

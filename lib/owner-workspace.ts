@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { buildApprovalStatusMap, getRelationshipKey, isActiveRelationship, shouldShowTrialRequestInLifecycle } from "@/lib/relationship-state";
 import type { Approval, BookingRequest, Conversation, Horse, Message, RiderBookingLimit, TrialRequest } from "@/types/database";
 
 export type OwnerRequestItem = TrialRequest & {
@@ -131,9 +132,10 @@ export async function loadOwnerWorkspaceData(supabase: SupabaseClient, ownerId: 
     }
   });
 
-  const approvalMap = new Map(approvals.map((approval) => [`${approval.horse_id}:${approval.rider_id}`, approval]));
-  const conversationMap = new Map(conversations.map((conversation) => [`${conversation.horse_id}:${conversation.rider_id}`, conversation]));
-  const riderBookingLimitMap = new Map(riderBookingLimits.map((limit) => [`${limit.horse_id}:${limit.rider_id}`, limit]));
+  const approvalStatusMap = buildApprovalStatusMap(approvals);
+  const approvalMap = new Map(approvals.map((approval) => [getRelationshipKey(approval.horse_id, approval.rider_id), approval]));
+  const conversationMap = new Map(conversations.map((conversation) => [getRelationshipKey(conversation.horse_id, conversation.rider_id), conversation]));
+  const riderBookingLimitMap = new Map(riderBookingLimits.map((limit) => [getRelationshipKey(limit.horse_id, limit.rider_id), limit]));
   const conversationInfo = new Map(contactInfoEntries);
 
   const items: OwnerRequestItem[] = requests.map((request) => ({
@@ -147,7 +149,7 @@ export async function loadOwnerWorkspaceData(supabase: SupabaseClient, ownerId: 
 
   const latestTrialByPair = new Map<string, OwnerRequestItem>();
   items.forEach((item) => {
-    const key = `${item.horse_id}:${item.rider_id}`;
+    const key = getRelationshipKey(item.horse_id, item.rider_id);
 
     if (!latestTrialByPair.has(key)) {
       latestTrialByPair.set(key, item);
@@ -155,10 +157,10 @@ export async function loadOwnerWorkspaceData(supabase: SupabaseClient, ownerId: 
   });
 
   const activeRelationships: ActiveRelationshipItem[] = approvals
-    .filter((approval) => approval.status === "approved")
+    .filter((approval) => isActiveRelationship(approval.status))
     .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))
     .map((approval) => {
-      const key = `${approval.horse_id}:${approval.rider_id}`;
+      const key = getRelationshipKey(approval.horse_id, approval.rider_id);
 
       return {
         approval,
@@ -169,7 +171,9 @@ export async function loadOwnerWorkspaceData(supabase: SupabaseClient, ownerId: 
       };
     });
 
-  const trialPipelineItems = items.filter((item) => approvalMap.get(`${item.horse_id}:${item.rider_id}`)?.status !== "approved");
+  const trialPipelineItems = items.filter((item) =>
+    shouldShowTrialRequestInLifecycle(item.status, approvalStatusMap.get(getRelationshipKey(item.horse_id, item.rider_id)))
+  );
 
   return {
     activeRelationships,

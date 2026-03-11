@@ -1,5 +1,7 @@
 import type { Approval, TrialRequest } from "@/types/database";
 
+import { isActiveRelationship as isActiveRelationshipStatus } from "./relationship-state.ts";
+
 export function canCancelTrialRequest(status: TrialRequest["status"]) {
   return status === "requested" || status === "accepted";
 }
@@ -17,5 +19,5 @@ export function canApproveTrialRequest(status: TrialRequest["status"]) {
 }
 
 export function isActiveRelationship(approvalStatus: Approval["status"] | null | undefined) {
-  return approvalStatus === "approved";
+  return isActiveRelationshipStatus(approvalStatus);
 }

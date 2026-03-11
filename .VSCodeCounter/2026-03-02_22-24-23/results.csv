@@ -1,0 +1,27 @@
+"filename", "language", "TypeScript JSX", "PostCSS", "TypeScript", "comment", "blank", "total"
+"c:\Users\forst\reitbeteiligung.app\app\actions.ts", "TypeScript", 0, 0, 1320, 2, 341, 1663
+"c:\Users\forst\reitbeteiligung.app\app\anfragen\page.tsx", "TypeScript JSX", 228, 0, 0, 0, 19, 247
+"c:\Users\forst\reitbeteiligung.app\app\chat\[conversation_id]\page.tsx", "TypeScript JSX", 117, 0, 0, 0, 10, 127
+"c:\Users\forst\reitbeteiligung.app\app\dashboard\page.tsx", "TypeScript JSX", 331, 0, 0, 2, 22, 355
+"c:\Users\forst\reitbeteiligung.app\app\diagnose\page.tsx", "TypeScript JSX", 146, 0, 0, 0, 21, 167
+"c:\Users\forst\reitbeteiligung.app\app\globals.css", "PostCSS", 0, 77, 0, 0, 22, 99
+"c:\Users\forst\reitbeteiligung.app\app\layout.tsx", "TypeScript JSX", 23, 0, 0, 1, 5, 29
+"c:\Users\forst\reitbeteiligung.app\app\login\page.tsx", "TypeScript JSX", 49, 0, 0, 0, 7, 56
+"c:\Users\forst\reitbeteiligung.app\app\logout\page.tsx", "TypeScript JSX", 21, 0, 0, 0, 5, 26
+"c:\Users\forst\reitbeteiligung.app\app\onboarding\page.tsx", "TypeScript JSX", 40, 0, 0, 0, 3, 43
+"c:\Users\forst\reitbeteiligung.app\app\owner\anfragen\page.tsx", "TypeScript JSX", 291, 0, 0, 0, 22, 313
+"c:\Users\forst\reitbeteiligung.app\app\owner\horses\loading.tsx", "TypeScript JSX", 34, 0, 0, 0, 0, 34
+"c:\Users\forst\reitbeteiligung.app\app\owner\horses\page.tsx", "TypeScript JSX", 106, 0, 0, 0, 3, 109
+"c:\Users\forst\reitbeteiligung.app\app\owner\pferde-verwalten\loading.tsx", "TypeScript JSX", 38, 0, 0, 0, 0, 38
+"c:\Users\forst\reitbeteiligung.app\app\owner\pferde-verwalten\page.tsx", "TypeScript JSX", 353, 0, 0, 0, 19, 372
+"c:\Users\forst\reitbeteiligung.app\app\page.tsx", "TypeScript JSX", 22, 0, 0, 0, 6, 28
+"c:\Users\forst\reitbeteiligung.app\app\passwort-vergessen\page.tsx", "TypeScript JSX", 29, 0, 0, 0, 4, 33
+"c:\Users\forst\reitbeteiligung.app\app\passwort-zuruecksetzen\page.tsx", "TypeScript JSX", 8, 0, 0, 0, 2, 10
+"c:\Users\forst\reitbeteiligung.app\app\passwort-zuruecksetzen\reset-password-form.tsx", "TypeScript JSX", 161, 0, 0, 0, 32, 193
+"c:\Users\forst\reitbeteiligung.app\app\pferde\[id]\kalender\page.tsx", "TypeScript JSX", 613, 0, 0, 0, 43, 656
+"c:\Users\forst\reitbeteiligung.app\app\pferde\[id]\page.tsx", "TypeScript JSX", 247, 0, 0, 1, 25, 273
+"c:\Users\forst\reitbeteiligung.app\app\profil\page.tsx", "TypeScript JSX", 88, 0, 0, 0, 6, 94
+"c:\Users\forst\reitbeteiligung.app\app\rider\profile\page.tsx", "TypeScript JSX", 49, 0, 0, 0, 5, 54
+"c:\Users\forst\reitbeteiligung.app\app\signup\page.tsx", "TypeScript JSX", 44, 0, 0, 0, 7, 51
+"c:\Users\forst\reitbeteiligung.app\app\suchen\page.tsx", "TypeScript JSX", 71, 0, 0, 0, 5, 76
+"Total", "-", 3109, 77, 1320, 6, 634, 5146

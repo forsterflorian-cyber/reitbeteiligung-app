@@ -9,7 +9,10 @@
     "lint": "next lint",
     "test": "npm run test:encoding && npm run test:unit",
     "test:encoding": "node --no-warnings ./scripts/check-encoding.mjs",
-    "test:unit": "node --no-warnings --experimental-specifier-resolution=node --test --experimental-strip-types tests/r1-core.test.mjs tests/flash.test.mjs tests/trial-lifecycle.test.mjs tests/release-lifecycle.test.mjs tests/horse-calendar-rules.test.mjs"
+    "test:unit": "node --no-warnings --experimental-specifier-resolution=node --test --experimental-strip-types tests/r1-core.test.mjs tests/flash.test.mjs tests/trial-lifecycle.test.mjs tests/release-lifecycle.test.mjs tests/horse-calendar-rules.test.mjs tests/relationship-state.test.mjs tests/operational-slots.test.mjs tests/booking-guards.test.mjs tests/server-actions-bookings.test.mjs tests/server-actions-relationships.test.mjs",
+    "verify:db": "node --no-warnings ./scripts/verify-calendar-v1-db.mjs --preflight-only",
+    "verify:db:dry-run": "node --no-warnings ./scripts/verify-calendar-v1-db.mjs --dry-run-only",
+    "verify:db:staging": "node --no-warnings ./scripts/verify-calendar-v1-db.mjs --push --require-live-smoke"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
@@ -25,6 +28,7 @@
     "autoprefixer": "10.4.21",
     "eslint": "8.57.1",
     "eslint-config-next": "14.2.30",
+    "pg": "^8.20.0",
     "postcss": "8.5.3",
     "supabase": "^2.76.15",
     "tailwindcss": "3.4.17",

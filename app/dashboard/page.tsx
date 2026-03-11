@@ -17,6 +17,7 @@ import { requireProfile } from "@/lib/auth";
 import { hasUnreadOwnerMessage, loadOwnerWorkspaceData } from "@/lib/owner-workspace";
 import { OWNER_PLAN_LIMITS_ENABLED, PAID_PLAN_CONTACT_EMAIL, canStartOwnerTrial, getOwnerPlan, getOwnerPlanUsageSummary } from "@/lib/plans";
 import { getProfileDisplayName } from "@/lib/profiles";
+import { buildApprovalStatusMap, getApprovalStatusForPair, isActiveRelationship, shouldShowTrialRequestInLifecycle } from "@/lib/relationship-state";
 import { readSearchParam } from "@/lib/search-params";
 import { R1_CORE_MODE } from "@/lib/release-stage";
 import type { Approval, Booking, Horse, RiderProfile, TrialRequest } from "@/types/database";
@@ -238,7 +239,7 @@ export default async function DashboardPage({
       .eq("rider_id", user.id)
       .order("created_at", { ascending: false })
       .limit(5),
-    supabase.from("approvals").select("horse_id, rider_id, status, created_at").eq("rider_id", user.id).eq("status", "approved"),
+    supabase.from("approvals").select("horse_id, rider_id, status, created_at").eq("rider_id", user.id),
     !R1_CORE_MODE
       ? supabase
           .from("bookings")
@@ -252,11 +253,14 @@ export default async function DashboardPage({
 
   const riderProfile = (riderProfileData as Pick<RiderProfile, "user_id"> | null) ?? null;
   const trials = (trialRequestsData as TrialRequest[] | null) ?? [];
-  const activeApprovals = (riderApprovalsData as Approval[] | null) ?? [];
+  const approvals = (riderApprovalsData as Approval[] | null) ?? [];
+  const activeApprovals = approvals.filter((approval) => isActiveRelationship(approval.status));
   const upcomingBookings = (upcomingBookingsData as Booking[] | null) ?? [];
   const nextBooking = !R1_CORE_MODE ? upcomingBookings[0] ?? null : null;
-  const activeRelationshipKeys = new Set(activeApprovals.map((approval) => `${approval.horse_id}:${approval.rider_id}`));
-  const openTrials = trials.filter((trial) => (trial.status === "requested" || trial.status === "accepted") && !activeRelationshipKeys.has(`${trial.horse_id}:${trial.rider_id}`));
+  const approvalStatusMap = buildApprovalStatusMap(approvals);
+  const openTrials = trials.filter((trial) =>
+    shouldShowTrialRequestInLifecycle(trial.status, getApprovalStatusForPair(approvalStatusMap, trial.horse_id, trial.rider_id))
+  );
   const openTrialCount = openTrials.length;
   const riderHorseIds = [...new Set([...trials.map((trial) => trial.horse_id), ...(!R1_CORE_MODE ? upcomingBookings.map((booking) => booking.horse_id) : [])])];
   let riderHorseMap = new Map<string, Pick<Horse, "id" | "title" | "plz">>();
@@ -418,4 +422,3 @@ export default async function DashboardPage({
     </AppPageShell>
   );
 }
-

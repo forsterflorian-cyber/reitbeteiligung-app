@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
+import { isRejectedTrialAfterCompletion } from "@/lib/relationship-state";
 import { canAcceptTrialRequest, canApproveTrialRequest, canCompleteTrialRequest } from "@/lib/trial-lifecycle";
 import type { Approval, TrialRequest } from "@/types/database";
 
@@ -171,7 +172,11 @@ export function OwnerTrialsWorkspace({
                   <p className="text-sm leading-6 text-stone-600">{request.messageText}</p>
                   <div className="flex flex-wrap gap-2">
                     <StatusBadge status={request.status} />
-                    {request.approvalStatus === "revoked" && request.status === "completed" ? <Badge tone="rejected">Nicht aufgenommen</Badge> : request.approvalStatus ? <StatusBadge status={request.approvalStatus} /> : null}
+                    {isRejectedTrialAfterCompletion(request.status, request.approvalStatus)
+                      ? <Badge tone="rejected">Nicht aufgenommen</Badge>
+                      : request.approvalStatus
+                        ? <StatusBadge status={request.approvalStatus} />
+                        : null}
                     {request.hasUnread ? <Badge tone="info">Neue Nachricht</Badge> : null}
                   </div>
                   {canAcceptTrialRequest(request.status) ? (

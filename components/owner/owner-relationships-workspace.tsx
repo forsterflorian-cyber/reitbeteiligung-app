@@ -1,11 +1,11 @@
 import type { Route } from "next";
 import Link from "next/link";
 
-import { deleteRiderRelationshipAction, updateApprovalAction } from "@/app/actions";
+import { deleteRiderRelationshipAction } from "@/app/actions";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
@@ -33,7 +33,7 @@ function formatDateTime(value: string) {
 
 function formatDateRange(startAt: string | null, endAt: string | null) {
   if (!startAt || !endAt) {
-    return "Zeitpunkt wird noch geklärt.";
+    return "Zeitpunkt wird noch geklaert.";
   }
 
   return `${formatDateTime(startAt)} bis ${formatDateTime(endAt)}`;
@@ -99,7 +99,7 @@ export function OwnerRelationshipsWorkspace({
       </div>
       <SectionCard
         id="aktive-reitbeteiligungen"
-        subtitle="Hier verwaltest du bestehende Beziehungen, erreichst den Pferde-Chat und kannst die Freischaltung wieder entziehen oder die Beziehung ganz entfernen."
+        subtitle="Chat, Gruppenchat und operativer Kalender haengen an derselben aktiven Beziehung."
         title="Aktive Reitbeteiligungen"
       >
         {relationships.length === 0 ? (
@@ -126,42 +126,34 @@ export function OwnerRelationshipsWorkspace({
                     {item.hasUnread ? <Badge tone="info">Neue Nachricht</Badge> : null}
                   </div>
                   <Notice
-                    text="Weitere Verwaltungs- und Terminfunktionen folgen später. Aktuell stehen Pferde-Chat und eine saubere Beziehungsverwaltung im Fokus."
+                    text="Pferde-Chat, operativer Kalender und Beziehungsverwaltung haengen nur an der aktiven Reitbeteiligung."
                     tone="success"
                   />
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {item.conversationId ? (
                       <Link className={buttonVariants("primary", "w-full justify-center")} href={`/chat/${item.conversationId}` as Route}>
-                        1:1-Chat öffnen
+                        1:1-Chat oeffnen
                       </Link>
                     ) : (
                       <Link className={buttonVariants("primary", "w-full justify-center")} href={`/pferde/${item.horseId}` as Route}>
-                        Pferdeprofil öffnen
+                        Pferdeprofil oeffnen
                       </Link>
                     )}
                     <Link className={buttonVariants("secondary", "w-full justify-center")} href={`/pferde/${item.horseId}/gruppenchat` as Route}>
-                      Gruppenchat öffnen
+                      Gruppenchat oeffnen
                     </Link>
-                    {item.latestTrialId ? (
-                      <form action={updateApprovalAction}>
-                        <input name="requestId" type="hidden" value={item.latestTrialId} />
-                        <input name="status" type="hidden" value="revoked" />
-                        <input name="redirectTo" type="hidden" value="/owner/reitbeteiligungen" />
-                        <input name="approvalContext" type="hidden" value="relationship" />
-                        <Button className="w-full" type="submit" variant="secondary">
-                          Freischaltung entziehen
-                        </Button>
-                      </form>
-                    ) : null}
+                    <Link className={buttonVariants("ghost", "w-full justify-center")} href={`/pferde/${item.horseId}/kalender` as Route}>
+                      Kalender oeffnen
+                    </Link>
                   </div>
                   <form action={deleteRiderRelationshipAction}>
                     <input name="horseId" type="hidden" value={item.horseId} />
                     <input name="riderId" type="hidden" value={item.riderId} />
                     <input name="redirectTo" type="hidden" value="/owner/reitbeteiligungen" />
                     <ConfirmSubmitButton
-                      confirmMessage="Möchtest du diese Reitbeteiligung wirklich löschen? Die Beziehung wird vollständig entfernt."
-                      idleLabel="Reitbeteiligung löschen"
-                      pendingLabel="Wird gelöscht..."
+                      confirmMessage="Moechtest du diese Reitbeteiligung wirklich entfernen? Operative Rechte und Termine werden bereinigt."
+                      idleLabel="Reitbeteiligung entfernen"
+                      pendingLabel="Wird entfernt..."
                     />
                   </form>
                   <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
@@ -173,6 +165,9 @@ export function OwnerRelationshipsWorkspace({
                     </Link>
                     <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={`/pferde/${item.horseId}/gruppenchat` as Route}>
                       Zum Gruppenchat
+                    </Link>
+                    <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={`/pferde/${item.horseId}/kalender` as Route}>
+                      Zum Kalender
                     </Link>
                     {item.conversationId ? (
                       <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={`/chat/${item.conversationId}` as Route}>

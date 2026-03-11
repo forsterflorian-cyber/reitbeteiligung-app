@@ -10,6 +10,7 @@ import { SectionCard } from "@/components/ui/section-card";
 import { buttonVariants } from "@/components/ui/button";
 import { requireProfile } from "@/lib/auth";
 import { getRoleLabel } from "@/lib/profiles";
+import { getRelationshipConversationStage } from "@/lib/relationship-state";
 import { redirectWithFlash } from "@/lib/server-flash";
 import type { Approval, Conversation, Horse, Message, TrialRequest } from "@/types/database";
 
@@ -84,6 +85,8 @@ export default async function ChatPage({
   const contactRows = Array.isArray(contactData) ? contactData : contactData ? [contactData] : [];
   const contactInfo = (contactRows[0] as ContactInfoRecord | undefined) ?? null;
   const partnerLabel = contactInfo?.partner_name?.trim() || getRoleLabel(profile.role === "owner" ? "rider" : "owner");
+  const conversationStage = getRelationshipConversationStage(trialRequest?.status ?? null, approval?.status ?? null);
+  const contactUnlocked = conversationStage === "active";
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -105,14 +108,14 @@ export default async function ChatPage({
           </div>
           <Notice
             text={
-              approval?.status === "approved"
+              contactUnlocked
                 ? "Der Probetermin ist abgeschlossen und die Reitbeteiligung wurde freigeschaltet."
                 : "Bis zur Freischaltung bleibt die Kommunikation direkt hier in der Plattform. Neue Nachrichten werden in deinen Anfragen markiert."
             }
           />
         </div>
       </SectionCard>
-      {approval?.status === "approved" ? (
+      {contactUnlocked ? (
         <SectionCard subtitle="Kontaktdaten werden erst nach der Freischaltung eingeblendet." title="Kontakt freigeschaltet">
           <div className="space-y-4">
             <p className="text-sm text-ink">Ihr könnt jetzt außerhalb der Plattform kommunizieren.</p>

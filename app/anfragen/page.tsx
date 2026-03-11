@@ -1,6 +1,7 @@
 import { RiderRequestsWorkspace, type RiderRelationshipCard, type RiderTrialCard } from "@/components/rider/rider-requests-workspace";
 import { AppPageShell } from "@/components/ui/app-page-shell";
 import { requireProfile } from "@/lib/auth";
+import { buildApprovalStatusMap, getApprovalStatusForPair, getRelationshipKey, isActiveRelationship, shouldShowTrialRequestInLifecycle } from "@/lib/relationship-state";
 import { readSearchParam } from "@/lib/search-params";
 import type { Approval, Conversation, Horse, Message, TrialRequest } from "@/types/database";
 
@@ -44,13 +45,14 @@ export default async function AnfragenPage({
       .eq("rider_id", user.id)
       .order("created_at", { ascending: false })
       .limit(20),
-    supabase.from("approvals").select("horse_id, rider_id, status, created_at").eq("rider_id", user.id).eq("status", "approved")
+    supabase.from("approvals").select("horse_id, rider_id, status, created_at").eq("rider_id", user.id)
   ]);
 
   const requests = (trialData as TrialRequest[] | null) ?? [];
   const approvalsArray = (approvalsData as Approval[] | null) ?? [];
-  const approvalKeys = new Set(approvalsArray.map((approval) => `${approval.horse_id}:${approval.rider_id}`));
-  const horseIds = [...new Set([...requests.map((request) => request.horse_id), ...approvalsArray.map((approval) => approval.horse_id)])];
+  const activeApprovals = approvalsArray.filter((approval) => isActiveRelationship(approval.status));
+  const approvalStatusMap = buildApprovalStatusMap(approvalsArray);
+  const horseIds = [...new Set([...requests.map((request) => request.horse_id), ...activeApprovals.map((approval) => approval.horse_id)])];
 
   const [{ data: horseData }, { data: conversationsData }] = await Promise.all([
     horseIds.length > 0
@@ -88,7 +90,7 @@ export default async function AnfragenPage({
     )
   ]);
 
-  const conversations = new Map(conversationsArray.map((conversation) => [`${conversation.horse_id}:${conversation.rider_id}`, conversation]));
+  const conversations = new Map(conversationsArray.map((conversation) => [getRelationshipKey(conversation.horse_id, conversation.rider_id), conversation]));
   const conversationInfo = new Map(contactInfoEntries);
   const latestMessages = new Map<string, Message>();
 
@@ -110,10 +112,10 @@ export default async function AnfragenPage({
     }
   });
 
-  const activeRelationships: ActiveRelationshipItem[] = approvalsArray
+  const activeRelationships: ActiveRelationshipItem[] = activeApprovals
     .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))
     .map((approval) => {
-      const key = `${approval.horse_id}:${approval.rider_id}`;
+      const key = getRelationshipKey(approval.horse_id, approval.rider_id);
 
       return {
         approval,
@@ -123,7 +125,9 @@ export default async function AnfragenPage({
       };
     });
 
-  const openTrialItems = items.filter((item) => !approvalKeys.has(`${item.horse_id}:${item.rider_id}`));
+  const openTrialItems = items.filter((item) =>
+    shouldShowTrialRequestInLifecycle(item.status, getApprovalStatusForPair(approvalStatusMap, item.horse_id, item.rider_id))
+  );
 
   const activeRelationshipCards: RiderRelationshipCard[] = activeRelationships.map((item) => {
     const contact = item.conversation ? conversationInfo.get(item.conversation.id) ?? null : null;
@@ -142,7 +146,7 @@ export default async function AnfragenPage({
   });
 
   const openTrialCards: RiderTrialCard[] = openTrialItems.map((item) => {
-    const conversation = conversations.get(`${item.horse_id}:${item.rider_id}`) ?? null;
+    const conversation = conversations.get(getRelationshipKey(item.horse_id, item.rider_id)) ?? null;
     const contact = conversation ? conversationInfo.get(conversation.id) ?? null : null;
     const latestMessage = conversation ? latestMessages.get(conversation.id) ?? null : null;
 
@@ -172,4 +176,3 @@ export default async function AnfragenPage({
     </AppPageShell>
   );
 }
-
