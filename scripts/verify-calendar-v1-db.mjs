@@ -20,6 +20,7 @@ const PREVIEW_ROW_LIMIT = 10;
 const rootDir = process.cwd();
 const cliArgs = new Set(process.argv.slice(2));
 const dryRunOnly = cliArgs.has("--dry-run-only");
+const liveSmokeOnly = cliArgs.has("--live-smoke-only");
 const preflightOnly = cliArgs.has("--preflight-only");
 const pushMigrations = cliArgs.has("--push");
 const requireLiveSmoke = cliArgs.has("--require-live-smoke");
@@ -69,6 +70,20 @@ async function main() {
     return;
   }
 
+  if (liveSmokeOnly) {
+    const liveSmokeDbConfig = getLinkedDbConfig();
+
+    try {
+      await runLiveSmoke(liveSmokeDbConfig);
+      console.log("\n[pass] Live-Smoke erfolgreich abgeschlossen.");
+      process.exitCode = EXIT_CODES.ok;
+      return;
+    } catch (error) {
+      process.exitCode = EXIT_CODES.liveSmokeFailed;
+      throw error;
+    }
+  }
+
   if (!pushMigrations) {
     console.log("\n[pass] Dry-Run und Preflight abgeschlossen. Kein Push angefordert.");
     process.exitCode = EXIT_CODES.ok;
@@ -89,7 +104,8 @@ async function main() {
   process.stdout.write(migrationListAfterPush.stdout);
 
   try {
-    await runLiveSmoke(dbConfig);
+    const liveSmokeDbConfig = getLinkedDbConfig();
+    await runLiveSmoke(liveSmokeDbConfig);
     console.log("\n[pass] Staging-Verifikation erfolgreich abgeschlossen.");
     process.exitCode = EXIT_CODES.ok;
   } catch (error) {
