@@ -260,6 +260,50 @@ async function runPreflight(dbConfig) {
       }),
       runCheck(client, {
         blocker: true,
+        description: "booking_requests_status_check muss den Historisierungsstatus rescheduled erlauben.",
+        label: "booking_request_status_constraint_legacy",
+        sql: `
+          select
+            constraints.conname,
+            pg_get_constraintdef(constraints.oid, true) as definition
+          from pg_constraint as constraints
+          where constraints.conrelid = 'public.booking_requests'::regclass
+            and constraints.conname = 'booking_requests_status_check'
+            and pg_get_constraintdef(constraints.oid, true) not like '%rescheduled%'
+        `
+      }),
+      runCheck(client, {
+        blocker: true,
+        description: "Der Legacy-Unique-Constraint auf slot_id+rider_id blockiert canceled/rescheduled Historie fachlich falsch.",
+        label: "booking_request_slot_rider_legacy_unique",
+        sql: `
+          select
+            constraints.conname,
+            pg_get_constraintdef(constraints.oid, true) as definition
+          from pg_constraint as constraints
+          where constraints.conrelid = 'public.booking_requests'::regclass
+            and constraints.conname = 'booking_requests_slot_id_rider_id_key'
+        `
+      }),
+      runCheck(client, {
+        blocker: true,
+        description: "Mehrere aktive requested/accepted Requests pro Slot+Rider wuerden den neuen partiellen Unique-Index blockieren.",
+        label: "duplicate_active_booking_requests_per_slot_rider",
+        sql: `
+          select
+            booking_requests.horse_id,
+            booking_requests.rider_id,
+            booking_requests.slot_id,
+            count(*) as active_request_count
+          from public.booking_requests
+          where booking_requests.status in ('requested', 'accepted')
+          group by booking_requests.horse_id, booking_requests.rider_id, booking_requests.slot_id
+          having count(*) > 1
+          order by active_request_count desc, booking_requests.horse_id, booking_requests.rider_id, booking_requests.slot_id
+        `
+      }),
+      runCheck(client, {
+        blocker: true,
         description: "Approved approvals ohne completed trial brechen den Lifecycle als Source of Truth.",
         label: "approved_without_completed_trial",
         sql: `
