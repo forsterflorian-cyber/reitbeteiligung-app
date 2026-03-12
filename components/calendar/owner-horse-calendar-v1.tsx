@@ -231,39 +231,40 @@ export function OwnerHorseCalendarV1({
         </div>
       </SectionCard>
 
-      <SectionCard
-        id="aktive-reitbeteiligungen"
-        subtitle="Operative Slots sehen und buchen nur aktiv freigeschaltete Reitbeteiligungen."
-        title="Aktive Reitbeteiligungen"
-      >
+      <div className="space-y-6 sm:space-y-8" id="aktive-reitbeteiligung">
+        <div className="border-t-2 border-stone-200 pt-6 sm:pt-8">
+          <p className="ui-eyebrow">Aktive Reitbeteiligung</p>
+          <h2 className="mt-1 font-serif text-2xl text-stone-900 sm:text-3xl">Laufender Betrieb</h2>
+          <p className="mt-2 text-sm leading-6 text-stone-600">Operative Slots, Wochenplanung und Buchungen – sichtbar nur fuer aktiv freigeschaltete Reitbeteiligungen.</p>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <Card className="p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Aktiv</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Aktive Reitbeteiligungen</p>
             <p className="mt-2 text-3xl font-semibold text-stone-900">{activeRelationshipCount}</p>
             <p className="mt-2 text-sm text-stone-600">Nur diese Beziehungen erhalten operativen Kalenderzugriff.</p>
           </Card>
           <Card className="p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Direktbuchungen</p>
             <p className="mt-2 text-3xl font-semibold text-stone-900">{upcomingBookings.length}</p>
-            <p className="mt-2 text-sm text-stone-600">Gebuchte Termine bleiben klar getrennt von der Probephase.</p>
+            <p className="mt-2 text-sm text-stone-600">Anstehende operative Termine dieser Reitbeteiligungen.</p>
           </Card>
         </div>
-      </SectionCard>
 
-      <OperationalWeekOverview
-        days={weekDays}
-        nextWeekHref={nextWeekHref}
-        previousWeekHref={previousWeekHref}
-        subtitle="Die Wochenansicht zeigt nur freie operative Slots, aktuell wirksame Buchungen und Blocks."
-        title="Wochenansicht"
-        todayHref={todayWeekHref}
-      />
+        <OperationalWeekOverview
+          days={weekDays}
+          nextWeekHref={nextWeekHref}
+          previousWeekHref={previousWeekHref}
+          subtitle="Die Wochenansicht zeigt nur freie operative Slots, aktuell wirksame Buchungen und Blocks."
+          title="Wochenansicht"
+          todayHref={todayWeekHref}
+        />
 
-      <SectionCard
-        id="operativer-kalender"
-        subtitle="Diese offenen Slots gelten fuer den laufenden Alltag nach der Aufnahme."
-        title="Operativer Kalender"
-      >
+        <SectionCard
+          id="operativer-kalender"
+          subtitle="Diese offenen Slots gelten fuer den laufenden Alltag nach der Aufnahme."
+          title="Operativer Kalender"
+        >
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
           <div className="space-y-5">
             <Card className="p-5 sm:p-6">
@@ -471,7 +472,8 @@ export function OwnerHorseCalendarV1({
             </form>
           </Card>
         </div>
-      </SectionCard>
+        </SectionCard>
+      </div>
     </div>
   );
 }

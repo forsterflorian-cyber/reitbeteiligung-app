@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/src\" -type f -name \"*.tsx\" -o -name \"*.ts\")",
+      "Bash(wc -l \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app/pferde/[id]/kalender/page.tsx\")",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}
