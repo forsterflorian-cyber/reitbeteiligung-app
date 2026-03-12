@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /e/Verwaltung/'07_IT & Identität'/'IT Projekte'/reitbeteiligung.app/lib -type f -name \"*.ts\")",
+      "Bash(find \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\" -type f -name \"*.ts\" -path \"*/lib/server-actions/*\")",
+      "Bash(ls -la \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app/supabase/migrations/\")"
+    ]
+  }
+}

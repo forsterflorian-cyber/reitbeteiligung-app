@@ -83,7 +83,7 @@ test("Wochenansicht nutzt nur operative Wahrheit und blendet Trial-Regeln als Ta
 
   assert.deepEqual(
     week.find((day) => day.dayKey === "2026-03-11")?.entries.map((entry) => entry.kind),
-    ["available", "booking"]
+    ["booking"]
   );
   assert.deepEqual(
     week.find((day) => day.dayKey === "2026-03-12")?.entries.map((entry) => entry.kind),
@@ -92,5 +92,90 @@ test("Wochenansicht nutzt nur operative Wahrheit und blendet Trial-Regeln als Ta
   assert.deepEqual(
     week.find((day) => day.dayKey === "2026-03-14")?.entries,
     []
+  );
+});
+
+test("Aktuelle Woche: vergangene freie Slots erscheinen nicht mehr als available", () => {
+  // now = Donnerstag 12.03 10:00 Uhr
+  // Slot am Dienstag 10.03 (vergangen) darf nicht als available erscheinen
+  const week = buildOperationalWeekDays({
+    now: new Date("2026-03-12T10:00:00.000Z"),
+    occupancy: [],
+    rules: [
+      {
+        active: true,
+        created_at: "2026-03-01T08:00:00.000Z",
+        end_at: "2026-03-10T11:00:00.000Z",
+        horse_id: "horse-1",
+        id: "past-slot",
+        is_trial_slot: false,
+        slot_id: "slot-1",
+        start_at: "2026-03-10T10:00:00.000Z"
+      }
+    ],
+    weekOffset: 0
+  });
+
+  assert.deepEqual(
+    week.find((day) => day.dayKey === "2026-03-10")?.entries,
+    [],
+    "Vergangener Slot am Dienstag darf nicht als available erscheinen"
+  );
+});
+
+test("Aktuelle Woche: kuenftiger freier Slot erscheint weiterhin als available", () => {
+  // now = Donnerstag 12.03 10:00 Uhr
+  // Slot am Freitag 13.03 (noch in der Zukunft) muss weiterhin als available erscheinen
+  const week = buildOperationalWeekDays({
+    now: new Date("2026-03-12T10:00:00.000Z"),
+    occupancy: [],
+    rules: [
+      {
+        active: true,
+        created_at: "2026-03-01T08:00:00.000Z",
+        end_at: "2026-03-13T11:00:00.000Z",
+        horse_id: "horse-1",
+        id: "future-slot",
+        is_trial_slot: false,
+        slot_id: "slot-1",
+        start_at: "2026-03-13T10:00:00.000Z"
+      }
+    ],
+    weekOffset: 0
+  });
+
+  assert.deepEqual(
+    week.find((day) => day.dayKey === "2026-03-13")?.entries.map((entry) => entry.kind),
+    ["available"],
+    "Kuenftiger Slot am Freitag muss als available erscheinen"
+  );
+});
+
+test("Zukuenftige Woche: freie Slots bleiben sichtbar auch wenn Slot vor aktuellem now liegt", () => {
+  // now = Donnerstag 12.03 10:00 Uhr, weekOffset=1
+  // Slot am Dienstag der naechsten Woche (17.03) ist relativ zu weekStart zukuenftig
+  // und muss als available erscheinen, weil weekStart (16.03) < slot (17.03)
+  const week = buildOperationalWeekDays({
+    now: new Date("2026-03-12T10:00:00.000Z"),
+    occupancy: [],
+    rules: [
+      {
+        active: true,
+        created_at: "2026-03-01T08:00:00.000Z",
+        end_at: "2026-03-17T11:00:00.000Z",
+        horse_id: "horse-1",
+        id: "next-week-slot",
+        is_trial_slot: false,
+        slot_id: "slot-1",
+        start_at: "2026-03-17T10:00:00.000Z"
+      }
+    ],
+    weekOffset: 1
+  });
+
+  assert.deepEqual(
+    week.find((day) => day.dayKey === "2026-03-17")?.entries.map((entry) => entry.kind),
+    ["available"],
+    "Slot in naechster Woche muss als available erscheinen"
   );
 });

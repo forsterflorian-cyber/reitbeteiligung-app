@@ -89,7 +89,7 @@ export function OwnerOperationalWorkspace({
                           <p className="text-sm font-semibold text-stone-900">Ausgewaehlte Buchung fuer die Umbuchung</p>
                           <p className="text-sm text-stone-700">{formatDateRange(item.selectedBooking.startAt, item.selectedBooking.endAt)}</p>
                           <p className="text-sm text-stone-600">
-                            {item.selectedBooking.riderName ? `Gebucht von ${item.selectedBooking.riderName}` : `Gebucht von Reiter ${item.selectedBooking.riderId.slice(0, 8)}`}
+                            {`Gebucht von ${item.selectedBooking.riderName ?? "Reiter"}`}
                           </p>
                         </div>
                         <Link
@@ -124,7 +124,7 @@ export function OwnerOperationalWorkspace({
                                   <div className="space-y-1">
                                     <p className="text-sm font-semibold text-stone-900">{formatDateRange(booking.startAt, booking.endAt)}</p>
                                     <p className="text-sm text-stone-600">
-                                      {booking.riderName ? `Gebucht von ${booking.riderName}` : `Gebucht von Reiter ${booking.riderId.slice(0, 8)}`}
+                                      {`Gebucht von ${booking.riderName ?? "Reiter"}`}
                                     </p>
                                   </div>
                                   {(booking.canCancel || booking.canReschedule) ? (

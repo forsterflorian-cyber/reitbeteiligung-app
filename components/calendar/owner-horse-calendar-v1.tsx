@@ -314,7 +314,7 @@ export function OwnerHorseCalendarV1({
                         <p className="text-sm font-semibold text-stone-900">Termin wird umgebucht</p>
                         <p className="text-sm text-stone-700">{formatDateRange(rescheduleBooking.start_at, rescheduleBooking.end_at)}</p>
                         <p className="text-xs text-stone-600">
-                          {rescheduleBooking.riderName ? `Gebucht von ${rescheduleBooking.riderName}` : `Gebucht von Reiter ${rescheduleBooking.rider_id.slice(0, 8)}`}
+                          {`Gebucht von ${rescheduleBooking.riderName ?? "Reiter"}`}
                         </p>
                       </div>
                       <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={clearRescheduleHref}>
@@ -356,7 +356,7 @@ export function OwnerHorseCalendarV1({
                           <div className="space-y-1">
                             <p className="text-sm font-semibold text-stone-900">{formatDateRange(booking.start_at, booking.end_at)}</p>
                             <p className="text-xs text-stone-500">
-                              {booking.riderName ? `Gebucht von ${booking.riderName}` : `Gebucht von Reiter ${booking.rider_id.slice(0, 8)}`}
+                              {`Gebucht von ${booking.riderName ?? "Reiter"}`}
                             </p>
                           </div>
                           {canCancelOperationalBooking({ startAt: booking.start_at, status: BOOKING_REQUEST_STATUS.accepted }) ? (
@@ -405,7 +405,7 @@ export function OwnerHorseCalendarV1({
                                   : "Zeitpunkt wird noch geprueft"}
                               </p>
                               <p className="text-xs text-stone-500">
-                                {booking.riderName ? `Umbuchung fuer ${booking.riderName}` : `Umbuchung fuer Reiter ${booking.rider_id.slice(0, 8)}`}
+                                {`Umbuchung fuer ${booking.riderName ?? "Reiter"}`}
                               </p>
                             </div>
                             <StatusBadge status={booking.status} />
@@ -432,7 +432,7 @@ export function OwnerHorseCalendarV1({
                                   : "Zeitpunkt wird noch geprueft"}
                               </p>
                               <p className="text-xs text-stone-500">
-                                {booking.riderName ? `Storniert von ${booking.riderName}` : `Storniert von Reiter ${booking.rider_id.slice(0, 8)}`}
+                                {`Storniert von ${booking.riderName ?? "Reiter"}`}
                               </p>
                             </div>
                             <StatusBadge status={booking.status} />

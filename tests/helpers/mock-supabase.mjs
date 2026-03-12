@@ -101,6 +101,16 @@ export function createSupabaseMock(seed = {}, options = {}) {
         select() {
           return new QueryBuilder(table, "select", state);
         },
+        insert(payload) {
+          const items = Array.isArray(payload) ? payload : [payload];
+          const rows = state.tables[table];
+
+          for (const item of items) {
+            rows.push(clone(item));
+          }
+
+          return Promise.resolve({ data: null, error: null });
+        },
         upsert(payload, upsertOptions = {}) {
           const rows = state.tables[table];
           const items = Array.isArray(payload) ? payload : [payload];

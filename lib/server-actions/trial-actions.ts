@@ -1,3 +1,4 @@
+import { emitDomainEvent } from "../domain-events.ts";
 import { TRIAL_REQUEST_STATUS, type MutableTrialRequestStatus } from "../statuses.ts";
 import { getTrialStatusTransitionError } from "./trial.ts";
 import type { createClient } from "../supabase/server.ts";
@@ -142,6 +143,15 @@ export async function updateTrialRequestStatusForOwner(input: {
   if (error) {
     input.logSupabaseError("Trial request status update failed", error);
     return errorResult(redirectPath, "Der Status konnte nicht aktualisiert werden.");
+  }
+
+  if (input.nextStatus === TRIAL_REQUEST_STATUS.accepted) {
+    await emitDomainEvent(input.supabase, {
+      event_type: "trial_accepted",
+      horse_id: request.horse_id,
+      payload: { request_id: request.id },
+      rider_id: request.rider_id
+    });
   }
 
   return successResult(redirectPath, "Der Status wurde aktualisiert.", getTrialLifecyclePaths(request.horse_id));

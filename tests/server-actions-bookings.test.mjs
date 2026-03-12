@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { getUpcomingOperationalSlots } from "../lib/operational-slots.ts";
+import { hasWindowConflict, windowsOverlap } from "../lib/server-actions/calendar.ts";
 import {
   acceptBookingRequestForOwner,
   cancelOperationalBookingForOwner,
@@ -10,6 +11,7 @@ import {
   rescheduleOperationalBookingForRider,
   requestBookingForRider
 } from "../lib/server-actions/bookings.ts";
+import { updateTrialRequestStatusForOwner } from "../lib/server-actions/trial-actions.ts";
 import { createSupabaseMock } from "./helpers/mock-supabase.mjs";
 
 function createOperationalBookingForm(overrides = {}) {
@@ -2080,4 +2082,268 @@ test("Parallele operative Direktbuchungen koennen das Wochenkontingent nicht ueb
   assert.equal([firstResult.ok, secondResult.ok].filter(Boolean).length, 1);
   assert.equal([firstResult.message, secondResult.message].includes("Dein Wochenkontingent fuer dieses Pferd ist in dieser Woche bereits ausgeschoepft."), true);
   assert.equal(supabase.state.tables.bookings.length, 1);
+});
+
+test("Domain-Event booking_created wird nach erfolgreicher Direktbuchung geschrieben", async () => {
+  const supabase = createSupabaseMock(
+    {
+      approvals: [{ horse_id: "horse-1", rider_id: "rider-1", status: "approved" }],
+      availability_rules: [
+        {
+          active: true,
+          created_at: "2026-03-10T08:00:00.000Z",
+          end_at: "2026-03-20T11:00:00.000Z",
+          horse_id: "horse-1",
+          id: "rule-1",
+          is_trial_slot: false,
+          slot_id: "slot-1",
+          start_at: "2026-03-20T10:00:00.000Z"
+        }
+      ],
+      booking_requests: [],
+      bookings: [],
+      calendar_blocks: [],
+      domain_events: []
+    },
+    { rpcHandlers: { direct_book_operational_slot: createQuotaAwareDirectBookingHandler() } }
+  );
+  const formData = createOperationalBookingForm({
+    endAt: "2026-03-20T11:00:00.000Z",
+    horseId: "horse-1",
+    ruleId: "rule-1",
+    startAt: "2026-03-20T10:00:00.000Z"
+  });
+
+  const result = await requestBookingForRider({ formData, logSupabaseError: () => {}, supabase, userId: "rider-1" });
+
+  assert.equal(result.ok, true);
+  assert.equal(supabase.state.tables.domain_events.length, 1);
+  assert.equal(supabase.state.tables.domain_events[0].event_type, "booking_created");
+  assert.equal(supabase.state.tables.domain_events[0].horse_id, "horse-1");
+  assert.equal(supabase.state.tables.domain_events[0].rider_id, "rider-1");
+  assert.equal(supabase.state.tables.domain_events[0].payload.start_at, "2026-03-20T10:00:00.000Z");
+  assert.equal(supabase.state.tables.domain_events[0].payload.end_at, "2026-03-20T11:00:00.000Z");
+});
+
+test("Domain-Event booking_cancelled wird nach erfolgreichem Storno geschrieben", async () => {
+  const supabase = createSupabaseMock({
+    booking_requests: [
+      {
+        availability_rule_id: "rule-1",
+        created_at: "2026-03-10T08:00:00.000Z",
+        horse_id: "horse-1",
+        id: "request-1",
+        recurrence_rrule: null,
+        requested_end_at: "2026-03-20T11:00:00.000Z",
+        requested_start_at: "2026-03-20T10:00:00.000Z",
+        rider_id: "rider-1",
+        slot_id: "slot-1",
+        status: "accepted"
+      }
+    ],
+    bookings: [
+      {
+        availability_rule_id: "rule-1",
+        booking_request_id: "request-1",
+        created_at: "2026-03-10T08:05:00.000Z",
+        end_at: "2026-03-20T11:00:00.000Z",
+        horse_id: "horse-1",
+        id: "booking-1",
+        rider_id: "rider-1",
+        slot_id: "slot-1",
+        start_at: "2026-03-20T10:00:00.000Z"
+      }
+    ],
+    domain_events: [],
+    horses: [{ id: "horse-1", owner_id: "owner-1" }]
+  }, { rpcHandlers: { cancel_operational_booking: createQuotaAwareCancelBookingHandler() } });
+
+  const result = await cancelOperationalBookingForOwner({ bookingId: "booking-1", logSupabaseError: () => {}, ownerId: "owner-1", supabase });
+
+  assert.equal(result.ok, true);
+  assert.equal(supabase.state.tables.domain_events.length, 1);
+  assert.equal(supabase.state.tables.domain_events[0].event_type, "booking_cancelled");
+  assert.equal(supabase.state.tables.domain_events[0].horse_id, "horse-1");
+  assert.equal(supabase.state.tables.domain_events[0].rider_id, "rider-1");
+  assert.equal(supabase.state.tables.domain_events[0].payload.start_at, "2026-03-20T10:00:00.000Z");
+  assert.equal(supabase.state.tables.domain_events[0].payload.end_at, "2026-03-20T11:00:00.000Z");
+});
+
+test("Domain-Event booking_rescheduled wird nach erfolgreicher Umbuchung geschrieben", async () => {
+  const supabase = createSupabaseMock(
+    {
+      approvals: [{ horse_id: "horse-1", rider_id: "rider-1", status: "approved" }],
+      availability_rules: [
+        {
+          active: true,
+          created_at: "2026-03-10T08:10:00.000Z",
+          end_at: "2026-03-21T11:00:00.000Z",
+          horse_id: "horse-1",
+          id: "rule-21",
+          is_trial_slot: false,
+          slot_id: "slot-21",
+          start_at: "2026-03-21T10:00:00.000Z"
+        }
+      ],
+      booking_requests: [
+        {
+          availability_rule_id: "rule-20",
+          created_at: "2026-03-10T08:00:00.000Z",
+          horse_id: "horse-1",
+          id: "request-active",
+          recurrence_rrule: null,
+          requested_end_at: "2026-03-20T11:00:00.000Z",
+          requested_start_at: "2026-03-20T10:00:00.000Z",
+          rider_id: "rider-1",
+          slot_id: "slot-20",
+          status: "accepted"
+        }
+      ],
+      bookings: [
+        {
+          availability_rule_id: "rule-20",
+          booking_request_id: "request-active",
+          created_at: "2026-03-10T08:05:00.000Z",
+          end_at: "2026-03-20T11:00:00.000Z",
+          horse_id: "horse-1",
+          id: "booking-active",
+          rider_id: "rider-1",
+          slot_id: "slot-20",
+          start_at: "2026-03-20T10:00:00.000Z"
+        }
+      ],
+      calendar_blocks: [],
+      domain_events: [],
+      horses: [{ id: "horse-1", owner_id: "owner-1" }]
+    },
+    { rpcHandlers: { reschedule_operational_booking: createQuotaAwareRescheduleHandler() } }
+  );
+
+  const result = await rescheduleOperationalBookingForOwner({
+    bookingId: "booking-active",
+    endAtInput: "2026-03-21T11:00:00.000Z",
+    logSupabaseError: () => {},
+    ownerId: "owner-1",
+    ruleId: "rule-21",
+    startAtInput: "2026-03-21T10:00:00.000Z",
+    supabase
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(supabase.state.tables.domain_events.length, 1);
+  assert.equal(supabase.state.tables.domain_events[0].event_type, "booking_rescheduled");
+  assert.equal(supabase.state.tables.domain_events[0].horse_id, "horse-1");
+  assert.equal(supabase.state.tables.domain_events[0].rider_id, "rider-1");
+  assert.equal(supabase.state.tables.domain_events[0].payload.old_start_at, "2026-03-20T10:00:00.000Z");
+  assert.equal(supabase.state.tables.domain_events[0].payload.old_end_at, "2026-03-20T11:00:00.000Z");
+  assert.equal(supabase.state.tables.domain_events[0].payload.new_start_at, "2026-03-21T10:00:00.000Z");
+  assert.equal(supabase.state.tables.domain_events[0].payload.new_end_at, "2026-03-21T11:00:00.000Z");
+});
+
+test("Domain-Event trial_accepted wird nur beim Annehmen eines Probebesuchs geschrieben", async () => {
+  const acceptSupabase = createSupabaseMock({
+    domain_events: [],
+    horses: [{ id: "horse-1", owner_id: "owner-1" }],
+    trial_requests: [{ horse_id: "horse-1", id: "trial-1", rider_id: "rider-1", status: "requested" }]
+  });
+  const declineSupabase = createSupabaseMock({
+    domain_events: [],
+    horses: [{ id: "horse-1", owner_id: "owner-1" }],
+    trial_requests: [{ horse_id: "horse-1", id: "trial-2", rider_id: "rider-1", status: "requested" }]
+  });
+
+  const acceptResult = await updateTrialRequestStatusForOwner({
+    logSupabaseError: () => {},
+    nextStatus: "accepted",
+    ownerId: "owner-1",
+    requestId: "trial-1",
+    supabase: acceptSupabase
+  });
+  const declineResult = await updateTrialRequestStatusForOwner({
+    logSupabaseError: () => {},
+    nextStatus: "declined",
+    ownerId: "owner-1",
+    requestId: "trial-2",
+    supabase: declineSupabase
+  });
+
+  assert.equal(acceptResult.ok, true);
+  assert.equal(acceptSupabase.state.tables.domain_events.length, 1);
+  assert.equal(acceptSupabase.state.tables.domain_events[0].event_type, "trial_accepted");
+  assert.equal(acceptSupabase.state.tables.domain_events[0].horse_id, "horse-1");
+  assert.equal(acceptSupabase.state.tables.domain_events[0].rider_id, "rider-1");
+  assert.equal(acceptSupabase.state.tables.domain_events[0].payload.request_id, "trial-1");
+
+  assert.equal(declineResult.ok, true);
+  assert.equal(declineSupabase.state.tables.domain_events.length, 0, "Ablehnen darf kein domain_event schreiben");
+});
+
+test("Write-Guard erkennt Ueberlappung unabhaengig vom ISO-Timestamp-Format", () => {
+  // Z-Suffix vs +00:00 – dieselbe UTC-Zeit, unterschiedliche String-Darstellung
+  assert.equal(
+    windowsOverlap(
+      { startAt: "2026-03-13T17:00:00.000Z", endAt: "2026-03-13T18:00:00.000Z" },
+      { startAt: "2026-03-13T17:00:00+00:00", endAt: "2026-03-13T18:00:00+00:00" }
+    ),
+    true,
+    "Z vs +00:00 – gleiche Zeit, muss als Ueberlappung erkannt werden"
+  );
+  // mit Mikrosekunden vs ohne
+  assert.equal(
+    windowsOverlap(
+      { startAt: "2026-03-13T17:00:00+00:00", endAt: "2026-03-13T18:00:00+00:00" },
+      { startAt: "2026-03-13T17:00:00.000000+00:00", endAt: "2026-03-13T18:00:00.000000+00:00" }
+    ),
+    true,
+    "Mit und ohne Mikrosekunden – muss als Ueberlappung erkannt werden"
+  );
+  // adjazente Bereiche duerfen nicht als ueberlappend gelten (gemischtes Format)
+  assert.equal(
+    windowsOverlap(
+      { startAt: "2026-03-13T18:00:00.000Z", endAt: "2026-03-13T19:00:00.000Z" },
+      { startAt: "2026-03-13T17:00:00+00:00", endAt: "2026-03-13T18:00:00+00:00" }
+    ),
+    false,
+    "Adjazente Bereiche mit gemischten Formaten duerfen nicht als ueberlappend gelten"
+  );
+});
+
+test("Write-Guard blockiert echte Konflikte zuverlaessig", () => {
+  const windows = [{ startAt: "2026-03-20T10:00:00.000Z", endAt: "2026-03-20T11:00:00.000Z" }];
+
+  // Echter Konflikt: Supabase liefert +00:00-Format
+  assert.equal(
+    hasWindowConflict(windows, [{ start_at: "2026-03-20T10:30:00+00:00", end_at: "2026-03-20T11:30:00+00:00" }]),
+    true,
+    "Konflikt bei gemischtem Format muss erkannt werden"
+  );
+  // Identisches Fenster (Umbuchungs-Szenario: Ziel-Slot bereits belegt)
+  assert.equal(
+    hasWindowConflict(windows, [{ start_at: "2026-03-20T10:00:00+00:00", end_at: "2026-03-20T11:00:00+00:00" }]),
+    true,
+    "Identisches Fenster muss als Konflikt gelten"
+  );
+});
+
+test("Write-Guard erlaubt nicht ueberlappende Fenster zuverlaessig", () => {
+  const windows = [{ startAt: "2026-03-20T10:00:00.000Z", endAt: "2026-03-20T11:00:00.000Z" }];
+
+  // Adjazent danach
+  assert.equal(
+    hasWindowConflict(windows, [{ start_at: "2026-03-20T11:00:00+00:00", end_at: "2026-03-20T12:00:00+00:00" }]),
+    false,
+    "Adjazentes Fenster danach darf kein Konflikt sein"
+  );
+  // Adjazent davor
+  assert.equal(
+    hasWindowConflict(windows, [{ start_at: "2026-03-20T09:00:00+00:00", end_at: "2026-03-20T10:00:00+00:00" }]),
+    false,
+    "Adjazentes Fenster davor darf kein Konflikt sein"
+  );
+  // Voellig disjunkt
+  assert.equal(
+    hasWindowConflict(windows, [{ start_at: "2026-03-20T14:00:00+00:00", end_at: "2026-03-20T15:00:00+00:00" }]),
+    false,
+    "Disjunktes Fenster darf kein Konflikt sein"
+  );
 });

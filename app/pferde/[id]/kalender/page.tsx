@@ -563,6 +563,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           .from("booking_requests")
           .select("id, status")
           .eq("horse_id", horse.id)
+          .limit(2000)
       : Promise.resolve({ data: [] as Pick<BookingRequest, "id" | "status">[] | null }),
     simpleCalendarV1Mode && isOwner
       ? supabase
@@ -1672,7 +1673,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                                   ? formatDateRange(request.requested_start_at, request.requested_end_at)
                                   : "Zeitpunkt wird gepr\u00fcft"}
                               </p>
-                              <p className="text-sm text-stone-600">Reiter-ID {request.rider_id.slice(0, 8)}</p>
+                              <p className="text-sm text-stone-600">Reiter</p>
                               <p className="text-sm text-stone-600">{rule ? `Fenster: ${ruleLabel(rule)}` : "Kein Zeitfenster mehr vorhanden."}</p>
                             </div>
                             <StatusBadge status={request.status} />

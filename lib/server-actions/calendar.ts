@@ -507,7 +507,7 @@ export function shiftWholeRange(startAtValue: string, endAtValue: string, direct
 }
 
 export function windowsOverlap(left: CalendarBookingWindow, right: CalendarBookingWindow) {
-  return left.startAt < right.endAt && left.endAt > right.startAt;
+  return new Date(left.startAt).getTime() < new Date(right.endAt).getTime() && new Date(left.endAt).getTime() > new Date(right.startAt).getTime();
 }
 
 export function hasWindowConflict(windows: CalendarBookingWindow[], existingRanges: CalendarTimeRangeRecord[]) {

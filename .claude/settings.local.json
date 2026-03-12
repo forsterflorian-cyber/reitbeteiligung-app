@@ -3,7 +3,22 @@
     "allow": [
       "Bash(find \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/src\" -type f -name \"*.tsx\" -o -name \"*.ts\")",
       "Bash(wc -l \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app/pferde/[id]/kalender/page.tsx\")",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(find \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app\" -type f -name \"*.tsx\" -o -name \"*.ts\")",
+      "Bash(find \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app\" -type f \\\\\\( -name \"*action*.ts\" -o -name \"*action*.tsx\" \\\\\\) ! -path \"*/.next/*\")",
+      "Bash(find \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/lib\" -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\) ! -path */node_modules/*)",
+      "Bash(find \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app\" -name \"*.sql\" -o -name \"*migration*\")",
+      "Bash(npm run:*)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(wc -l \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/tests/server-actions-bookings.test.mjs\")",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(./node_modules/.bin/next build:*)",
+      "Bash(find \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app\" -type f -name \"*.ts\" -o -name \"*.tsx\")",
+      "Bash(grep -r \"rider_id\\\\.slice\\\\|Gebucht von Reiter\" \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app\" --include=*.tsx --include=*.ts)",
+      "Bash(find \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app\" -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" \\\\\\))",
+      "Bash(xargs grep:*)",
+      "Bash(grep -l \"riderName\\\\|riderId\" /e/Verwaltung/'07_IT & Identität'/'IT Projekte'/reitbeteiligung.app/components/owner/*.tsx)",
+      "Bash(grep -l \"riderName\\\\|riderId\" /e/Verwaltung/'07_IT & Identität'/'IT Projekte'/reitbeteiligung.app/lib/*.ts)"
     ]
   }
 }

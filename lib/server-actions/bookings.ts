@@ -20,6 +20,7 @@ import { isActiveRelationship, isRevokedRelationship } from "../relationship-sta
 import { BOOKING_REQUEST_STATUS } from "../statuses.ts";
 import type { createClient } from "../supabase/server.ts";
 import type { AvailabilityRule, Booking, BookingRequest, CalendarBlock } from "../../types/database";
+import { emitDomainEvent } from "../domain-events.ts";
 import { hasWindowConflict, isQuarterHourAligned, type CalendarBookingWindow as BookingWindow } from "./calendar.ts";
 import { getOwnedHorse } from "./horse.ts";
 
@@ -564,6 +565,13 @@ export async function requestBookingForRider(input: {
       return errorResult(redirectPath, getDirectBookingErrorMessage(error));
     }
 
+    await emitDomainEvent(input.supabase, {
+      event_type: "booking_created",
+      horse_id: horseId,
+      payload: { end_at: requestedEndIso, start_at: requestedStartIso },
+      rider_id: input.userId
+    });
+
     return successResult(redirectPath, "Der Slot wurde direkt gebucht.", getDirectBookingPaths(horseId));
   }
 
@@ -623,6 +631,13 @@ export async function acceptBookingRequestForOwner(input: {
     input.logSupabaseError("Accept booking request RPC failed", error);
     return errorResult(redirectPath, getAcceptBookingErrorMessage(error));
   }
+
+  await emitDomainEvent(input.supabase, {
+    event_type: "booking_created",
+    horse_id: request.horse_id,
+    payload: { end_at: request.requested_end_at ?? null, start_at: request.requested_start_at ?? null },
+    rider_id: request.rider_id
+  });
 
   return successResult(
     redirectPath,
@@ -702,6 +717,13 @@ export async function cancelOperationalBookingForRider(input: {
     return errorResult(redirectPath, getCancelBookingErrorMessage(error));
   }
 
+  await emitDomainEvent(input.supabase, {
+    event_type: "booking_cancelled",
+    horse_id: booking.horse_id,
+    payload: { end_at: booking.end_at, start_at: booking.start_at },
+    rider_id: booking.rider_id
+  });
+
   return successResult(redirectPath, "Der Termin wurde storniert.", getDirectBookingPaths(booking.horse_id));
 }
 
@@ -745,6 +767,13 @@ export async function cancelOperationalBookingForOwner(input: {
     input.logSupabaseError("Cancel operational booking failed", error);
     return errorResult(redirectPath, getCancelBookingErrorMessage(error));
   }
+
+  await emitDomainEvent(input.supabase, {
+    event_type: "booking_cancelled",
+    horse_id: booking.horse_id,
+    payload: { end_at: booking.end_at, start_at: booking.start_at },
+    rider_id: booking.rider_id
+  });
 
   return successResult(redirectPath, "Der Termin wurde storniert.", getDirectBookingPaths(booking.horse_id));
 }
@@ -911,6 +940,18 @@ async function rescheduleOperationalBooking(input: {
     const reason = getRescheduleBookingErrorReason(error);
     return errorResult(rescheduleRedirectPath, getRescheduleBookingErrorMessage(error), reason);
   }
+
+  await emitDomainEvent(input.supabase, {
+    event_type: "booking_rescheduled",
+    horse_id: booking.horse_id,
+    payload: {
+      new_end_at: endAt.toISOString(),
+      new_start_at: startAt.toISOString(),
+      old_end_at: booking.end_at,
+      old_start_at: booking.start_at
+    },
+    rider_id: booking.rider_id
+  });
 
   return successResult(redirectPath, "Der Termin wurde umgebucht.", getDirectBookingPaths(booking.horse_id));
 }

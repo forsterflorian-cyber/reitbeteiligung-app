@@ -33,7 +33,7 @@ export function operationalRangesOverlap(
   rightStartAt: string,
   rightEndAt: string
 ) {
-  return leftStartAt < rightEndAt && leftEndAt > rightStartAt;
+  return new Date(leftStartAt).getTime() < new Date(rightEndAt).getTime() && new Date(leftEndAt).getTime() > new Date(rightStartAt).getTime();
 }
 
 export function isOperationalRuleBlocked(rule: OperationalSlotRule, occupiedRanges: TimeRange[]) {

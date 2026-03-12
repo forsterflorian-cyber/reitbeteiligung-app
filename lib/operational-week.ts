@@ -108,7 +108,7 @@ export function buildOperationalWeekDays({
   const weekEnd = addOperationalWeekDays(weekStart, 7);
   const availableEntries = getUpcomingOperationalSlots({
     limit: operationalRules.length,
-    now: weekStart,
+    now: weekOffset === 0 ? now : weekStart,
     occupiedRanges: occupancy,
     rules: operationalRules
   })
