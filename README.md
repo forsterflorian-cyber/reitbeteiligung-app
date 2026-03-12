@@ -15,7 +15,7 @@ Dort sind Release-Scope, Statusvertrag, Historisierung und Sichtbarkeitsregeln v
 - Probephase mit Slots, Anfragen und 1:1-Chat
 - Aufnahme, Nichtaufnahme und Entfernen von Reitbeteiligungen
 - Gruppenchat fuer aktive Reitbeteiligungen
-- Aktive-Reitbeteiligung-Kalender V1 mit Einzelbuchungen, Anfragen, Storno und Umbuchung
+- Aktive-Reitbeteiligung-Kalender V1 mit Wochenansicht, Einzelbuchungen, Anfragen, Storno und Umbuchung
 
 ## Wichtige Dokumente
 

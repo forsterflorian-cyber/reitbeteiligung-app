@@ -16,12 +16,12 @@ Vorhanden und im Produktpfad:
 - Probetermin-Slots, Probeanfragen und interner 1:1-Chat
 - Aufnahme, Nichtaufnahme und spaeteres Entfernen von Reitbeteiligungen
 - Gruppenchat fuer aktive Reitbeteiligungen
-- Aktive-Reitbeteiligung-Kalender V1 mit Direktbuchung, Anfrage, Storno und Umbuchung
+- Aktive-Reitbeteiligung-Kalender V1 mit Wochenansicht, Direktbuchung, Anfrage, Storno und Umbuchung
 - getrennte Rider-/Owner-Workspaces fuer Probe, aktive Beziehungen, Nachrichten und Archiv
 
 ## Bewusst nicht Teil
 
-- Wochen-/Monatskalender als eigener Produktmodus
+- Monatskalender als eigener Produktmodus
 - wiederholende operative Buchungen
 - sonstige groessere Ausbaustufen ausserhalb des aktuellen Kalender-V1
 

@@ -20,7 +20,7 @@ Aktuell live und release-relevant sind:
 9. Reiter nach durchgefuehrter Probe aufnehmen oder nicht aufnehmen
 10. Aktive Reitbeteiligung spaeter wieder entfernen
 11. Pferde-Gruppenchat fuer aktive Reitbeteiligungen
-12. Aktive-Reitbeteiligung-Kalender V1 fuer Owner und freigeschaltete Rider
+12. Aktive-Reitbeteiligung-Kalender V1 mit Wochenansicht fuer Owner und freigeschaltete Rider
 13. Rider-/Owner-Workspaces fuer aktives Tagesgeschaeft
 14. Trennung zwischen aktiven Faellen, Klaerung, Nachrichten und Archiv
 
@@ -28,7 +28,7 @@ Aktuell live und release-relevant sind:
 
 Nicht Teil des aktuellen Contracts sind:
 
-- Wochen- oder Monatsansichten als eigener Produktmodus
+- Monatsansichten als eigener Produktmodus
 - wiederholende operative Buchungen
 - sonstiges erweitertes Horse-Management ausserhalb des aktuellen Kalender-V1
 
@@ -97,6 +97,7 @@ Wichtige Regel:
 Der aktuelle Kalendervertrag fuer aktive Reitbeteiligungen ist:
 
 - Owner pflegen operative Zeitfenster und Probetermin-Slots getrennt im selben Kalenderkontext.
+- Der Kalender zeigt standardmaessig eine Wochenansicht mit Navigation im aktuellen Produktpfad.
 - Rider mit `approved` koennen offene operative Einzeltermine direkt uebernehmen.
 - Rider koennen innerhalb offener Fenster auch einen eigenen operativen Zeitraum anfragen.
 - Owner koennen offene operative Anfragen annehmen oder ablehnen.
@@ -106,7 +107,7 @@ Der aktuelle Kalendervertrag fuer aktive Reitbeteiligungen ist:
 Nicht Bestandteil dieses Vertrags:
 
 - wiederholende operative Termine
-- alternative Wochen-/Monatsmodule ausserhalb des aktuellen Kalenders
+- alternative Monatsmodule ausserhalb des aktuellen Kalenders
 
 ## Historisierung
 

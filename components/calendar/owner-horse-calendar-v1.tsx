@@ -8,6 +8,7 @@ import {
   deleteAvailabilityRuleAction
 } from "@/app/actions";
 import { rescheduleOperationalBookingForOwnerAction } from "@/app/actions";
+import { OperationalWeekOverview } from "@/components/calendar/operational-week-overview";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
 import { StatusBadge } from "@/components/status-badge";
@@ -19,6 +20,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { canCancelOperationalBooking, canRescheduleOperationalBooking } from "@/lib/booking-guards";
+import type { OperationalWeekDay } from "@/lib/operational-week";
 import { BOOKING_REQUEST_STATUS } from "@/lib/statuses";
 import type { AvailabilityRule, Booking, BookingRequest, Horse, TrialRequest } from "@/types/database";
 
@@ -50,13 +52,17 @@ type OwnerHorseCalendarV1Props = {
   message: string | null;
   nextTrialRequest: TrialRequest | null;
   nextTrialRiderName: string | null;
+  nextWeekHref: Route;
   operationalRules: AvailabilityRule[];
   canceledBookings: OwnerCanceledBookingCard[];
   openSlots: OwnerOperationalSlot[];
+  previousWeekHref: Route;
   rescheduleBooking: OwnerBookingCard | null;
   rescheduledBookings: OwnerRescheduledBookingCard[];
+  todayWeekHref: Route;
   upcomingBookings: OwnerBookingCard[];
   trialRules: AvailabilityRule[];
+  weekDays: OperationalWeekDay[];
 };
 
 function formatDateTime(value: string) {
@@ -80,13 +86,17 @@ export function OwnerHorseCalendarV1({
   message,
   nextTrialRequest,
   nextTrialRiderName,
+  nextWeekHref,
   operationalRules,
   canceledBookings,
   openSlots,
+  previousWeekHref,
   rescheduleBooking,
   rescheduledBookings,
+  todayWeekHref,
   upcomingBookings,
-  trialRules
+  trialRules,
+  weekDays
 }: OwnerHorseCalendarV1Props) {
   const clearRescheduleHref = `/pferde/${horse.id}/kalender#operativer-kalender` as Route;
 
@@ -239,6 +249,15 @@ export function OwnerHorseCalendarV1({
           </Card>
         </div>
       </SectionCard>
+
+      <OperationalWeekOverview
+        days={weekDays}
+        nextWeekHref={nextWeekHref}
+        previousWeekHref={previousWeekHref}
+        subtitle="Die Wochenansicht zeigt nur freie operative Slots, aktuell wirksame Buchungen und Blocks."
+        title="Wochenansicht"
+        todayHref={todayWeekHref}
+      />
 
       <SectionCard
         id="operativer-kalender"

@@ -9,7 +9,7 @@
     "lint": "next lint",
     "test": "npm run test:encoding && npm run test:unit",
     "test:encoding": "node --no-warnings ./scripts/check-encoding.mjs",
-    "test:unit": "node --no-warnings --experimental-specifier-resolution=node --test --experimental-strip-types tests/r1-core.test.mjs tests/flash.test.mjs tests/trial-lifecycle.test.mjs tests/release-lifecycle.test.mjs tests/horse-calendar-rules.test.mjs tests/relationship-state.test.mjs tests/operational-slots.test.mjs tests/booking-guards.test.mjs tests/message-summaries.test.mjs tests/operational-workspaces.test.mjs tests/occupancy-rpc-contract.test.mjs tests/server-actions-bookings.test.mjs tests/server-actions-relationships.test.mjs",
+    "test:unit": "node --no-warnings --experimental-specifier-resolution=node --test --experimental-strip-types tests/r1-core.test.mjs tests/flash.test.mjs tests/trial-lifecycle.test.mjs tests/release-lifecycle.test.mjs tests/horse-calendar-rules.test.mjs tests/relationship-state.test.mjs tests/operational-slots.test.mjs tests/operational-week.test.mjs tests/booking-guards.test.mjs tests/message-summaries.test.mjs tests/operational-workspaces.test.mjs tests/occupancy-rpc-contract.test.mjs tests/server-actions-bookings.test.mjs tests/server-actions-relationships.test.mjs",
     "verify:db": "node --no-warnings ./scripts/verify-calendar-v1-db.mjs --preflight-only",
     "verify:db:dry-run": "node --no-warnings ./scripts/verify-calendar-v1-db.mjs --dry-run-only",
     "verify:db:smoke": "node --no-warnings ./scripts/verify-calendar-v1-db.mjs --live-smoke-only --require-live-smoke",

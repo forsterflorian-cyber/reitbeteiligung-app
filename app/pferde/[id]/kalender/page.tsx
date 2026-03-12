@@ -41,6 +41,7 @@ import { canRescheduleOperationalBooking } from "@/lib/booking-guards";
 import { formatBookingQuotaMinutes, formatWeeklyHoursLimit, type RiderWeeklyBookingQuota } from "@/lib/booking-limits";
 import { HORSE_SELECT_FIELDS } from "@/lib/horses";
 import { getUpcomingOperationalSlots, splitAvailabilityRulesByPhase, isTrialAvailabilityRule } from "@/lib/operational-slots";
+import { buildOperationalWeekDays, parseOperationalWeekOffset } from "@/lib/operational-week";
 import { getOwnerPlan, getOwnerPlanUsage } from "@/lib/plans";
 import { canAccessOperationalCalendar, isActiveRelationship } from "@/lib/relationship-state";
 import { ACTIVE_RELATIONSHIP_CALENDAR_V1, R1_CORE_MODE } from "@/lib/release-stage";
@@ -413,7 +414,8 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     notFound();
   }
 
-  const detailHref = `/pferde/${horse.id}` as Route;
+  const horseId = horse.id;
+  const detailHref = `/pferde/${horseId}` as Route;
   const isOwner = profile?.role === "owner" && user?.id === horse.owner_id;
   const isRider = profile?.role === "rider" && Boolean(user);
   const ownerTrialOnlyMode = isOwner && R1_CORE_MODE && !ACTIVE_RELATIONSHIP_CALENDAR_V1;
@@ -457,7 +459,8 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const ownerProfile = (isOwner ? profile : null) || ((ownerProfileData as Pick<Profile, "created_at" | "is_premium" | "role" | "trial_started_at"> | null) ?? null);
   const ownerPlanUsage = !ownerTrialOnlyMode && isOwner && user ? await getOwnerPlanUsage(supabase, user.id) : { approvedRiderCount: 0, horseCount: 1 };
   const ownerPlan = getOwnerPlan(ownerProfile, ownerPlanUsage);
-  const nowIso = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
 
   const [occupancyResult, rulesResult, ownerBlocksResult, ownerBookingRequestsResult, riderBookingRequestsResult, ownerNextTrialResult] = await Promise.all([
     ownerTrialOnlyMode
@@ -672,6 +675,29 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     occupiedRanges: occupancy,
     rules: operationalRules
   });
+  const simpleWeekOffset = parseOperationalWeekOffset(readSearchParam(searchParams, "weekOffset"));
+  const simpleWeekDays = buildOperationalWeekDays({
+    now,
+    occupancy,
+    rules,
+    weekOffset: simpleWeekOffset
+  });
+
+  function buildSimpleWeekHref(weekOffset: number) {
+    const nextSearchParams = new URLSearchParams();
+
+    nextSearchParams.set("weekOffset", String(weekOffset));
+
+    if (rescheduleBookingParam) {
+      nextSearchParams.set("rescheduleBooking", rescheduleBookingParam);
+    }
+
+    return `/pferde/${horseId}/kalender?${nextSearchParams.toString()}#wochenansicht` as Route;
+  }
+
+  const previousSimpleWeekHref = buildSimpleWeekHref(simpleWeekOffset - 1);
+  const nextSimpleWeekHref = buildSimpleWeekHref(simpleWeekOffset + 1);
+  const simpleTodayHref = buildSimpleWeekHref(0);
 
   if (ownerTrialOnlyMode) {
     return (
@@ -692,21 +718,25 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     return (
       <OwnerHorseCalendarV1
         activeRelationshipCount={activeRelationshipCount}
-        defaultOperationalDate={toDayKey(new Date())}
-        defaultTrialDate={toDayKey(new Date())}
+        defaultOperationalDate={toDayKey(now)}
+        defaultTrialDate={toDayKey(now)}
         detailHref={detailHref}
         error={error}
         horse={horse}
         message={message}
         nextTrialRequest={nextTrialRequest}
         nextTrialRiderName={nextTrialRiderName}
+        nextWeekHref={nextSimpleWeekHref}
         operationalRules={operationalRules}
         canceledBookings={ownerCanceledBookingItems}
         openSlots={openOperationalSlots}
+        previousWeekHref={previousSimpleWeekHref}
         rescheduleBooking={ownerRescheduleBooking}
         rescheduledBookings={ownerRescheduledBookingItems}
+        todayWeekHref={simpleTodayHref}
         trialRules={trialRules}
         upcomingBookings={ownerUpcomingBookingItems}
+        weekDays={simpleWeekDays}
       />
     );
   }
@@ -719,10 +749,14 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         horse={horse}
         message={message}
         canceledBookings={riderCanceledBookings}
+        nextWeekHref={nextSimpleWeekHref}
         openSlots={openOperationalSlots}
+        previousWeekHref={previousSimpleWeekHref}
         rescheduleBooking={riderRescheduleBooking}
         rescheduledBookings={riderRescheduledBookings}
+        todayWeekHref={simpleTodayHref}
         upcomingBookings={riderUpcomingBookings}
+        weekDays={simpleWeekDays}
         weeklyQuota={riderWeeklyQuota}
       />
     );

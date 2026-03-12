@@ -6,6 +6,7 @@ import {
   requestBookingAction,
   rescheduleOperationalBookingForRiderAction
 } from "@/app/actions";
+import { OperationalWeekOverview } from "@/components/calendar/operational-week-overview";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
 import { StatusBadge } from "@/components/status-badge";
@@ -18,6 +19,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { canCancelOperationalBooking, canRescheduleOperationalBooking } from "@/lib/booking-guards";
 import { formatBookingQuotaMinutes, formatWeeklyHoursLimit, type RiderWeeklyBookingQuota } from "@/lib/booking-limits";
+import type { OperationalWeekDay } from "@/lib/operational-week";
 import { BOOKING_REQUEST_STATUS } from "@/lib/statuses";
 import type { Booking, BookingRequest, Horse } from "@/types/database";
 
@@ -33,10 +35,14 @@ type RiderOperationalCalendarProps = {
   error: string | null;
   horse: Horse;
   message: string | null;
+  nextWeekHref: Route;
   openSlots: RiderOperationalSlot[];
+  previousWeekHref: Route;
   rescheduleBooking: Booking | null;
   rescheduledBookings: BookingRequest[];
+  todayWeekHref: Route;
   upcomingBookings: Booking[];
+  weekDays: OperationalWeekDay[];
   weeklyQuota: RiderWeeklyBookingQuota | null;
 };
 
@@ -57,10 +63,14 @@ export function RiderOperationalCalendar({
   error,
   horse,
   message,
+  nextWeekHref,
   openSlots,
+  previousWeekHref,
   rescheduleBooking,
   rescheduledBookings,
+  todayWeekHref,
   upcomingBookings,
+  weekDays,
   weeklyQuota
 }: RiderOperationalCalendarProps) {
   const clearRescheduleHref = `/pferde/${horse.id}/kalender#meine-buchungen` as Route;
@@ -116,6 +126,15 @@ export function RiderOperationalCalendar({
           ) : null}
         </div>
       </SectionCard>
+
+      <OperationalWeekOverview
+        days={weekDays}
+        nextWeekHref={nextWeekHref}
+        previousWeekHref={previousWeekHref}
+        subtitle="Die Wochenansicht zeigt nur freie operative Slots, aktuell wirksame Buchungen und Blocks."
+        title="Wochenansicht"
+        todayHref={todayWeekHref}
+      />
 
       <SectionCard
         id="umbuchen"
