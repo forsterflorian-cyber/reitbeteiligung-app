@@ -10,6 +10,20 @@ type SupabaseErrorLike = {
   message: string;
 };
 
+export type BookingFailureReason =
+  | "booking_past"
+  | "booking_started"
+  | "conflict"
+  | "inactive_relationship"
+  | "invalid_status"
+  | "invalid_target_slot"
+  | "not_found"
+  | "quota_exceeded"
+  | "revoked"
+  | "slot_not_free"
+  | "unauthorized"
+  | "unknown";
+
 export const OPERATIONAL_RECURRENCE_NOT_ENABLED_MESSAGE =
   "Wiederholende operative Buchungen sind in dieser Version noch nicht freigeschaltet.";
 
@@ -129,37 +143,68 @@ export function getCancelBookingErrorMessage(error: SupabaseErrorLike) {
   }
 }
 
-export function getRescheduleBookingErrorMessage(error: SupabaseErrorLike) {
+export function getRescheduleBookingErrorReason(error: SupabaseErrorLike): BookingFailureReason {
   switch (error.message) {
     case "INVALID_RANGE":
-      return "Die Umbuchung enthaelt einen ungueltigen Zeitraum.";
-    case "NOT_ALLOWED":
-      return "Du darfst diesen Termin nicht umbuchen.";
-    case "NOT_FOUND":
-      return "Der Termin konnte nicht gefunden werden.";
-    case "INVALID_STATUS":
-      return "Dieser Termin ist nicht mehr aktiv umbuchenbar.";
-    case "NOT_APPROVED":
-      return "Nur aktive Reitbeteiligungen koennen operative Termine umbuchen.";
-    case "BOOKING_STARTED":
-      return "Nur noch nicht begonnene Termine koennen umgebucht werden.";
-    case "TARGET_IN_PAST":
-      return "Der neue Termin muss in der Zukunft liegen.";
     case "RULE_INACTIVE":
-      return "Dieses Verfuegbarkeitsfenster ist nicht mehr verfuegbar.";
     case "TRIAL_RULE":
-      return "Dieser Slot gehoert zur Probephase und kann nicht operativ genutzt werden.";
     case "OUTSIDE_RULE":
-      return "Der neue Termin muss komplett im Verfuegbarkeitsfenster liegen.";
     case "SAME_SLOT":
-      return "Bitte waehle einen anderen freien Slot fuer die Umbuchung.";
+      return "invalid_target_slot";
+    case "NOT_ALLOWED":
+      return "unauthorized";
+    case "NOT_FOUND":
+      return "not_found";
+    case "INVALID_STATUS":
+      return "invalid_status";
+    case "NOT_APPROVED":
+      return "inactive_relationship";
+    case "BOOKING_STARTED":
+      return "booking_started";
+    case "TARGET_IN_PAST":
+      return "booking_past";
     case "TIME_UNAVAILABLE":
-      return "Der gewaehlte Slot ist nicht mehr verfuegbar.";
+      return "slot_not_free";
     case "WEEKLY_LIMIT_EXCEEDED":
+      return "quota_exceeded";
+    default:
+      return "unknown";
+  }
+}
+
+export function getRescheduleBookingErrorMessageForReason(reason: BookingFailureReason) {
+  switch (reason) {
+    case "unauthorized":
+      return "Du darfst diesen Termin nicht umbuchen.";
+    case "revoked":
+      return "Deine Freischaltung fuer diese Reitbeteiligung wurde entzogen.";
+    case "inactive_relationship":
+      return "Nur aktive Reitbeteiligungen koennen operative Termine umbuchen.";
+    case "booking_started":
+      return "Nur noch nicht begonnene Termine koennen umgebucht werden.";
+    case "booking_past":
+      return "Der neue Termin muss in der Zukunft liegen.";
+    case "slot_not_free":
+      return "Der gewaehlte Slot ist nicht mehr verfuegbar.";
+    case "conflict":
+      return "Der gewaehlte Slot kollidiert mit einer Sperre oder einem anderen Termin.";
+    case "invalid_target_slot":
+      return "Bitte waehle einen anderen gueltigen freien Slot fuer die Umbuchung.";
+    case "invalid_status":
+      return "Dieser Termin ist nicht mehr aktiv umbuchenbar.";
+    case "not_found":
+      return "Der Termin konnte nicht gefunden werden.";
+    case "quota_exceeded":
       return "In der Zielwoche ist dein Wochenkontingent fuer dieses Pferd bereits ausgeschoepft.";
-    case "UNSUPPORTED_RECURRENCE":
-      return OPERATIONAL_RECURRENCE_NOT_ENABLED_MESSAGE;
     default:
       return "Der Termin konnte nicht umgebucht werden.";
   }
+}
+
+export function getRescheduleBookingErrorMessage(error: SupabaseErrorLike) {
+  if (error.message === "UNSUPPORTED_RECURRENCE") {
+    return OPERATIONAL_RECURRENCE_NOT_ENABLED_MESSAGE;
+  }
+
+  return getRescheduleBookingErrorMessageForReason(getRescheduleBookingErrorReason(error));
 }

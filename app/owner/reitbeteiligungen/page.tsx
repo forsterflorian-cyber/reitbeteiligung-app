@@ -1,7 +1,8 @@
+import { OwnerOperationalWorkspace } from "@/components/owner/owner-operational-workspace";
 import { OwnerRelationshipsWorkspace } from "@/components/owner/owner-relationships-workspace";
 import { AppPageShell } from "@/components/ui/app-page-shell";
 import { requireProfile } from "@/lib/auth";
-import { hasUnreadOwnerMessage, loadOwnerWorkspaceData } from "@/lib/owner-workspace";
+import { hasUnreadOwnerMessage, loadOwnerOperationalWorkspaceData, loadOwnerWorkspaceData } from "@/lib/owner-workspace";
 import { readSearchParam } from "@/lib/search-params";
 
 export default async function OwnerRelationshipsPage({
@@ -12,7 +13,17 @@ export default async function OwnerRelationshipsPage({
   const { supabase, user } = await requireProfile("owner");
   const error = readSearchParam(searchParams, "error");
   const message = readSearchParam(searchParams, "message");
+  const selectedBookingId = readSearchParam(searchParams, "rescheduleBooking");
   const { activeRelationships, conversationInfo, latestMessages } = await loadOwnerWorkspaceData(supabase, user.id);
+  const horses = [
+    ...new Map(
+      activeRelationships
+        .flatMap((item) => (item.horse ? [[item.approval.horse_id, item.horse] as const] : []))
+    ).values()
+  ];
+  const operationalWorkspace = await loadOwnerOperationalWorkspaceData(supabase, horses, activeRelationships, {
+    selectedBookingId
+  });
 
   const unreadCount = activeRelationships.reduce((count, item) => {
     const latestMessage = item.conversation ? latestMessages.get(item.conversation.id) ?? null : null;
@@ -39,6 +50,7 @@ export default async function OwnerRelationshipsPage({
 
   return (
     <AppPageShell>
+      <OwnerOperationalWorkspace items={operationalWorkspace} pagePath="/owner/reitbeteiligungen" />
       <OwnerRelationshipsWorkspace
         activeCount={relationshipCards.length}
         error={error}

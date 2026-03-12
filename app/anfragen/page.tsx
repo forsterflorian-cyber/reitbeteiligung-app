@@ -3,10 +3,11 @@ import {
   type RiderActiveRelationshipCard,
   type RiderLifecycleCard
 } from "@/components/rider/rider-relationships-workspace";
+import { RiderOperationalWorkspace } from "@/components/rider/rider-operational-workspace";
 import { AppPageShell } from "@/components/ui/app-page-shell";
 import { requireProfile } from "@/lib/auth";
 import { getRiderRelationshipSection, getRelationshipKey, isCompletedTrialAwaitingDecision } from "@/lib/relationship-state";
-import { loadRiderWorkspaceData } from "@/lib/rider-workspace";
+import { loadRiderOperationalWorkspaceData, loadRiderWorkspaceData } from "@/lib/rider-workspace";
 import { readSearchParam } from "@/lib/search-params";
 
 export default async function AnfragenPage({
@@ -17,7 +18,11 @@ export default async function AnfragenPage({
   const { supabase, user } = await requireProfile("rider");
   const error = readSearchParam(searchParams, "error");
   const message = readSearchParam(searchParams, "message");
+  const selectedBookingId = readSearchParam(searchParams, "rescheduleBooking");
   const { activeRelationships, approvalStatusMap, conversationInfo, conversationMap, requests } = await loadRiderWorkspaceData(supabase, user.id);
+  const operationalWorkspace = await loadRiderOperationalWorkspaceData(supabase, user.id, activeRelationships, {
+    selectedBookingId
+  });
 
   const activeRelationshipCards: RiderActiveRelationshipCard[] = activeRelationships.map((item) => {
     const contact = item.conversation ? conversationInfo.get(item.conversation.id) ?? null : null;
@@ -72,6 +77,7 @@ export default async function AnfragenPage({
 
   return (
     <AppPageShell>
+      <RiderOperationalWorkspace items={operationalWorkspace} pagePath="/anfragen" />
       <RiderRelationshipsWorkspace
         activeRelationships={activeRelationshipCards}
         archiveItems={archiveItems}

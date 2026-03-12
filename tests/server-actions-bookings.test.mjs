@@ -757,6 +757,28 @@ test("Berechtigte Umbuchung ersetzt die aktive Belegung atomar und historisiert 
 test("Unberechtigte, revoked oder konflikthafte Umbuchungen werden sauber blockiert", async () => {
   const baseState = {
     approvals: [{ horse_id: "horse-1", rider_id: "rider-1", status: "approved" }],
+    availability_rules: [
+      {
+        active: true,
+        created_at: "2026-03-19T08:00:00.000Z",
+        end_at: "2026-03-20T11:00:00.000Z",
+        horse_id: "horse-1",
+        id: "rule-1",
+        is_trial_slot: false,
+        slot_id: "slot-1",
+        start_at: "2026-03-20T10:00:00.000Z"
+      },
+      {
+        active: true,
+        created_at: "2026-03-19T08:10:00.000Z",
+        end_at: "2026-03-20T13:00:00.000Z",
+        horse_id: "horse-1",
+        id: "rule-2",
+        is_trial_slot: false,
+        slot_id: "slot-2",
+        start_at: "2026-03-20T12:00:00.000Z"
+      }
+    ],
     booking_requests: [
       {
         availability_rule_id: "rule-1",
@@ -800,6 +822,7 @@ test("Unberechtigte, revoked oder konflikthafte Umbuchungen werden sauber blocki
 
   assert.equal(unauthorizedResult.ok, false);
   assert.equal(unauthorizedResult.message, "Du darfst diesen Termin nicht umbuchen.");
+  assert.equal(unauthorizedResult.reason, "unauthorized");
   assert.equal(unauthorizedSupabase.state.rpcCalls.length, 0);
 
   const revokedSupabase = createSupabaseMock(
@@ -825,8 +848,10 @@ test("Unberechtigte, revoked oder konflikthafte Umbuchungen werden sauber blocki
   });
 
   assert.equal(revokedResult.ok, false);
-  assert.equal(revokedResult.message, "Nur aktive Reitbeteiligungen koennen operative Termine umbuchen.");
+  assert.equal(revokedResult.message, "Deine Freischaltung fuer diese Reitbeteiligung wurde entzogen.");
+  assert.equal(revokedResult.reason, "revoked");
   assert.equal(revokedSupabase.state.tables.bookings[0].id, "booking-1");
+  assert.equal(revokedSupabase.state.rpcCalls.length, 0);
 
   const conflictSupabase = createSupabaseMock(baseState, {
     rpcHandlers: {
@@ -846,13 +871,36 @@ test("Unberechtigte, revoked oder konflikthafte Umbuchungen werden sauber blocki
 
   assert.equal(conflictResult.ok, false);
   assert.equal(conflictResult.message, "Der gewaehlte Slot ist nicht mehr verfuegbar.");
+  assert.equal(conflictResult.reason, "slot_not_free");
   assert.equal(conflictSupabase.state.tables.bookings.length, 1);
   assert.equal(conflictSupabase.state.tables.booking_requests[0].status, "accepted");
 });
 
-test("Umbuchung auf denselben Slot oder kurz vor Terminbeginn wird schon serverseitig vor der RPC blockiert", async () => {
+test("Umbuchung auf ungueltige Zielslots oder kurz vor Terminbeginn wird schon serverseitig vor der RPC blockiert", async () => {
   const baseState = {
     approvals: [{ horse_id: "horse-1", rider_id: "rider-1", status: "approved" }],
+    availability_rules: [
+      {
+        active: true,
+        created_at: "2026-03-19T08:00:00.000Z",
+        end_at: "2026-03-20T11:00:00.000Z",
+        horse_id: "horse-1",
+        id: "rule-1",
+        is_trial_slot: false,
+        slot_id: "slot-1",
+        start_at: "2026-03-20T10:00:00.000Z"
+      },
+      {
+        active: true,
+        created_at: "2026-03-19T08:10:00.000Z",
+        end_at: "2026-03-20T13:00:00.000Z",
+        horse_id: "horse-1",
+        id: "rule-2",
+        is_trial_slot: false,
+        slot_id: "slot-2",
+        start_at: "2026-03-20T12:00:00.000Z"
+      }
+    ],
     booking_requests: [
       {
         availability_rule_id: "rule-1",
@@ -895,8 +943,25 @@ test("Umbuchung auf denselben Slot oder kurz vor Terminbeginn wird schon servers
   });
 
   assert.equal(sameSlotResult.ok, false);
-  assert.equal(sameSlotResult.message, "Bitte waehle einen anderen freien Slot fuer die Umbuchung.");
+  assert.equal(sameSlotResult.message, "Bitte waehle einen anderen gueltigen freien Slot fuer die Umbuchung.");
+  assert.equal(sameSlotResult.reason, "invalid_target_slot");
   assert.equal(sameSlotSupabase.state.rpcCalls.length, 0);
+
+  const invalidTargetSupabase = createSupabaseMock(baseState);
+  const invalidTargetResult = await rescheduleOperationalBookingForRider({
+    bookingId: "booking-1",
+    endAtInput: "2026-03-20T13:15:00.000Z",
+    logSupabaseError: () => {},
+    riderId: "rider-1",
+    ruleId: "rule-2",
+    startAtInput: "2026-03-20T12:15:00.000Z",
+    supabase: invalidTargetSupabase
+  });
+
+  assert.equal(invalidTargetResult.ok, false);
+  assert.equal(invalidTargetResult.message, "Bitte waehle einen anderen gueltigen freien Slot fuer die Umbuchung.");
+  assert.equal(invalidTargetResult.reason, "invalid_target_slot");
+  assert.equal(invalidTargetSupabase.state.rpcCalls.length, 0);
 
   const nearStartSupabase = createSupabaseMock({
     ...baseState,
@@ -927,6 +992,7 @@ test("Umbuchung auf denselben Slot oder kurz vor Terminbeginn wird schon servers
 
   assert.equal(nearStartResult.ok, false);
   assert.equal(nearStartResult.message, "Nur noch nicht begonnene Termine koennen umgebucht werden.");
+  assert.equal(nearStartResult.reason, "booking_started");
   assert.equal(nearStartSupabase.state.rpcCalls.length, 0);
 });
 

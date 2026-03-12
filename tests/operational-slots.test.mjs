@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  excludeOperationalRange,
   getUpcomingOperationalSlots,
   isOperationalRuleBlocked,
   operationalRangesOverlap,
@@ -36,6 +37,7 @@ test("Operative Slots blocken Doppelbelegung und Konflikte sauber", () => {
 test("Nur freie nicht-Trial-Slots werden aktiven Reitbeteiligungen gezeigt", () => {
   const rules = [
     { active: true, end_at: "2026-03-19T09:00:00.000Z", id: "past", is_trial_slot: false, start_at: "2026-03-19T08:00:00.000Z" },
+    { active: true, end_at: "2026-03-20T08:30:00.000Z", id: "already-started", is_trial_slot: false, start_at: "2026-03-20T07:30:00.000Z" },
     { active: true, end_at: "2026-03-20T11:00:00.000Z", id: "free-1", is_trial_slot: false, start_at: "2026-03-20T10:00:00.000Z" },
     { active: true, end_at: "2026-03-20T13:00:00.000Z", id: "blocked", is_trial_slot: false, start_at: "2026-03-20T12:00:00.000Z" },
     { active: true, end_at: "2026-03-20T15:00:00.000Z", id: "trial", is_trial_slot: true, start_at: "2026-03-20T14:00:00.000Z" },
@@ -56,5 +58,25 @@ test("Nur freie nicht-Trial-Slots werden aktiven Reitbeteiligungen gezeigt", () 
   assert.deepEqual(
     trialRules.map((rule) => rule.id),
     ["trial"]
+  );
+});
+
+test("Umbuchung blendet die eigene Altbelegung aus der freien Slot-Pruefung aus", () => {
+  const rules = [
+    { active: true, end_at: "2026-03-20T11:00:00.000Z", id: "current", is_trial_slot: false, start_at: "2026-03-20T10:00:00.000Z" },
+    { active: true, end_at: "2026-03-20T11:30:00.000Z", id: "overlap", is_trial_slot: false, start_at: "2026-03-20T10:30:00.000Z" }
+  ];
+  const occupiedRanges = [{ start_at: "2026-03-20T10:00:00.000Z", end_at: "2026-03-20T11:00:00.000Z" }];
+
+  assert.deepEqual(excludeOperationalRange(occupiedRanges, occupiedRanges[0]), []);
+  assert.deepEqual(
+    getUpcomingOperationalSlots({
+      disallowedRange: occupiedRanges[0],
+      excludedRange: occupiedRanges[0],
+      now: new Date("2026-03-20T08:00:00.000Z"),
+      occupiedRanges,
+      rules
+    }).map((slot) => slot.availabilityRuleId),
+    ["overlap"]
   );
 });

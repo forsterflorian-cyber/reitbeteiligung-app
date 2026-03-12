@@ -8,6 +8,7 @@ import {
   getCancelBookingErrorMessage,
   getDirectBookingErrorMessage,
   getRescheduleBookingErrorMessage,
+  getRescheduleBookingErrorReason,
   isFutureOperationalStartAt,
   isBookingWriteConflictError,
   OPERATIONAL_RECURRENCE_NOT_ENABLED_MESSAGE,
@@ -66,7 +67,19 @@ test("Booking-Guardrails erkennen Schreibkonflikte und atomare RPC-Fehler", () =
   );
   assert.equal(
     getRescheduleBookingErrorMessage({ message: "SAME_SLOT" }),
-    "Bitte waehle einen anderen freien Slot fuer die Umbuchung."
+    "Bitte waehle einen anderen gueltigen freien Slot fuer die Umbuchung."
+  );
+  assert.equal(
+    getRescheduleBookingErrorReason({ message: "NOT_ALLOWED" }),
+    "unauthorized"
+  );
+  assert.equal(
+    getRescheduleBookingErrorReason({ message: "NOT_APPROVED" }),
+    "inactive_relationship"
+  );
+  assert.equal(
+    getRescheduleBookingErrorReason({ message: "RULE_INACTIVE" }),
+    "invalid_target_slot"
   );
 });
 

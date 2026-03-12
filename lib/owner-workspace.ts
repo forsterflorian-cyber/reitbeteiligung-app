@@ -1,14 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { loadConversationSummaryMaps, type ConversationContactInfo } from "@/lib/message-summaries";
+import { canCancelOperationalBooking, canRescheduleOperationalBooking } from "./booking-guards.ts";
+import { loadConversationSummaryMaps, type ConversationContactInfo } from "./message-summaries.ts";
+import { getUpcomingOperationalSlots } from "./operational-slots.ts";
 import {
   buildApprovalStatusMap,
   getRelationshipKey,
   hasVisibleRelationshipConversation,
   isActiveRelationship,
   shouldShowTrialRequestInLifecycle
-} from "@/lib/relationship-state";
-import type { Approval, Conversation, Message, TrialRequest } from "@/types/database";
+} from "./relationship-state.ts";
+import type { Approval, AvailabilityRule, Booking, CalendarBlock, Conversation, Message, Profile, TrialRequest } from "../types/database.ts";
 
 type OwnerWorkspaceHorse = {
   active: boolean;
@@ -42,6 +44,40 @@ export type OwnerWorkspaceData = {
   trialPipelineItems: OwnerRequestItem[];
 };
 
+type OwnerOperationalRuleRecord = Pick<AvailabilityRule, "id" | "horse_id" | "slot_id" | "start_at" | "end_at" | "active" | "is_trial_slot" | "created_at">;
+type OwnerOperationalBookingRecord = Pick<
+  Booking,
+  "id" | "booking_request_id" | "availability_rule_id" | "slot_id" | "horse_id" | "rider_id" | "start_at" | "end_at" | "created_at"
+>;
+type OwnerOperationalBlockRecord = Pick<CalendarBlock, "horse_id" | "start_at" | "end_at">;
+type OwnerOperationalRiderProfileRecord = Pick<Profile, "id" | "display_name">;
+
+export type OwnerOperationalSlotItem = {
+  availabilityRuleId: string;
+  endAt: string;
+  startAt: string;
+};
+
+export type OwnerOperationalBookingItem = {
+  canCancel: boolean;
+  canReschedule: boolean;
+  endAt: string;
+  horseId: string;
+  id: string;
+  riderId: string;
+  riderName: string | null;
+  startAt: string;
+};
+
+export type OwnerOperationalWorkspaceItem = {
+  activeRiderCount: number;
+  horseId: string;
+  horseTitle: string;
+  openSlots: OwnerOperationalSlotItem[];
+  selectedBooking: OwnerOperationalBookingItem | null;
+  upcomingBookings: OwnerOperationalBookingItem[];
+};
+
 export function hasUnreadOwnerMessage(conversation: Conversation | null, latestMessage: Message | null, currentUserId: string) {
   if (!conversation || !latestMessage || latestMessage.sender_id === currentUserId) {
     return false;
@@ -49,6 +85,165 @@ export function hasUnreadOwnerMessage(conversation: Conversation | null, latestM
 
   const lastReadAt = conversation.owner_last_read_at ?? conversation.created_at;
   return Date.parse(latestMessage.created_at) > Date.parse(lastReadAt);
+}
+
+export function buildOwnerOperationalWorkspaceItems(args: {
+  activeRelationships: readonly ActiveRelationshipItem[];
+  blocks: readonly OwnerOperationalBlockRecord[];
+  horses: readonly OwnerWorkspaceHorse[];
+  riderProfiles: readonly OwnerOperationalRiderProfileRecord[];
+  rules: readonly OwnerOperationalRuleRecord[];
+  selectedBookingId?: string | null;
+  slotLimit?: number;
+  upcomingBookings: readonly OwnerOperationalBookingRecord[];
+  now?: Date;
+}) {
+  const now = args.now ?? new Date();
+  const slotLimit = args.slotLimit ?? 4;
+  const activeRelationshipCountByHorseId = new Map<string, number>();
+  const rulesByHorseId = new Map<string, OwnerOperationalRuleRecord[]>();
+  const bookingsByHorseId = new Map<string, OwnerOperationalBookingRecord[]>();
+  const occupancyByHorseId = new Map<string, OwnerOperationalBlockRecord[]>();
+  const riderNameById = new Map(args.riderProfiles.map((profile) => [profile.id, profile.display_name?.trim() || null]));
+
+  for (const item of args.activeRelationships) {
+    activeRelationshipCountByHorseId.set(
+      item.approval.horse_id,
+      (activeRelationshipCountByHorseId.get(item.approval.horse_id) ?? 0) + 1
+    );
+  }
+
+  for (const rule of args.rules) {
+    const rules = rulesByHorseId.get(rule.horse_id) ?? [];
+    rules.push(rule);
+    rulesByHorseId.set(rule.horse_id, rules);
+  }
+
+  for (const booking of args.upcomingBookings) {
+    const bookings = bookingsByHorseId.get(booking.horse_id) ?? [];
+    bookings.push(booking);
+    bookingsByHorseId.set(booking.horse_id, bookings);
+
+    const occupancy = occupancyByHorseId.get(booking.horse_id) ?? [];
+    occupancy.push({
+      end_at: booking.end_at,
+      horse_id: booking.horse_id,
+      start_at: booking.start_at
+    });
+    occupancyByHorseId.set(booking.horse_id, occupancy);
+  }
+
+  for (const block of args.blocks) {
+    const occupancy = occupancyByHorseId.get(block.horse_id) ?? [];
+    occupancy.push(block);
+    occupancyByHorseId.set(block.horse_id, occupancy);
+  }
+
+  return args.horses
+    .map((horse) => {
+      const activeRiderCount = activeRelationshipCountByHorseId.get(horse.id) ?? 0;
+      const upcomingBookings = (bookingsByHorseId.get(horse.id) ?? [])
+        .slice()
+        .sort((left, right) => Date.parse(left.start_at) - Date.parse(right.start_at))
+        .map((booking) => ({
+          canCancel: canCancelOperationalBooking({ startAt: booking.start_at, status: "accepted" }),
+          canReschedule: canRescheduleOperationalBooking({ startAt: booking.start_at, status: "accepted" }),
+          endAt: booking.end_at,
+          horseId: booking.horse_id,
+          id: booking.id,
+          riderId: booking.rider_id,
+          riderName: riderNameById.get(booking.rider_id) ?? null,
+          startAt: booking.start_at
+        }));
+      const selectedBooking = upcomingBookings.find((booking) => booking.id === args.selectedBookingId && booking.canReschedule) ?? null;
+      const openSlots = getUpcomingOperationalSlots({
+        disallowedRange: selectedBooking
+          ? {
+              end_at: selectedBooking.endAt,
+              start_at: selectedBooking.startAt
+            }
+          : null,
+        excludedRange: selectedBooking
+          ? {
+              end_at: selectedBooking.endAt,
+              start_at: selectedBooking.startAt
+            }
+          : null,
+        limit: slotLimit,
+        now,
+        occupiedRanges: (occupancyByHorseId.get(horse.id) ?? []).slice(),
+        rules: rulesByHorseId.get(horse.id) ?? []
+      }).map((slot) => ({
+        availabilityRuleId: slot.availabilityRuleId,
+        endAt: slot.endAt,
+        startAt: slot.startAt
+      }));
+
+      return {
+        activeRiderCount,
+        horseId: horse.id,
+        horseTitle: horse.title,
+        openSlots,
+        selectedBooking,
+        upcomingBookings
+      } satisfies OwnerOperationalWorkspaceItem;
+    })
+    .filter((item) => item.activeRiderCount > 0 || item.upcomingBookings.length > 0 || item.openSlots.length > 0);
+}
+
+export async function loadOwnerOperationalWorkspaceData(
+  supabase: SupabaseClient,
+  horses: readonly OwnerWorkspaceHorse[],
+  activeRelationships: readonly ActiveRelationshipItem[],
+  options?: {
+    now?: Date;
+    selectedBookingId?: string | null;
+    slotLimit?: number;
+  }
+): Promise<OwnerOperationalWorkspaceItem[]> {
+  const horseIds = horses.map((horse) => horse.id);
+
+  if (horseIds.length === 0) {
+    return [];
+  }
+
+  const now = options?.now ?? new Date();
+  const nowIso = now.toISOString();
+  const [rulesResult, bookingsResult, blocksResult] = await Promise.all([
+    supabase
+      .from("availability_rules")
+      .select("id, horse_id, slot_id, start_at, end_at, active, is_trial_slot, created_at")
+      .in("horse_id", horseIds)
+      .eq("active", true)
+      .order("start_at", { ascending: true }),
+    supabase
+      .from("bookings")
+      .select("id, booking_request_id, availability_rule_id, slot_id, horse_id, rider_id, start_at, end_at, created_at")
+      .in("horse_id", horseIds)
+      .gte("end_at", nowIso)
+      .order("start_at", { ascending: true }),
+    supabase
+      .from("calendar_blocks")
+      .select("horse_id, start_at, end_at")
+      .in("horse_id", horseIds)
+  ]);
+  const upcomingBookings = (bookingsResult.data as OwnerOperationalBookingRecord[] | null) ?? [];
+  const riderIds = [...new Set(upcomingBookings.map((booking) => booking.rider_id))];
+  const riderProfilesResult = riderIds.length > 0
+    ? await supabase.from("profiles").select("id, display_name").in("id", riderIds)
+    : { data: [] as OwnerOperationalRiderProfileRecord[] };
+
+  return buildOwnerOperationalWorkspaceItems({
+    activeRelationships,
+    blocks: (blocksResult.data as OwnerOperationalBlockRecord[] | null) ?? [],
+    horses,
+    now,
+    riderProfiles: (riderProfilesResult.data as OwnerOperationalRiderProfileRecord[] | null) ?? [],
+    rules: (rulesResult.data as OwnerOperationalRuleRecord[] | null) ?? [],
+    selectedBookingId: options?.selectedBookingId ?? null,
+    slotLimit: options?.slotLimit,
+    upcomingBookings
+  });
 }
 
 export async function loadOwnerWorkspaceData(supabase: SupabaseClient, ownerId: string): Promise<OwnerWorkspaceData> {

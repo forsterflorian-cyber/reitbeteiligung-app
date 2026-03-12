@@ -40,22 +40,39 @@ export function isOperationalRuleBlocked(rule: OperationalSlotRule, occupiedRang
   return occupiedRanges.some((range) => operationalRangesOverlap(rule.start_at, rule.end_at, range.start_at, range.end_at));
 }
 
+export function excludeOperationalRange<T extends TimeRange>(occupiedRanges: readonly T[], excludedRange: TimeRange | null | undefined) {
+  if (!excludedRange) {
+    return [...occupiedRanges];
+  }
+
+  return occupiedRanges.filter(
+    (range) => !(range.start_at === excludedRange.start_at && range.end_at === excludedRange.end_at)
+  );
+}
+
 export function getUpcomingOperationalSlots({
+  disallowedRange = null,
+  excludedRange = null,
   limit = 12,
   now = new Date(),
   occupiedRanges,
   rules
 }: {
+  disallowedRange?: TimeRange | null;
+  excludedRange?: TimeRange | null;
   limit?: number;
   now?: Date;
   occupiedRanges: TimeRange[];
   rules: OperationalSlotRule[];
 }) {
+  const effectiveOccupiedRanges = excludeOperationalRange(occupiedRanges, excludedRange);
+
   return rules
     .filter((rule) => rule.active && isOperationalAvailabilityRule(rule))
-    .filter((rule) => new Date(rule.end_at).getTime() > now.getTime())
+    .filter((rule) => new Date(rule.start_at).getTime() > now.getTime())
+    .filter((rule) => !disallowedRange || rule.start_at !== disallowedRange.start_at || rule.end_at !== disallowedRange.end_at)
     .sort((left, right) => new Date(left.start_at).getTime() - new Date(right.start_at).getTime())
-    .filter((rule) => !isOperationalRuleBlocked(rule, occupiedRanges))
+    .filter((rule) => !isOperationalRuleBlocked(rule, effectiveOccupiedRanges))
     .slice(0, limit)
     .map(
       (rule) =>

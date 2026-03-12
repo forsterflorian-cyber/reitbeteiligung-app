@@ -4,6 +4,8 @@ import Link from "next/link";
 import { startOwnerTrialAction } from "@/app/actions";
 import { EntityCard } from "@/components/blocks/entity-card";
 import { RequestCard } from "@/components/blocks/request-card";
+import { OwnerOperationalWorkspace } from "@/components/owner/owner-operational-workspace";
+import { RiderOperationalWorkspace } from "@/components/rider/rider-operational-workspace";
 import { StatGrid, type StatItem } from "@/components/blocks/stat-grid";
 import { Notice } from "@/components/notice";
 import { AppPageShell } from "@/components/ui/app-page-shell";
@@ -14,11 +16,11 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { requireProfile } from "@/lib/auth";
-import { hasUnreadOwnerMessage, loadOwnerWorkspaceData } from "@/lib/owner-workspace";
+import { hasUnreadOwnerMessage, loadOwnerOperationalWorkspaceData, loadOwnerWorkspaceData } from "@/lib/owner-workspace";
 import { OWNER_PLAN_LIMITS_ENABLED, PAID_PLAN_CONTACT_EMAIL, canStartOwnerTrial, getOwnerPlan, getOwnerPlanUsageSummary } from "@/lib/plans";
 import { getProfileDisplayName } from "@/lib/profiles";
 import { getRiderRelationshipSection, getRelationshipKey, isCompletedTrialAwaitingDecision } from "@/lib/relationship-state";
-import { hasUnreadRiderMessage, loadRiderWorkspaceData } from "@/lib/rider-workspace";
+import { hasUnreadRiderMessage, loadRiderOperationalWorkspaceData, loadRiderWorkspaceData } from "@/lib/rider-workspace";
 import { R1_CORE_MODE } from "@/lib/release-stage";
 import { readSearchParam } from "@/lib/search-params";
 import type { Booking, RiderProfile } from "@/types/database";
@@ -44,6 +46,7 @@ export default async function DashboardPage({
 }) {
   const { profile, supabase, user } = await requireProfile();
   const message = readSearchParam(searchParams, "message");
+  const selectedBookingId = readSearchParam(searchParams, "rescheduleBooking");
   const displayName = getProfileDisplayName(profile, user.email);
 
   if (profile.role === "owner") {
@@ -54,6 +57,9 @@ export default async function DashboardPage({
     const ownerMessagesHref = "/owner/nachrichten" as Route;
 
     const { activeRelationships, horses, latestMessages, trialPipelineItems } = await loadOwnerWorkspaceData(supabase, user.id);
+    const operationalWorkspace = await loadOwnerOperationalWorkspaceData(supabase, horses, activeRelationships, {
+      selectedBookingId
+    });
     const unreadCount = activeRelationships.reduce((count, item) => {
       const latestMessage = item.conversation ? (latestMessages.get(item.conversation.id) ?? null) : null;
       return hasUnreadOwnerMessage(item.conversation, latestMessage, user.id) ? count + 1 : count;
@@ -131,6 +137,7 @@ export default async function DashboardPage({
         />
         <Notice text={message} tone="success" />
         <StatGrid items={ownerStats} />
+        <OwnerOperationalWorkspace items={operationalWorkspace} pagePath="/dashboard" />
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
           <SectionCard
             action={<Link className={buttonVariants("secondary")} href={ownerManageHref}>Zur Verwaltung</Link>}
@@ -251,6 +258,9 @@ export default async function DashboardPage({
   const upcomingBookings = (upcomingBookingsData as Booking[] | null) ?? [];
   const nextBooking = !R1_CORE_MODE ? upcomingBookings[0] ?? null : null;
   const { activeRelationships, approvalStatusMap, conversations, horseMap, latestMessages, requests } = riderWorkspace;
+  const operationalWorkspace = await loadRiderOperationalWorkspaceData(supabase, user.id, activeRelationships, {
+    selectedBookingId
+  });
   const unreadCount = conversations.reduce((count, conversation) => {
     const latestMessage = latestMessages.get(conversation.id) ?? null;
     return hasUnreadRiderMessage(conversation, latestMessage, user.id) ? count + 1 : count;
@@ -316,6 +326,7 @@ export default async function DashboardPage({
         title="Uebersicht"
       />
       <Notice text={message} tone="success" />
+      <RiderOperationalWorkspace items={operationalWorkspace} pagePath="/dashboard" />
       <SectionCard subtitle="Dein naechster offener Fall oder der schnellste Einstieg in eine laufende Reitbeteiligung." title="Als Naechstes">
         {focusItem ? (
           <RequestCard

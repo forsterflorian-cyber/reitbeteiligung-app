@@ -1,8 +1,11 @@
 import {
+  type BookingFailureReason,
   getAcceptBookingErrorMessage,
   getCancelBookingErrorMessage,
   getBookingConflictMessage,
   getDirectBookingErrorMessage,
+  getRescheduleBookingErrorMessageForReason,
+  getRescheduleBookingErrorReason,
   getRescheduleBookingErrorMessage,
   OPERATIONAL_RECURRENCE_NOT_ENABLED_MESSAGE,
   shouldDirectBookOperationalSlot,
@@ -12,7 +15,7 @@ import {
 } from "../booking-guards.ts";
 import { asOptionalString, asString } from "../forms.ts";
 import { getApprovalStatus } from "../approvals.ts";
-import { isActiveRelationship } from "../relationship-state.ts";
+import { isActiveRelationship, isRevokedRelationship } from "../relationship-state.ts";
 import { BOOKING_REQUEST_STATUS } from "../statuses.ts";
 import type { createClient } from "../supabase/server.ts";
 import type { AvailabilityRule, Booking, BookingRequest, CalendarBlock } from "../../types/database";
@@ -59,6 +62,7 @@ type BookingMutationResult =
   | {
       message: string;
       ok: false;
+      reason: BookingFailureReason;
       redirectPath: string;
     }
   | {
@@ -68,10 +72,15 @@ type BookingMutationResult =
       redirectPath: string;
     };
 
-function errorResult(redirectPath: string, message: string): BookingMutationResult {
+function errorResult(
+  redirectPath: string,
+  message: string,
+  reason: BookingFailureReason = "unknown"
+): BookingMutationResult {
   return {
     message,
     ok: false,
+    reason,
     redirectPath
   };
 }
@@ -336,6 +345,20 @@ function isSameBookingWindow(leftStartAt: string, leftEndAt: string, rightStartA
   return leftStartAt === rightStartAt && leftEndAt === rightEndAt;
 }
 
+function getRelationshipFailureReason(
+  approvalStatus: Awaited<ReturnType<typeof getApprovalStatus>>
+): BookingFailureReason | null {
+  if (isActiveRelationship(approvalStatus)) {
+    return null;
+  }
+
+  if (isRevokedRelationship(approvalStatus)) {
+    return "revoked";
+  }
+
+  return "inactive_relationship";
+}
+
 async function getOperationalBooking(supabase: SupabaseClient, bookingId: string) {
   const { data } = await supabase
     .from("bookings")
@@ -374,16 +397,20 @@ async function getManagedBookingRequest(supabase: SupabaseClient, requestId: str
 
 async function loadBookingPlanningData(
   supabase: SupabaseClient,
-  horseId: string
+  horseId: string,
+  excludedBookingId?: string
 ) {
   const [{ data: existingBookingsData }, { data: blocksData }] = await Promise.all([
     supabase.from("bookings").select("id, start_at, end_at").eq("horse_id", horseId),
     supabase.from("calendar_blocks").select("start_at, end_at").eq("horse_id", horseId)
   ]);
+  const existingBookings = ((existingBookingsData as BookingPlanningRecord[] | null) ?? []).filter(
+    (booking) => booking.id !== excludedBookingId
+  );
 
   return {
     existingBlocks: (blocksData as TimeRangeRecord[] | null) ?? [],
-    existingBookings: (existingBookingsData as BookingPlanningRecord[] | null) ?? []
+    existingBookings
   };
 }
 
@@ -703,31 +730,116 @@ async function rescheduleOperationalBooking(input: {
   const endAt = new Date(input.endAtInput);
 
   if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || endAt <= startAt) {
-    return errorResult(rescheduleRedirectPath, "Die Umbuchung enthaelt einen ungueltigen Zeitraum.");
+    return errorResult(
+      rescheduleRedirectPath,
+      getRescheduleBookingErrorMessageForReason("invalid_target_slot"),
+      "invalid_target_slot"
+    );
   }
 
   if (!isFutureOperationalStartAt({ startAt: input.startAtInput })) {
-    return errorResult(rescheduleRedirectPath, "Der neue Termin muss in der Zukunft liegen.");
+    return errorResult(
+      rescheduleRedirectPath,
+      getRescheduleBookingErrorMessageForReason("booking_past"),
+      "booking_past"
+    );
   }
 
   if (input.role === "rider") {
     if (booking.rider_id !== input.actorId) {
-      return errorResult(rescheduleRedirectPath, "Du darfst diesen Termin nicht umbuchen.");
+      return errorResult(
+        rescheduleRedirectPath,
+        getRescheduleBookingErrorMessageForReason("unauthorized"),
+        "unauthorized"
+      );
     }
   } else {
     const horse = await getOwnedHorse(input.supabase, booking.horse_id, input.actorId);
 
     if (!horse) {
-      return errorResult(rescheduleRedirectPath, "Du darfst diesen Termin nicht umbuchen.");
+      return errorResult(
+        rescheduleRedirectPath,
+        getRescheduleBookingErrorMessageForReason("unauthorized"),
+        "unauthorized"
+      );
     }
   }
 
+  const approvalStatus = await getApprovalStatus(booking.horse_id, booking.rider_id, input.supabase);
+  const relationshipFailureReason = getRelationshipFailureReason(approvalStatus);
+
+  if (relationshipFailureReason) {
+    return errorResult(
+      rescheduleRedirectPath,
+      getRescheduleBookingErrorMessageForReason(relationshipFailureReason),
+      relationshipFailureReason
+    );
+  }
+
   if (!canRescheduleOperationalBooking({ startAt: booking.start_at, status: BOOKING_REQUEST_STATUS.accepted })) {
-    return errorResult(rescheduleRedirectPath, "Nur noch nicht begonnene Termine koennen umgebucht werden.");
+    return errorResult(
+      rescheduleRedirectPath,
+      getRescheduleBookingErrorMessageForReason("booking_started"),
+      "booking_started"
+    );
   }
 
   if (isSameBookingWindow(booking.start_at, booking.end_at, startAt.toISOString(), endAt.toISOString())) {
-    return errorResult(rescheduleRedirectPath, "Bitte waehle einen anderen freien Slot fuer die Umbuchung.");
+    return errorResult(
+      rescheduleRedirectPath,
+      getRescheduleBookingErrorMessageForReason("invalid_target_slot"),
+      "invalid_target_slot"
+    );
+  }
+
+  const rule = await loadOperationalAvailabilityRule(input.supabase, booking.horse_id, input.ruleId);
+
+  if (!rule || !rule.active || rule.is_trial_slot) {
+    return errorResult(
+      rescheduleRedirectPath,
+      getRescheduleBookingErrorMessageForReason("invalid_target_slot"),
+      "invalid_target_slot"
+    );
+  }
+
+  const ruleStart = new Date(rule.start_at);
+  const ruleEnd = new Date(rule.end_at);
+
+  if (
+    Number.isNaN(ruleStart.getTime()) ||
+    Number.isNaN(ruleEnd.getTime()) ||
+    startAt.getTime() < ruleStart.getTime() ||
+    endAt.getTime() > ruleEnd.getTime()
+  ) {
+    return errorResult(
+      rescheduleRedirectPath,
+      getRescheduleBookingErrorMessageForReason("invalid_target_slot"),
+      "invalid_target_slot"
+    );
+  }
+
+  const bookingWindow: BookingWindow[] = [
+    {
+      endAt: endAt.toISOString(),
+      startAt: startAt.toISOString()
+    }
+  ];
+  const { existingBlocks, existingBookings } = await loadBookingPlanningData(input.supabase, booking.horse_id, booking.id);
+
+  if (hasWindowConflict(bookingWindow, existingBookings)) {
+    return errorResult(
+      rescheduleRedirectPath,
+      getRescheduleBookingErrorMessageForReason("slot_not_free"),
+      "slot_not_free"
+    );
+  }
+
+  if (hasWindowConflict(bookingWindow, existingBlocks)) {
+    return errorResult(
+      rescheduleRedirectPath,
+      getRescheduleBookingErrorMessageForReason("conflict"),
+      "conflict"
+    );
   }
 
   const { error } = await input.supabase.rpc("reschedule_operational_booking", {
@@ -739,7 +851,8 @@ async function rescheduleOperationalBooking(input: {
 
   if (error) {
     input.logSupabaseError("Reschedule operational booking failed", error);
-    return errorResult(rescheduleRedirectPath, getRescheduleBookingErrorMessage(error));
+    const reason = getRescheduleBookingErrorReason(error);
+    return errorResult(rescheduleRedirectPath, getRescheduleBookingErrorMessage(error), reason);
   }
 
   return successResult(redirectPath, "Der Termin wurde umgebucht.", getDirectBookingPaths(booking.horse_id));

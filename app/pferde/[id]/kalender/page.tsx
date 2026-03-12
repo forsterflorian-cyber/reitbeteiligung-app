@@ -580,10 +580,6 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         })
       : Promise.resolve({ data: null as RiderWeeklyBookingQuota | RiderWeeklyBookingQuota[] | null })
   ]);
-  const openOperationalSlots = getUpcomingOperationalSlots({
-    occupiedRanges: occupancy,
-    rules: operationalRules
-  });
   const activeRelationshipCount = activeRelationshipCountResult.count ?? 0;
   const ownerUpcomingBookings = (ownerUpcomingBookingsResult.data as Booking[] | null) ?? [];
   const riderUpcomingBookings = (riderUpcomingBookingsResult.data as Booking[] | null) ?? [];
@@ -641,6 +637,24 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
             canRescheduleOperationalBooking({ startAt: booking.start_at, status: "accepted" })
         ) ?? null
       : null;
+  const openOperationalSlots = getUpcomingOperationalSlots({
+    disallowedRange:
+      ownerRescheduleBooking || riderRescheduleBooking
+        ? {
+            end_at: (ownerRescheduleBooking ?? riderRescheduleBooking)?.end_at as string,
+            start_at: (ownerRescheduleBooking ?? riderRescheduleBooking)?.start_at as string
+          }
+        : null,
+    excludedRange:
+      ownerRescheduleBooking || riderRescheduleBooking
+        ? {
+            end_at: (ownerRescheduleBooking ?? riderRescheduleBooking)?.end_at as string,
+            start_at: (ownerRescheduleBooking ?? riderRescheduleBooking)?.start_at as string
+          }
+        : null,
+    occupiedRanges: occupancy,
+    rules: operationalRules
+  });
 
   if (ownerTrialOnlyMode) {
     return (
