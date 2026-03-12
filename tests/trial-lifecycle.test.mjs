@@ -36,6 +36,7 @@ test("trial lifecycle helper deckt die Owner- und Rider-Schritte sauber ab", () 
 
 test("isActiveRelationship erkennt nur freigeschaltete Beziehungen", () => {
   assert.equal(isActiveRelationship("approved"), true);
+  assert.equal(isActiveRelationship("rejected"), false);
   assert.equal(isActiveRelationship("revoked"), false);
   assert.equal(isActiveRelationship(null), false);
 });
@@ -48,6 +49,14 @@ test("Rider-Statuscopy bleibt fuer alle Trial-Enden eindeutig, inklusive withdra
   assert.equal(
     getRiderTrialRequestStatusMessage("completed"),
     "Der Probetermin wurde als durchgefuehrt markiert. Warte jetzt auf die Freischaltung."
+  );
+  assert.equal(
+    getRiderTrialRequestStatusMessage("completed", "rejected"),
+    "Der Probetermin wurde durchgefuehrt. Fuer dieses Pferd wurdest du danach nicht aufgenommen."
+  );
+  assert.equal(
+    getRiderTrialRequestStatusMessage("completed", "revoked"),
+    "Die Freischaltung fuer dieses Pferd wurde spaeter wieder entzogen."
   );
   assert.equal(
     getRiderTrialRequestStatusMessage("withdrawn"),

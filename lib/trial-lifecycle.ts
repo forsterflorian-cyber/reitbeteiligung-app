@@ -39,13 +39,24 @@ export function isActiveRelationship(approvalStatus: Approval["status"] | null |
   return isActiveRelationshipStatus(approvalStatus);
 }
 
-export function getRiderTrialRequestStatusMessage(status: TrialRequest["status"]) {
+export function getRiderTrialRequestStatusMessage(
+  status: TrialRequest["status"],
+  approvalStatus?: Approval["status"] | null | undefined
+) {
   switch (status) {
     case "requested":
       return "Deine Anfrage ist eingegangen. Der Pferdehalter entscheidet als Naechstes.";
     case "accepted":
       return "Der Probetermin wurde angenommen. Vereinbart jetzt die Durchfuehrung.";
     case "completed":
+      if (approvalStatus === "rejected") {
+        return "Der Probetermin wurde durchgefuehrt. Fuer dieses Pferd wurdest du danach nicht aufgenommen.";
+      }
+
+      if (approvalStatus === "revoked") {
+        return "Die Freischaltung fuer dieses Pferd wurde spaeter wieder entzogen.";
+      }
+
       return "Der Probetermin wurde als durchgefuehrt markiert. Warte jetzt auf die Freischaltung.";
     case "declined":
       return "Die letzte Anfrage wurde abgelehnt. Du kannst bei Bedarf erneut anfragen.";

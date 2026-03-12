@@ -1,6 +1,6 @@
 import { canApproveRider, getOwnerPlan, getOwnerPlanUsage } from "../plans.ts";
 import { isActiveRelationship } from "../relationship-state.ts";
-import { APPROVAL_STATUS, BOOKING_REQUEST_STATUS } from "../statuses.ts";
+import { APPROVAL_STATUS, BOOKING_REQUEST_STATUS, type OwnerTrialDecisionStatus } from "../statuses.ts";
 import type { createClient } from "../supabase/server.ts";
 import type { Approval, Booking, BookingRequest, Profile, TrialRequest } from "../../types/database";
 import { getOwnedHorse } from "./horse.ts";
@@ -49,17 +49,24 @@ function successResult(redirectPath: string, message: string, paths: readonly st
 
 export function getApprovalTransitionError(requestStatus: "requested" | "accepted" | "declined" | "completed" | "withdrawn") {
   if (requestStatus !== "completed") {
-    return "Nur durchgefuehrte Probetermine koennen freigeschaltet werden.";
+    return "Nur durchgefuehrte Probetermine koennen entschieden werden.";
   }
 
   return null;
 }
 
-export function getApprovalSavedMessage(nextStatus: "approved" | "revoked") {
-  return nextStatus === "approved" ? "Die Reitbeteiligung wurde freigeschaltet." : "Die Freischaltung wurde entzogen.";
+export function getApprovalSavedMessage(nextStatus: Approval["status"]) {
+  switch (nextStatus) {
+    case "approved":
+      return "Die Reitbeteiligung wurde freigeschaltet.";
+    case "rejected":
+      return "Die Reitbeteiligung wurde nicht aufgenommen.";
+    case "revoked":
+      return "Die Freischaltung wurde entzogen.";
+  }
 }
 
-export function getDeleteRelationshipError(approvalStatus: "approved" | "revoked" | null | undefined) {
+export function getDeleteRelationshipError(approvalStatus: Approval["status"] | null | undefined) {
   if (isActiveRelationship(approvalStatus)) {
     return null;
   }
@@ -200,9 +207,8 @@ export async function cleanupRelationshipOperationalData(input: {
 }
 
 export async function updateRelationshipApprovalForOwner(input: {
-  approvalContext: string;
   logSupabaseError: LogSupabaseError;
-  nextStatus: Approval["status"];
+  nextStatus: OwnerTrialDecisionStatus;
   ownerId: string;
   ownerProfile: Profile;
   redirectPath: string;
@@ -259,24 +265,11 @@ export async function updateRelationshipApprovalForOwner(input: {
     return errorResult(input.redirectPath, "Die Freischaltung konnte nicht gespeichert werden.");
   }
 
-  if (input.nextStatus === APPROVAL_STATUS.revoked && input.approvalContext === "relationship") {
-    const cleanupError = await cleanupRelationshipOperationalData({
-      horseId: request.horse_id,
-      logSupabaseError: input.logSupabaseError,
-      riderId: request.rider_id,
-      supabase: input.supabase
-    });
-
-    if (cleanupError) {
-      return errorResult(input.redirectPath, cleanupError);
-    }
-  }
-
-  const successMessage = input.nextStatus === APPROVAL_STATUS.revoked && input.approvalContext === "trial"
-    ? "Die Reitbeteiligung wurde nicht aufgenommen."
-    : getApprovalSavedMessage(input.nextStatus);
-
-  return successResult(input.redirectPath, successMessage, getRelationshipRevalidationPaths(request.horse_id, request.rider_id));
+  return successResult(
+    input.redirectPath,
+    getApprovalSavedMessage(input.nextStatus),
+    getRelationshipRevalidationPaths(request.horse_id, request.rider_id)
+  );
 }
 
 export async function removeRelationshipForOwner(input: {

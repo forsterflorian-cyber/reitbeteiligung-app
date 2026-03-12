@@ -1,7 +1,7 @@
 export type UserRole = "owner" | "rider";
 
 export type TrialRequestStatus = "requested" | "accepted" | "declined" | "completed" | "withdrawn";
-export type ApprovalStatus = "approved" | "revoked";
+export type ApprovalStatus = "approved" | "rejected" | "revoked";
 export type BookingRequestStatus = "requested" | "accepted" | "declined" | "canceled" | "rescheduled";
 
 export type Profile = {

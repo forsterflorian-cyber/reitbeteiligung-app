@@ -1,188 +1,143 @@
 # Kernworkflows
 
-Stand: 2026-03-04
+Stand: 2026-03-12
 
-Diese Datei beschreibt den aktuell gewuenschten fachlichen Kern von `reitbeteiligung.app`.
-Sie ist die Referenz fuer Produktentscheidungen, UI-Prioritaeten und den Testplan.
+Diese Datei ist der verbindliche fachliche Contract fuer den aktuellen Produktstand von `reitbeteiligung.app`.
+Bei Konflikten gilt diese Datei vor `README.md`, `PROJEKTSTATUS.md` und `docs/status-modelle.md`.
 
-## Release-Fokus R1
+## Aktueller Release-Stand
 
-Fuer das erste echte Release muss zuerst dieser Kernblock stabil sein:
+Aktuell live und release-relevant sind:
 
-1. Registrieren
-2. Rollen waehlen
-3. Pferd anlegen
-4. Pferde suchen, die Probetermine haben
-5. Probe anfragen
-6. Probe annehmen oder ablehnen
-7. Termine fuer Proben einstellen
-8. Chat in der Plattform
-9. Als Reitbeteiligung fuer ein Pferd aufnehmen
-10. Gruppenchat fuer das Pferd
-11. Reitbeteiligung wieder entfernen
+1. Registrierung, Login und Rollenstart
+2. Pferd anlegen und als aktives Profil sichtbar machen
+3. Probetermin-Slots pflegen
+4. Pferde mit konkreten Probeterminen finden
+5. Probetermin anfragen
+6. Probeanfrage annehmen oder ablehnen
+7. Probetermin als durchgefuehrt markieren
+8. 1:1-Chat waehrend der Probephase
+9. Reiter nach durchgefuehrter Probe aufnehmen oder nicht aufnehmen
+10. Aktive Reitbeteiligung spaeter wieder entfernen
+11. Pferde-Gruppenchat fuer aktive Reitbeteiligungen
+12. Aktive-Reitbeteiligung-Kalender V1 fuer Owner und freigeschaltete Rider
+13. Rider-/Owner-Workspaces fuer aktives Tagesgeschaeft
+14. Trennung zwischen aktiven Faellen, Klaerung, Nachrichten und Archiv
 
-Wichtig:
-Das eigentliche laufende Pferde-Management nach der Aufnahme kommt erst danach.
+## Bewusst nicht Teil des aktuellen Stands
 
-## Phase 2 nach R1
+Nicht Teil des aktuellen Contracts sind:
 
-Erst wenn R1 stabil steht, ziehen wir das eigentliche Tagesgeschaeft nach:
+- Wochen- oder Monatsansichten als eigener Produktmodus
+- wiederholende operative Buchungen
+- sonstiges erweitertes Horse-Management ausserhalb des aktuellen Kalender-V1
 
-- offene Zeitfenster fuer aktive Reitbeteiligungen
-- Wochenkontingente
-- direkte operative Buchungen
-- Buchungsanfragen oberhalb des Kontingents
-- das volle Kalender-Management fuer den Alltag
+Hinweis:
 
-## Rollen und Hauptsichten
+- Technische Guardrails wie Wochenlimits koennen im Kalender V1 bereits greifen.
+- Sie aendern nichts daran, dass der aktuelle Produktvertrag bei operativen Einzelterminen bleibt.
 
-### Pferdehalter
+## Statusvertrag
 
-Die fachlich wichtigen Hauptsichten in R1 sind:
+### Trial Requests
 
-1. `Pferde verwalten`
-2. `Probetermine`
-3. `Reitbeteiligungen`
-4. `Nachrichten`
-5. `Profil`
+`trial_requests.status`
 
-Regeln:
+- `requested`: Anfrage gestellt, noch offen
+- `accepted`: Probetermin bestaetigt oder geplant
+- `completed`: Probetermin durchgefuehrt, fachliche Entscheidung steht noch aus
+- `declined`: Anfrage oder Probe vor einer Aufnahmeentscheidung abgelehnt
+- `withdrawn`: Rider hat den Fall zurueckgezogen
 
-- `Pferde verwalten` ist die Hauptsicht fuer Bestand und Uebersicht.
-- `Neues Pferd anlegen` ist ein Unterweg innerhalb von `Pferde verwalten`.
-- `Probetermine` enthaelt nur die Probephase.
-- `Reitbeteiligungen` enthaelt in R1 vor allem Aufnahme, bestehende Beziehungen, Gruppenchat und Entfernen.
-- Tarifinfos sind sichtbar, duerfen aber den Arbeitsfluss nicht dominieren.
+### Relationships / Approvals
 
-### Reiter
+`approvals.status`
 
-Die fachlich wichtigen Hauptsichten in R1 sind:
-
-1. `Pferde finden`
-2. `Proben & Planung`
-3. `Profil`
-
-Regeln:
-
-- Vor der Aufnahme steht der Probetermin im Fokus.
-- Nach der Aufnahme steht zuerst die Beziehung zum Pferd im Fokus, nicht das volle operative Management.
-- Der Gruppenchat fuer das Pferd muss leicht erreichbar sein.
-
-## Workflow 1: Registrieren und Rollenstart
-
-1. Nutzer registriert sich mit E-Mail und Passwort ueber Supabase Auth.
-2. Wenn noch kein Profil existiert, folgt Onboarding.
-3. Im Onboarding wird die Rolle gewaehlt: `owner` oder `rider`.
-4. Danach wird auf den passenden geschuetzten Bereich geleitet.
-
-## Workflow 2: Pferd anlegen und sichtbar machen
-
-1. Pferdehalter legt ein neues Pferdeprofil an.
-2. Mindestdaten heute: Titel, PLZ, Beschreibung, Aktiv-Status.
-3. Das Pferd ist als aktives Pferdeprofil fuer Reiter auffindbar.
+- `approved`: aktive Reitbeteiligung
+- `rejected`: nach durchgefuehrter Probe nicht aufgenommen, nie aktive Beziehung geworden
+- `revoked`: vorher aktive Reitbeteiligung spaeter entzogen
 
 Wichtige Regel:
 
-- Ein Pferd mit aktiven Reitbeteiligungen darf nicht geloescht werden.
+- `rejected` und `revoked` beschreiben zwei verschiedene fachliche Wahrheiten.
+- `revoked` darf nur fuer ehemals aktive Beziehungen verwendet werden.
+- `rejected` ist der Endstatus fuer "nach Probe nicht aufgenommen".
 
-## Workflow 3: Probetermine einstellen
+### Booking Requests
 
-1. Pferdehalter pflegt explizite Probetermin-Slots.
-2. Diese Slots sind klar von spaeteren operativen Buchungsfenstern getrennt.
-3. Nur diese Slots zaehlen in R1 fuer die Probetrainings-Suche.
+`booking_requests.status`
 
-## Workflow 4: Pferde mit Probeterminen finden
+- `requested`: operative Anfrage offen
+- `accepted`: operative Einzelbuchung aktiv
+- `declined`: operative Anfrage abgelehnt
+- `canceled`: aktive operative Buchung storniert oder bei Relationship-Cleanup beendet
+- `rescheduled`: Alttermin einer erfolgreichen Umbuchung
 
-1. Reiter sucht nach aktiven Pferdeprofilen.
-2. Reiter soll zuerst Pferde finden koennen, die konkrete Probetermine haben.
-3. Reiter oeffnet das Pferdeprofil und sieht die verfuegbaren Probetermin-Slots.
+## Sichtbarkeit und Rechte
 
-## Workflow 5: Probe anfragen
+### Probephase
 
-1. Reiter waehlt einen konkreten Probetermin-Slot.
-2. In R1 kann nur ein konkret gepflegter Probetermin angefragt werden.
-3. Optional kann der Reiter eine Nachricht mitsenden.
-4. Beim Anlegen der Probeanfrage wird eine Konversation vorbereitet bzw. genutzt.
+- Solange keine Relationship-Entscheidung vorliegt, bleibt der Fall in Klaerung.
+- Der 1:1-Chat bleibt in der Probephase sichtbar fuer `requested`, `accepted` und `completed`.
 
-Ergebnis:
-Eine `trial_request` liegt beim Pferdehalter zur Entscheidung vor.
+### Aktive Beziehung
 
-## Workflow 6: Probe annehmen oder ablehnen
+- Nur `approved` zaehlt als aktive Reitbeteiligung.
+- Nur `approved` eroeffnet Gruppenchat und operativen Kalender fuer Rider.
+- Owner behalten Kalenderzugriff immer fuer eigene Pferde.
 
-Statusfluss der Probetermine:
+### Endzustaende
 
-- `requested` -> neu eingegangen
-- `accepted` -> Probe angenommen
-- `declined` -> Probe abgelehnt
-- `completed` -> Probe hat stattgefunden
+- `rejected` beendet den Fall ohne aktive Folge.
+- `revoked` beendet eine vorher aktive Beziehung.
+- Sowohl `rejected` als auch `revoked` schliessen den 1:1-Chat als aktiven Arbeitskontext.
 
-Ablauf:
+## Kalender V1
 
-1. Pferdehalter sieht neue Probeanfragen in `Probetermine`.
-2. Pferdehalter kann annehmen oder ablehnen.
-3. Wenn angenommen, kann der Termin spaeter als durchgefuehrt markiert werden.
+Der aktuelle Kalendervertrag fuer aktive Reitbeteiligungen ist:
 
-## Workflow 7: Chat in der Plattform
+- Owner pflegen operative Zeitfenster und Probetermin-Slots getrennt im selben Kalenderkontext.
+- Rider mit `approved` koennen offene operative Einzeltermine direkt uebernehmen.
+- Rider koennen innerhalb offener Fenster auch einen eigenen operativen Zeitraum anfragen.
+- Owner koennen offene operative Anfragen annehmen oder ablehnen.
+- Aktive operative Einzeltermine koennen storniert oder umgebucht werden.
+- Vergangene operative Historie bleibt als Historie bestehen.
 
-1. Vor der Aufnahme laeuft Kommunikation intern ueber den Chat.
-2. Beide Seiten koennen Nachrichten schreiben.
-3. Ungelesene Nachrichten sind sichtbar.
-4. Der Chat ist Teil des Kernflows und kein Nebenfeature.
+Nicht Bestandteil dieses Vertrags:
 
-## Workflow 8: Als Reitbeteiligung aufnehmen
+- wiederholende operative Termine
+- alternative Wochen-/Monatsmodule ausserhalb des aktuellen Kalenders
 
-Nach `completed` entscheidet der Pferdehalter, ob der Reiter aufgenommen wird.
+## Historisierung
 
-Statusfluss der Aufnahme:
+Historie bleibt erhalten ueber Status und Deaktivierung, nicht ueber physisches Loeschen:
 
-- `approved` -> Reiter ist aktive Reitbeteiligung
-- `declined` -> Probetraining war nicht passend, der Fall ist abgeschlossen
-- `revoked` -> eine bestehende Freischaltung wurde spaeter entzogen
+- Trial-Historie bleibt in `trial_requests`
+- Relationship-Enden bleiben in `approvals`
+- operative Historie bleibt in `booking_requests` und `bookings`
+- Verfuegbarkeitsfenster werden fachlich beendet, nicht als Historienpfad physisch geloescht
+- Bei `revoked` werden nur zukuenftige oder laufende operative Zuordnungen bereinigt; vergangene Historie bleibt bestehen
 
-Ablauf:
+## Workspace-Zuordnung
 
-1. Pferdehalter entscheidet nach dem durchgefuehrten Probetermin.
-2. Bei positiver Entscheidung wird ein Eintrag in `approvals` mit `approved` angelegt oder aktualisiert.
-3. Der Reiter erscheint ab dann als aktive Reitbeteiligung auf beiden Seiten.
+### Rider
 
-## Workflow 9: Gruppenchat fuer das Pferd
+- `Aktiv`: nur `approved`
+- `In Klaerung`: Trial-Faelle ohne Relationship-Entscheidung
+- `Archiv`: `withdrawn`, Trial-`declined`, `completed + rejected`, `revoked`
 
-1. Nach der Aufnahme gibt es einen klaren Chat-Kontext fuer das Pferd.
-2. Die aktive Reitbeteiligung und der Pferdehalter koennen dort direkt fuer dieses Pferd schreiben.
-3. Dieser Chat muss leicht erreichbar sein.
-4. Er bleibt auch dann der zentrale Kommunikationsort, wenn das volle operative Management spaeter dazukommt.
+### Owner
 
-## Workflow 10: Reitbeteiligung entfernen
+- `Probetermine`: nur Probephase bis zur fachlichen Entscheidung
+- `Reitbeteiligungen`: aktive Beziehungen und spaeteres Entfernen
+- `Nachrichten`: separater Kommunikationskontext
+- `Dashboard`: Uebersicht ueber Probe, aktive Beziehungen, Nachrichten und operatives Tagesgeschaeft
 
-1. Pferdehalter entzieht entweder die Freischaltung oder entfernt die aktive Reitbeteiligung.
-2. Die Beziehung verschwindet aus den aktiven Reitbeteiligungen.
-3. Gruppenchat- und Sichtbarkeitslogik muessen danach wieder in einen sauberen Zustand gehen.
-4. Das Pferd zaehlt danach wieder nicht mehr als aktive Reitbeteiligung im Tariflimit.
+## Entwicklerhinweis
 
-Wichtig:
-Das Entfernen muss genauso sauber funktionieren wie das Aufnehmen.
+Die fachliche Einsortierung soll aus zentralen Helpern kommen:
 
-## Workflow 11: Pferd managen (nach R1)
-
-Dieser Block gehoert ausdruecklich nicht mehr zum ersten Release.
-
-Erst nach R1:
-
-- offene operative Zeitfenster
-- Wochenkontingente
-- direkte Buchungen
-- Buchungsanfragen oberhalb des Kontingents
-- voll ausgebauter Alltagskalender
-
-## Aktuell release-kritisch
-
-Das sind die Punkte, die fuer den ersten echten Release zuerst rund sein muessen:
-
-1. Registrierung und Rollenstart
-2. Pferd anlegen und sichtbar machen
-3. Probetermine einstellen und finden
-4. Probetermin anfragen und entscheiden
-5. Plattform-Chat vor der Aufnahme
-6. Aufnahme als Reitbeteiligung
-7. Gruppenchat fuer das Pferd
-8. Reitbeteiligung sauber entfernen
+- `lib/relationship-state.ts`
+- `lib/trial-lifecycle.ts`
+- `lib/status-display.ts`
+- `lib/booking-guards.ts`

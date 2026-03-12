@@ -49,18 +49,23 @@ test("Aufnehmen als Reitbeteiligung haengt direkt am durchgefuehrten Probetermin
   assert.equal(getApprovalTransitionError("completed"), null);
   assert.equal(
     getApprovalTransitionError("accepted"),
-    "Nur durchgefuehrte Probetermine koennen freigeschaltet werden."
+    "Nur durchgefuehrte Probetermine koennen entschieden werden."
   );
   assert.equal(
     getApprovalTransitionError("withdrawn"),
-    "Nur durchgefuehrte Probetermine koennen freigeschaltet werden."
+    "Nur durchgefuehrte Probetermine koennen entschieden werden."
   );
   assert.equal(getApprovalSavedMessage("approved"), "Die Reitbeteiligung wurde freigeschaltet.");
+  assert.equal(getApprovalSavedMessage("rejected"), "Die Reitbeteiligung wurde nicht aufgenommen.");
   assert.equal(getApprovalSavedMessage("revoked"), "Die Freischaltung wurde entzogen.");
 });
 
 test("Entfernen einer Reitbeteiligung prueft den aktiven Datensatz direkt", () => {
   assert.equal(getDeleteRelationshipError("approved"), null);
+  assert.equal(
+    getDeleteRelationshipError("rejected"),
+    "Fuer diese Reitbeteiligung gibt es nichts mehr zu loeschen."
+  );
   assert.equal(
     getDeleteRelationshipError("revoked"),
     "Fuer diese Reitbeteiligung gibt es nichts mehr zu loeschen."

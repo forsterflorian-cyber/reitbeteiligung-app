@@ -17,7 +17,7 @@ import {
   APPROVAL_STATUS,
   TRIAL_REQUEST_STATUS,
   isTrialRequestLifecycleStatus,
-  isApprovalStatus,
+  isOwnerTrialDecisionStatus,
   isMutableTrialRequestStatus
 } from "@/lib/statuses";
 import { createClient } from "@/lib/supabase/server";
@@ -412,14 +412,12 @@ export async function updateApprovalAction(formData: FormData) {
   const redirectPath = getOwnerRedirectPath(formData, "/owner/anfragen");
   const requestId = asString(formData.get("requestId"));
   const nextStatus = asString(formData.get("status"));
-  const approvalContext = asString(formData.get("approvalContext"));
 
-  if (!requestId || !isApprovalStatus(nextStatus)) {
+  if (!requestId || !isOwnerTrialDecisionStatus(nextStatus)) {
     redirectWithMessage(redirectPath, "error", "Die Freischaltung ist ungueltig.");
   }
 
   const result = await updateRelationshipApprovalForOwner({
-    approvalContext,
     logSupabaseError,
     nextStatus,
     ownerId: user.id,

@@ -2,9 +2,47 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { canAccessOperationalCalendar, getRiderRelationshipSection, hasVisibleRelationshipConversation } from "../lib/relationship-state.ts";
+import { updateRelationshipApprovalForOwner, removeRelationshipForOwner } from "../lib/server-actions/relationships.ts";
 import { cancelTrialRequestForRider } from "../lib/server-actions/trial-actions.ts";
-import { removeRelationshipForOwner } from "../lib/server-actions/relationships.ts";
 import { createSupabaseMock } from "./helpers/mock-supabase.mjs";
+
+const ownerProfile = {
+  created_at: "2026-03-19T08:00:00.000Z",
+  id: "owner-1",
+  is_premium: false,
+  role: "owner"
+};
+
+test("Nichtaufnahme nach durchgefuehrter Probe nutzt einen eigenen Relationship-Endstatus", async () => {
+  const supabase = createSupabaseMock({
+    horses: [{ id: "horse-1", owner_id: "owner-1" }],
+    trial_requests: [{ created_at: "2026-03-19T08:00:00.000Z", horse_id: "horse-1", id: "trial-1", rider_id: "rider-1", status: "completed" }]
+  });
+
+  const result = await updateRelationshipApprovalForOwner({
+    logSupabaseError: () => {},
+    nextStatus: "rejected",
+    ownerId: "owner-1",
+    ownerProfile,
+    redirectPath: "/owner/anfragen",
+    requestId: "trial-1",
+    supabase
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(supabase.state.tables.approvals[0].status, "rejected");
+  assert.equal(result.message, "Die Reitbeteiligung wurde nicht aufgenommen.");
+  assert.equal(getRiderRelationshipSection("completed", supabase.state.tables.approvals[0].status), "archive");
+  assert.equal(hasVisibleRelationshipConversation("completed", supabase.state.tables.approvals[0].status), false);
+  assert.equal(
+    canAccessOperationalCalendar({
+      approvalStatus: supabase.state.tables.approvals[0].status,
+      isHorseOwner: false,
+      viewerRole: "rider"
+    }),
+    false
+  );
+});
 
 test("Entfernen revokt die Beziehung, bereinigt operative Daten und sperrt Chat-/Kalenderkontext sofort", async () => {
   const supabase = createSupabaseMock({

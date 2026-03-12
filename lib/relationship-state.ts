@@ -29,8 +29,12 @@ export function isRevokedRelationship(approvalStatus: RelationshipApprovalStatus
   return approvalStatus === "revoked";
 }
 
+export function isRejectedRelationship(approvalStatus: RelationshipApprovalStatus) {
+  return approvalStatus === "rejected";
+}
+
 export function hasRelationshipDecision(approvalStatus: RelationshipApprovalStatus) {
-  return isActiveRelationship(approvalStatus) || isRevokedRelationship(approvalStatus);
+  return isActiveRelationship(approvalStatus) || isRejectedRelationship(approvalStatus) || isRevokedRelationship(approvalStatus);
 }
 
 export function shouldShowTrialRequestInLifecycle(
@@ -104,5 +108,5 @@ export function isRejectedTrialAfterCompletion(
   trialRequestStatus: TrialRequest["status"] | null | undefined,
   approvalStatus: RelationshipApprovalStatus
 ) {
-  return trialRequestStatus === "completed" && isRevokedRelationship(approvalStatus);
+  return trialRequestStatus === "completed" && isRejectedRelationship(approvalStatus);
 }

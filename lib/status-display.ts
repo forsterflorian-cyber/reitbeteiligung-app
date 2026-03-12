@@ -30,6 +30,10 @@ const statusDisplayMap: Record<DisplayableStatus, { label: string; tone: StatusT
     label: "Freigeschaltet",
     tone: "approved"
   },
+  rejected: {
+    label: "Nicht aufgenommen",
+    tone: "rejected"
+  },
   revoked: {
     label: "Freischaltung entzogen",
     tone: "rejected"

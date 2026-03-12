@@ -10,6 +10,7 @@ export const TRIAL_REQUEST_STATUS = {
 
 export const APPROVAL_STATUS = {
   approved: "approved",
+  rejected: "rejected",
   revoked: "revoked"
 } as const satisfies Record<ApprovalStatus, ApprovalStatus>;
 
@@ -43,7 +44,17 @@ const retryableTrialRequestStatuses = [
   TRIAL_REQUEST_STATUS.withdrawn
 ] as const satisfies readonly TrialRequestStatus[];
 
-const approvalStatuses = [APPROVAL_STATUS.approved, APPROVAL_STATUS.revoked] as const satisfies readonly ApprovalStatus[];
+export type OwnerTrialDecisionStatus = typeof APPROVAL_STATUS.approved | typeof APPROVAL_STATUS.rejected;
+
+const approvalStatuses = [
+  APPROVAL_STATUS.approved,
+  APPROVAL_STATUS.rejected,
+  APPROVAL_STATUS.revoked
+] as const satisfies readonly ApprovalStatus[];
+const ownerTrialDecisionStatuses = [
+  APPROVAL_STATUS.approved,
+  APPROVAL_STATUS.rejected
+] as const satisfies readonly OwnerTrialDecisionStatus[];
 
 const bookingRequestStatuses = [
   BOOKING_REQUEST_STATUS.requested,
@@ -71,6 +82,10 @@ export function isWithdrawnTrialRequestStatus(value: TrialRequestStatus | null |
 
 export function isApprovalStatus(value: string): value is ApprovalStatus {
   return approvalStatuses.includes(value as ApprovalStatus);
+}
+
+export function isOwnerTrialDecisionStatus(value: string): value is OwnerTrialDecisionStatus {
+  return ownerTrialDecisionStatuses.includes(value as OwnerTrialDecisionStatus);
 }
 
 export function isBookingRequestStatus(value: string): value is BookingRequestStatus {

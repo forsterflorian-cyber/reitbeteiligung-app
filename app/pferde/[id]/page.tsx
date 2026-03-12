@@ -12,7 +12,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
-import { isApproved } from "@/lib/approvals";
+import { getApprovalStatus } from "@/lib/approvals";
 import { getUpcomingTrialSlots, type TrialSlot } from "@/lib/trial-slots";
 import { getProfileByUserId } from "@/lib/auth";
 import {
@@ -22,11 +22,12 @@ import {
   getHorseImageUrl,
   sortHorseImages
 } from "@/lib/horses";
+import { isActiveRelationship } from "@/lib/relationship-state";
 import { readSearchParam } from "@/lib/search-params";
 import { R1_CORE_MODE } from "@/lib/release-stage";
 import { createClient } from "@/lib/supabase/server";
 import { canRetryTrialRequest, getRiderTrialRequestStatusMessage } from "@/lib/trial-lifecycle";
-import type { AvailabilityRule, Horse, HorseImage, TrialRequest, TrialRequestStatus } from "@/types/database";
+import type { Approval, AvailabilityRule, Horse, HorseImage, TrialRequest, TrialRequestStatus } from "@/types/database";
 
 function riderStatusText(status: TrialRequestStatus) {
   switch (status) {
@@ -111,6 +112,7 @@ export default async function PferdDetailPage({
   const images = resolvedImages.filter((image): image is HorseImage & { url: string } => Boolean(image));
 
   let latestRequest: TrialRequest | null = null;
+  let approvalStatus: Approval["status"] | null = null;
   let approved = false;
   let trialSlots: TrialSlot[] = [];
 
@@ -144,7 +146,8 @@ export default async function PferdDetailPage({
     ]);
 
     latestRequest = (requestData as TrialRequest | null) ?? null;
-    approved = await isApproved(horse.id, user.id, supabase);
+    approvalStatus = await getApprovalStatus(horse.id, user.id, supabase);
+    approved = isActiveRelationship(approvalStatus);
 
     trialSlots = !approved && (!latestRequest || canRetryTrialRequest(latestRequest.status))
       ? getUpcomingTrialSlots({
@@ -159,6 +162,10 @@ export default async function PferdDetailPage({
     latestRequest?.requested_start_at && latestRequest?.requested_end_at
       ? formatTrialSlotRange(latestRequest.requested_start_at, latestRequest.requested_end_at)
       : null;
+  const latestStatusBadge =
+    latestRequest?.status === "completed" && approvalStatus && approvalStatus !== "approved"
+      ? approvalStatus
+      : latestRequest?.status ?? null;
   const canSelectTrialSlot = profile?.role === "rider" && !approved && (!latestRequest || canRetryTrialRequest(latestRequest.status));
   const hasExplicitTrialSlots = trialSlots.length > 0;
   const canRequest = canSelectTrialSlot && hasExplicitTrialSlots;
@@ -294,10 +301,10 @@ export default async function PferdDetailPage({
           {latestRequest ? (
             <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
               <div className="space-y-3">
-                <StatusBadge status={latestRequest.status} />
+                {latestStatusBadge ? <StatusBadge status={latestStatusBadge} /> : null}
                 {latestRequestedSlotLabel ? <p className="text-sm font-semibold text-stone-900">{latestRequestedSlotLabel}</p> : null}
                 <p className="text-sm leading-6 text-stone-600">
-                  {riderStatusText(latestRequest.status) ?? getRiderTrialRequestStatusMessage(latestRequest.status)}
+                  {getRiderTrialRequestStatusMessage(latestRequest.status, approvalStatus)}
                 </p>
               </div>
             </div>

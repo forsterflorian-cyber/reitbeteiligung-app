@@ -19,16 +19,16 @@ import {
 
 test("Probe geht bis zur Aufnahme nur ohne Relationship-Entscheidung durch den Lifecycle", () => {
   const approvalStatusMap = buildApprovalStatusMap([
-    { horse_id: "horse-1", rider_id: "rider-2", status: "revoked" },
+    { horse_id: "horse-1", rider_id: "rider-2", status: "rejected" },
     { horse_id: "horse-2", rider_id: "rider-3", status: "approved" }
   ]);
 
   assert.equal(getRelationshipKey("horse-1", "rider-1"), "horse-1:rider-1");
   assert.equal(getApprovalStatusForPair(approvalStatusMap, "horse-1", "rider-1"), null);
   assert.equal(shouldShowTrialRequestInLifecycle("completed", null), true);
-  assert.equal(shouldShowTrialRequestInLifecycle("completed", "revoked"), false);
+  assert.equal(shouldShowTrialRequestInLifecycle("completed", "rejected"), false);
   assert.equal(shouldShowTrialRequestInLifecycle("requested", "approved"), false);
-  assert.equal(hasRelationshipDecision("revoked"), true);
+  assert.equal(hasRelationshipDecision("rejected"), true);
   assert.equal(hasRelationshipDecision(null), false);
 });
 
@@ -76,9 +76,12 @@ test("Operativer Kalender haengt nur an Owner oder aktiver Reitbeteiligung", () 
 test("Revoked faellt weder in Trial-Chat noch in aktive Beziehung zurueck", () => {
   assert.equal(getRelationshipConversationStage("completed", "approved"), "active");
   assert.equal(getRelationshipConversationStage("completed", null), "trial");
+  assert.equal(getRelationshipConversationStage("completed", "rejected"), "inactive");
+  assert.equal(hasVisibleRelationshipConversation("completed", "rejected"), false);
+  assert.equal(isRejectedTrialAfterCompletion("completed", "rejected"), true);
   assert.equal(getRelationshipConversationStage("completed", "revoked"), "inactive");
   assert.equal(hasVisibleRelationshipConversation("completed", "revoked"), false);
-  assert.equal(isRejectedTrialAfterCompletion("completed", "revoked"), true);
+  assert.equal(isRejectedTrialAfterCompletion("completed", "revoked"), false);
 });
 
 test("Rider-Bereiche trennen aktiv, klaerung und archiv ohne neue UI-Sonderlogik", () => {
@@ -87,8 +90,10 @@ test("Rider-Bereiche trennen aktiv, klaerung und archiv ohne neue UI-Sonderlogik
   assert.equal(getRiderRelationshipSection("completed", "approved"), "active");
   assert.equal(getRiderRelationshipSection("declined", null), "archive");
   assert.equal(getRiderRelationshipSection("withdrawn", null), "archive");
+  assert.equal(getRiderRelationshipSection("completed", "rejected"), "archive");
   assert.equal(getRiderRelationshipSection("completed", "revoked"), "archive");
   assert.equal(isCompletedTrialAwaitingDecision("completed", null), true);
+  assert.equal(isCompletedTrialAwaitingDecision("completed", "rejected"), false);
   assert.equal(isCompletedTrialAwaitingDecision("completed", "revoked"), false);
   assert.equal(isCompletedTrialAwaitingDecision("withdrawn", null), false);
 });
@@ -100,6 +105,10 @@ test("Statusanzeige und Archivlabels bleiben fuer Historienstatus eindeutig", ()
   });
   assert.deepEqual(getStatusDisplay("declined"), {
     label: "Abgelehnt",
+    tone: "rejected"
+  });
+  assert.deepEqual(getStatusDisplay("rejected"), {
+    label: "Nicht aufgenommen",
     tone: "rejected"
   });
   assert.deepEqual(getStatusDisplay("revoked"), {

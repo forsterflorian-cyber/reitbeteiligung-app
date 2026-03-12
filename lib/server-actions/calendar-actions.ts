@@ -1,7 +1,7 @@
-import { asOptionalString, asString } from "../forms";
-import { R1_CORE_MODE } from "../release-stage";
+import { asOptionalString, asString } from "../forms.ts";
+import { R1_CORE_MODE } from "../release-stage.ts";
 import type { createClient } from "../supabase/server";
-import { getOwnedHorse } from "./horse";
+import { getOwnedHorse } from "./horse.ts";
 import {
   buildAvailabilityWindows,
   buildSingleAvailabilityWindow,
@@ -36,7 +36,7 @@ import {
   shiftRangeBoundary,
   shiftWholeRange,
   type CalendarBookingWindow
-} from "./calendar";
+} from "./calendar.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 type SupabaseErrorLike = {
@@ -864,12 +864,42 @@ export async function deleteAvailabilityRuleForOwner(input: {
     };
   }
 
-  const { error } = await input.supabase.from("availability_slots").delete().eq("id", rule.slot_id).eq("horse_id", rule.horse_id);
+  // End slots logically so linked trial and booking history keeps its references.
+  const { error: ruleError } = await input.supabase
+    .from("availability_rules")
+    .update({ active: false })
+    .eq("id", rule.id)
+    .eq("horse_id", rule.horse_id);
 
-  if (error) {
-    input.logSupabaseError("Availability rule delete failed", error);
+  if (ruleError) {
+    input.logSupabaseError("Availability rule deactivate failed", ruleError);
     return {
-      message: "Das Verf\u00fcgbarkeitsfenster konnte nicht gel\u00f6scht werden.",
+      message: "Das Verf\u00fcgbarkeitsfenster konnte nicht beendet werden.",
+      ok: false
+    };
+  }
+
+  const { error: slotError } = await input.supabase
+    .from("availability_slots")
+    .update({ active: false })
+    .eq("id", rule.slot_id)
+    .eq("horse_id", rule.horse_id);
+
+  if (slotError) {
+    input.logSupabaseError("Availability slot deactivate failed", slotError);
+
+    const { error: rollbackError } = await input.supabase
+      .from("availability_rules")
+      .update({ active: rule.active })
+      .eq("id", rule.id)
+      .eq("horse_id", rule.horse_id);
+
+    if (rollbackError) {
+      input.logSupabaseError("Availability rule deactivate rollback failed", rollbackError);
+    }
+
+    return {
+      message: "Das Verf\u00fcgbarkeitsfenster konnte nicht beendet werden.",
       ok: false
     };
   }
@@ -878,6 +908,6 @@ export async function deleteAvailabilityRuleForOwner(input: {
     horseId: rule.horse_id,
     ok: true,
     paths: getAvailabilityRevalidationPaths(rule.horse_id),
-    successMessage: "Das Verf\u00fcgbarkeitsfenster wurde entfernt."
+    successMessage: "Das Verf\u00fcgbarkeitsfenster wurde beendet."
   };
 }
