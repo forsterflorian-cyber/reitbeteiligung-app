@@ -14,6 +14,7 @@ import {
   isFutureOperationalStartAt
 } from "../booking-guards.ts";
 import { asOptionalString, asString } from "../forms.ts";
+import { filterActiveOperationalBookings, getAcceptedOperationalBookingRequestIdSet } from "../active-operational-bookings.ts";
 import { getApprovalStatus } from "../approvals.ts";
 import { isActiveRelationship, isRevokedRelationship } from "../relationship-state.ts";
 import { BOOKING_REQUEST_STATUS } from "../statuses.ts";
@@ -47,8 +48,12 @@ type BookingRequestRecord = Pick<
   BookingRequest,
   "id" | "slot_id" | "availability_rule_id" | "horse_id" | "rider_id" | "status" | "requested_start_at" | "requested_end_at" | "recurrence_rrule" | "created_at"
 >;
-type BookingPlanningRecord = Pick<Booking, "id" | "start_at" | "end_at">;
-type BookingRecord = Pick<Booking, "id" | "booking_request_id" | "horse_id" | "rider_id" | "start_at" | "end_at">;
+type BookingRequestStatusRecord = Pick<BookingRequest, "id" | "status">;
+type BookingPlanningRecord = Pick<Booking, "id" | "booking_request_id" | "start_at" | "end_at">;
+type BookingRecord = Pick<Booking, "id" | "booking_request_id" | "horse_id" | "rider_id" | "start_at" | "end_at"> & {
+  recurrence_rrule: string | null;
+  request_status: BookingRequest["status"] | null;
+};
 type TimeRangeRecord = Pick<CalendarBlock, "start_at" | "end_at">;
 type ParsedRecurrenceRule = {
   byDays: number[] | null;
@@ -365,8 +370,24 @@ async function getOperationalBooking(supabase: SupabaseClient, bookingId: string
     .select("id, booking_request_id, horse_id, rider_id, start_at, end_at")
     .eq("id", bookingId)
     .maybeSingle();
+  const booking = (data as Omit<BookingRecord, "recurrence_rrule" | "request_status"> | null) ?? null;
 
-  return (data as BookingRecord | null) ?? null;
+  if (!booking) {
+    return null;
+  }
+
+  const { data: requestData } = await supabase
+    .from("booking_requests")
+    .select("id, status, recurrence_rrule")
+    .eq("id", booking.booking_request_id)
+    .maybeSingle();
+  const request = (requestData as Pick<BookingRequest, "id" | "status" | "recurrence_rrule"> | null) ?? null;
+
+  return {
+    ...booking,
+    recurrence_rrule: request?.recurrence_rrule ?? null,
+    request_status: request?.status ?? null
+  };
 }
 
 function getOwnerBookingPaths(horseId: string) {
@@ -400,13 +421,18 @@ async function loadBookingPlanningData(
   horseId: string,
   excludedBookingId?: string
 ) {
-  const [{ data: existingBookingsData }, { data: blocksData }] = await Promise.all([
+  const [{ data: existingBookingsData }, { data: blocksData }, { data: requestStatusesData }] = await Promise.all([
     supabase.from("bookings").select("id, start_at, end_at").eq("horse_id", horseId),
-    supabase.from("calendar_blocks").select("start_at, end_at").eq("horse_id", horseId)
+    supabase.from("calendar_blocks").select("start_at, end_at").eq("horse_id", horseId),
+    supabase.from("booking_requests").select("id, status").eq("horse_id", horseId)
   ]);
-  const existingBookings = ((existingBookingsData as BookingPlanningRecord[] | null) ?? []).filter(
-    (booking) => booking.id !== excludedBookingId
+  const acceptedRequestIds = getAcceptedOperationalBookingRequestIdSet(
+    (requestStatusesData as BookingRequestStatusRecord[] | null) ?? []
   );
+  const existingBookings = filterActiveOperationalBookings(
+    (existingBookingsData as BookingPlanningRecord[] | null) ?? [],
+    acceptedRequestIds
+  ).filter((booking) => booking.id !== excludedBookingId);
 
   return {
     existingBlocks: (blocksData as TimeRangeRecord[] | null) ?? [],
@@ -468,22 +494,6 @@ export async function requestBookingForRider(input: {
   const requestedStartIso = startAt.toISOString();
   const requestedEndIso = endAt.toISOString();
 
-  if (shouldDirectBookOperationalSlot(recurrenceRrule)) {
-    const { error } = await input.supabase.rpc("direct_book_operational_slot", {
-      p_end_at: requestedEndIso,
-      p_horse_id: horseId,
-      p_rule_id: ruleId,
-      p_start_at: requestedStartIso
-    });
-
-    if (error) {
-      input.logSupabaseError("Direct operational booking failed", error);
-      return errorResult(redirectPath, getDirectBookingErrorMessage(error));
-    }
-
-    return successResult(redirectPath, "Der Slot wurde direkt gebucht.", getDirectBookingPaths(horseId));
-  }
-
   const approvalStatus = await getApprovalStatus(horseId, input.userId, input.supabase);
 
   if (!isActiveRelationship(approvalStatus)) {
@@ -539,6 +549,22 @@ export async function requestBookingForRider(input: {
 
   if (hasWindowConflict(bookingWindows, existingBookings) || hasWindowConflict(bookingWindows, existingBlocks)) {
     return errorResult(redirectPath, getBookingConflictMessage(recurrenceRrule));
+  }
+
+  if (shouldDirectBookOperationalSlot(recurrenceRrule)) {
+    const { error } = await input.supabase.rpc("direct_book_operational_slot", {
+      p_end_at: requestedEndIso,
+      p_horse_id: horseId,
+      p_rule_id: ruleId,
+      p_start_at: requestedStartIso
+    });
+
+    if (error) {
+      input.logSupabaseError("Direct operational booking failed", error);
+      return errorResult(redirectPath, getDirectBookingErrorMessage(error));
+    }
+
+    return successResult(redirectPath, "Der Slot wurde direkt gebucht.", getDirectBookingPaths(horseId));
   }
 
   const { error } = await input.supabase.from("booking_requests").insert({
@@ -655,7 +681,15 @@ export async function cancelOperationalBookingForRider(input: {
     return errorResult(redirectPath, "Du darfst diesen Termin nicht stornieren.");
   }
 
-  if (!canCancelOperationalBooking({ startAt: booking.start_at, status: BOOKING_REQUEST_STATUS.accepted })) {
+  if (booking.request_status !== BOOKING_REQUEST_STATUS.accepted) {
+    return errorResult(redirectPath, getCancelBookingErrorMessage({ message: "INVALID_STATUS" }));
+  }
+
+  if (booking.recurrence_rrule) {
+    return errorResult(redirectPath, getCancelBookingErrorMessage({ message: "UNSUPPORTED_RECURRENCE" }));
+  }
+
+  if (!canCancelOperationalBooking({ startAt: booking.start_at, status: booking.request_status })) {
     return errorResult(redirectPath, "Nur noch nicht begonnene Termine koennen storniert werden.");
   }
 
@@ -691,7 +725,15 @@ export async function cancelOperationalBookingForOwner(input: {
     return errorResult(redirectPath, "Du darfst diesen Termin nicht stornieren.");
   }
 
-  if (!canCancelOperationalBooking({ startAt: booking.start_at, status: BOOKING_REQUEST_STATUS.accepted })) {
+  if (booking.request_status !== BOOKING_REQUEST_STATUS.accepted) {
+    return errorResult(redirectPath, getCancelBookingErrorMessage({ message: "INVALID_STATUS" }));
+  }
+
+  if (booking.recurrence_rrule) {
+    return errorResult(redirectPath, getCancelBookingErrorMessage({ message: "UNSUPPORTED_RECURRENCE" }));
+  }
+
+  if (!canCancelOperationalBooking({ startAt: booking.start_at, status: booking.request_status })) {
     return errorResult(redirectPath, "Nur noch nicht begonnene Termine koennen storniert werden.");
   }
 
@@ -776,7 +818,22 @@ async function rescheduleOperationalBooking(input: {
     );
   }
 
-  if (!canRescheduleOperationalBooking({ startAt: booking.start_at, status: BOOKING_REQUEST_STATUS.accepted })) {
+  if (booking.request_status !== BOOKING_REQUEST_STATUS.accepted) {
+    return errorResult(
+      rescheduleRedirectPath,
+      getRescheduleBookingErrorMessageForReason("invalid_status"),
+      "invalid_status"
+    );
+  }
+
+  if (booking.recurrence_rrule) {
+    return errorResult(
+      rescheduleRedirectPath,
+      OPERATIONAL_RECURRENCE_NOT_ENABLED_MESSAGE
+    );
+  }
+
+  if (!canRescheduleOperationalBooking({ startAt: booking.start_at, status: booking.request_status })) {
     return errorResult(
       rescheduleRedirectPath,
       getRescheduleBookingErrorMessageForReason("booking_started"),

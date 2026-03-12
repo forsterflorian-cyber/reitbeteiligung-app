@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { filterActiveOperationalBookings, getAcceptedOperationalBookingRequestIdSet } from "./active-operational-bookings.ts";
 import { canCancelOperationalBooking, canRescheduleOperationalBooking } from "./booking-guards.ts";
 import { loadConversationSummaryMaps, type ConversationContactInfo } from "./message-summaries.ts";
 import { getUpcomingOperationalSlots } from "./operational-slots.ts";
@@ -42,6 +43,10 @@ type RiderOperationalBookingRecord = Pick<
 type RiderOperationalOccupancyRecord = {
   end_at: string;
   start_at: string;
+};
+type RiderOperationalBookingRequestStatusRecord = {
+  id: string;
+  status: string;
 };
 
 export type RiderOperationalBookingItem = {
@@ -169,7 +174,7 @@ export async function loadRiderOperationalWorkspaceData(
 
   const now = options?.now ?? new Date();
   const nowIso = now.toISOString();
-  const [rulesResult, bookingsResult, occupancyEntries] = await Promise.all([
+  const [rulesResult, bookingsResult, bookingRequestsResult, occupancyEntries] = await Promise.all([
     supabase
       .from("availability_rules")
       .select("id, horse_id, slot_id, start_at, end_at, active, is_trial_slot, created_at")
@@ -183,6 +188,11 @@ export async function loadRiderOperationalWorkspaceData(
       .in("horse_id", horseIds)
       .gte("end_at", nowIso)
       .order("start_at", { ascending: true }),
+    supabase
+      .from("booking_requests")
+      .select("id, status")
+      .eq("rider_id", riderId)
+      .in("horse_id", horseIds),
     Promise.all(
       horseIds.map(async (horseId) => {
         const result = await supabase.rpc("get_horse_calendar_occupancy", {
@@ -201,6 +211,9 @@ export async function loadRiderOperationalWorkspaceData(
   const occupancyByHorseId = new Map(
     occupancyEntries.map((entry) => [entry.horseId, entry.rows] as const)
   );
+  const acceptedRequestIds = getAcceptedOperationalBookingRequestIdSet(
+    (bookingRequestsResult.data as RiderOperationalBookingRequestStatusRecord[] | null) ?? []
+  );
 
   return buildRiderOperationalWorkspaceItems({
     activeRelationships,
@@ -209,7 +222,10 @@ export async function loadRiderOperationalWorkspaceData(
     rules: (rulesResult.data as RiderOperationalRuleRecord[] | null) ?? [],
     selectedBookingId: options?.selectedBookingId ?? null,
     slotLimit: options?.slotLimit,
-    upcomingBookings: (bookingsResult.data as RiderOperationalBookingRecord[] | null) ?? []
+    upcomingBookings: filterActiveOperationalBookings(
+      (bookingsResult.data as RiderOperationalBookingRecord[] | null) ?? [],
+      acceptedRequestIds
+    )
   });
 }
 

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { filterActiveOperationalBookings, getAcceptedOperationalBookingRequestIdSet } from "./active-operational-bookings.ts";
 import { canCancelOperationalBooking, canRescheduleOperationalBooking } from "./booking-guards.ts";
 import { loadConversationSummaryMaps, type ConversationContactInfo } from "./message-summaries.ts";
 import { getUpcomingOperationalSlots } from "./operational-slots.ts";
@@ -50,6 +51,10 @@ type OwnerOperationalBookingRecord = Pick<
   "id" | "booking_request_id" | "availability_rule_id" | "slot_id" | "horse_id" | "rider_id" | "start_at" | "end_at" | "created_at"
 >;
 type OwnerOperationalBlockRecord = Pick<CalendarBlock, "horse_id" | "start_at" | "end_at">;
+type OwnerOperationalBookingRequestStatusRecord = {
+  id: string;
+  status: string;
+};
 type OwnerOperationalRiderProfileRecord = Pick<Profile, "id" | "display_name">;
 
 export type OwnerOperationalSlotItem = {
@@ -209,7 +214,7 @@ export async function loadOwnerOperationalWorkspaceData(
 
   const now = options?.now ?? new Date();
   const nowIso = now.toISOString();
-  const [rulesResult, bookingsResult, blocksResult] = await Promise.all([
+  const [rulesResult, bookingsResult, bookingRequestsResult, blocksResult] = await Promise.all([
     supabase
       .from("availability_rules")
       .select("id, horse_id, slot_id, start_at, end_at, active, is_trial_slot, created_at")
@@ -223,11 +228,21 @@ export async function loadOwnerOperationalWorkspaceData(
       .gte("end_at", nowIso)
       .order("start_at", { ascending: true }),
     supabase
+      .from("booking_requests")
+      .select("id, status")
+      .in("horse_id", horseIds),
+    supabase
       .from("calendar_blocks")
       .select("horse_id, start_at, end_at")
       .in("horse_id", horseIds)
   ]);
-  const upcomingBookings = (bookingsResult.data as OwnerOperationalBookingRecord[] | null) ?? [];
+  const acceptedRequestIds = getAcceptedOperationalBookingRequestIdSet(
+    (bookingRequestsResult.data as OwnerOperationalBookingRequestStatusRecord[] | null) ?? []
+  );
+  const upcomingBookings = filterActiveOperationalBookings(
+    (bookingsResult.data as OwnerOperationalBookingRecord[] | null) ?? [],
+    acceptedRequestIds
+  );
   const riderIds = [...new Set(upcomingBookings.map((booking) => booking.rider_id))];
   const riderProfilesResult = riderIds.length > 0
     ? await supabase.from("profiles").select("id, display_name").in("id", riderIds)

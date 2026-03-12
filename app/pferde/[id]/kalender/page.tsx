@@ -35,6 +35,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { getApprovalStatus } from "@/lib/approvals";
+import { filterActiveOperationalBookings, getAcceptedOperationalBookingRequestIdSet } from "@/lib/active-operational-bookings";
 import { getViewerContext } from "@/lib/auth";
 import { canRescheduleOperationalBooking } from "@/lib/booking-guards";
 import { formatBookingQuotaMinutes, formatWeeklyHoursLimit, type RiderWeeklyBookingQuota } from "@/lib/booking-limits";
@@ -527,6 +528,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     activeRelationshipCountResult,
     ownerUpcomingBookingsResult,
     riderUpcomingBookingsResult,
+    bookingRequestStatusesResult,
     ownerHistoryBookingRequestsResult,
     riderHistoryBookingRequestsResult,
     riderWeeklyQuotaResult
@@ -553,6 +555,12 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           .order("start_at", { ascending: true })
           .limit(8)
       : Promise.resolve({ data: [] as Booking[] | null }),
+    simpleCalendarV1Mode
+      ? supabase
+          .from("booking_requests")
+          .select("id, status")
+          .eq("horse_id", horse.id)
+      : Promise.resolve({ data: [] as Pick<BookingRequest, "id" | "status">[] | null }),
     simpleCalendarV1Mode && isOwner
       ? supabase
           .from("booking_requests")
@@ -581,8 +589,17 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
       : Promise.resolve({ data: null as RiderWeeklyBookingQuota | RiderWeeklyBookingQuota[] | null })
   ]);
   const activeRelationshipCount = activeRelationshipCountResult.count ?? 0;
-  const ownerUpcomingBookings = (ownerUpcomingBookingsResult.data as Booking[] | null) ?? [];
-  const riderUpcomingBookings = (riderUpcomingBookingsResult.data as Booking[] | null) ?? [];
+  const acceptedBookingRequestIds = getAcceptedOperationalBookingRequestIdSet(
+    (bookingRequestStatusesResult.data as Pick<BookingRequest, "id" | "status">[] | null) ?? []
+  );
+  const ownerUpcomingBookings = filterActiveOperationalBookings(
+    (ownerUpcomingBookingsResult.data as Booking[] | null) ?? [],
+    acceptedBookingRequestIds
+  );
+  const riderUpcomingBookings = filterActiveOperationalBookings(
+    (riderUpcomingBookingsResult.data as Booking[] | null) ?? [],
+    acceptedBookingRequestIds
+  );
   const ownerHistoryBookings = (ownerHistoryBookingRequestsResult.data as BookingRequest[] | null) ?? [];
   const riderHistoryBookings = (riderHistoryBookingRequestsResult.data as BookingRequest[] | null) ?? [];
   const ownerCanceledBookings = ownerHistoryBookings.filter((booking) => booking.status === "canceled");
