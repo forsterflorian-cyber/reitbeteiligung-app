@@ -49,5 +49,7 @@ Historie:
 
 - Trial-Enden ueber `trial_requests`
 - Relationship-Enden ueber `approvals`
-- operative Altfaelle ueber `booking_requests` und `bookings`
+- operative Altfaelle und Lifecycle ueber `booking_requests`
+- `bookings` repraesentieren nur aktuell wirksame operative Belegung
+- technische Repair-Pfade duerfen nur inkonsistente oder orphaned `bookings` entfernen
 - Verfuegbarkeitsfenster werden beendet oder deaktiviert, nicht als Historienpfad physisch geloescht

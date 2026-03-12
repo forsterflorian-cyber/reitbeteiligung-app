@@ -71,13 +71,13 @@ test("Cleanup bleibt an explizite Write-Pfade gebunden", () => {
   }
 });
 
-test("Cleanup-Funktion loescht ausschliesslich bookings mit nicht-accepted Request-Status", () => {
+test("Cleanup-Funktion repariert nur noch echte orphaned booking-Zeilen", () => {
   const cleanup = getLatestFunctionDefinition("cleanup_inactive_operational_bookings");
 
   assert.ok(cleanup, "Die aktuelle Definition von cleanup_inactive_operational_bookings fehlt.");
   assert.equal(
     cleanup.filename,
-    "20260312113000_active_operational_booking_occupancy.sql"
+    "20260312203000_cleanup_orphaned_bookings_only.sql"
   );
   assert.match(
     cleanup.sql,
@@ -86,23 +86,13 @@ test("Cleanup-Funktion loescht ausschliesslich bookings mit nicht-accepted Reque
   );
   assert.match(
     cleanup.sql,
-    /using public\.booking_requests as requests/,
-    "Cleanup muss den zugehoerigen booking_request-Status pruefen."
-  );
-  assert.match(
-    cleanup.sql,
-    /requests\.id = bookings\.booking_request_id/,
-    "Cleanup muss booking und booking_request ueber die Request-ID verbinden."
-  );
-  assert.match(
-    cleanup.sql,
-    /requests\.status <> 'accepted'/,
-    "Cleanup darf nur nicht-operative Request-Status entfernen."
-  );
-  assert.match(
-    cleanup.sql,
     /\(p_horse_id is null or bookings\.horse_id = p_horse_id\)/,
     "Cleanup darf optional auf ein einzelnes Pferd begrenzt werden."
+  );
+  assert.match(
+    cleanup.sql,
+    /and not exists \(\s*select 1\s*from public\.booking_requests as requests\s*where requests\.id = bookings\.booking_request_id\s*\)/,
+    "Cleanup darf nur echte orphaned Bookings bereinigen."
   );
   assert.ok(
     !/update public\./.test(cleanup.sql) &&
@@ -111,7 +101,7 @@ test("Cleanup-Funktion loescht ausschliesslich bookings mit nicht-accepted Reque
     "Cleanup darf keine weiteren Tabellen mutieren."
   );
   assert.ok(
-    !/approvals|trial_requests|calendar_blocks|availability_rules|now\(/.test(cleanup.sql),
-    "Cleanup darf keine weiteren Status-, Zeit- oder Beziehungsmodelle auswerten."
+    !/requests\.status|approvals|trial_requests|calendar_blocks|availability_rules|now\(/.test(cleanup.sql),
+    "Cleanup darf keine Status-, Zeit- oder Beziehungsmodelle fachlich auswerten."
   );
 });

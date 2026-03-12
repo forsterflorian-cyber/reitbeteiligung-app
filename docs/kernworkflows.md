@@ -114,7 +114,9 @@ Historie bleibt erhalten ueber Status und Deaktivierung, nicht ueber physisches 
 
 - Trial-Historie bleibt in `trial_requests`
 - Relationship-Enden bleiben in `approvals`
-- operative Historie bleibt in `booking_requests` und `bookings`
+- operative Historie und Lifecycle liegen in `booking_requests`
+- `bookings` halten nur aktuell wirksame operative Belegung (`accepted` plus vorhandene `booking`-Zeile)
+- technische Repair-Pfade duerfen nur inkonsistente oder orphaned `bookings` entfernen, nicht Statushistorie fachlich auswerten
 - Verfuegbarkeitsfenster werden fachlich beendet, nicht als Historienpfad physisch geloescht
 - Bei `revoked` werden nur zukuenftige oder laufende operative Zuordnungen bereinigt; vergangene Historie bleibt bestehen
 
