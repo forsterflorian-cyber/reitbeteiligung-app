@@ -1,8 +1,8 @@
 import { canApproveRider, getOwnerPlan, getOwnerPlanUsage } from "../plans.ts";
 import { isActiveRelationship } from "../relationship-state.ts";
-import { APPROVAL_STATUS } from "../statuses.ts";
+import { APPROVAL_STATUS, BOOKING_REQUEST_STATUS } from "../statuses.ts";
 import type { createClient } from "../supabase/server.ts";
-import type { Approval, Profile, TrialRequest } from "../../types/database";
+import type { Approval, Booking, BookingRequest, Profile, TrialRequest } from "../../types/database";
 import { getOwnedHorse } from "./horse.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
@@ -14,6 +14,8 @@ type SupabaseErrorLike = {
 };
 type LogSupabaseError = (context: string, error: SupabaseErrorLike) => void;
 type OwnerRequestRecord = Pick<TrialRequest, "id" | "horse_id" | "rider_id" | "status">;
+type RelationshipBookingRecord = Pick<Booking, "id" | "booking_request_id" | "end_at">;
+type RelationshipBookingRequestRecord = Pick<BookingRequest, "id" | "status" | "requested_end_at">;
 
 type RelationshipMutationResult =
   | {
@@ -45,7 +47,7 @@ function successResult(redirectPath: string, message: string, paths: readonly st
   };
 }
 
-export function getApprovalTransitionError(requestStatus: "requested" | "accepted" | "declined" | "completed") {
+export function getApprovalTransitionError(requestStatus: "requested" | "accepted" | "declined" | "completed" | "withdrawn") {
   if (requestStatus !== "completed") {
     return "Nur durchgefuehrte Probetermine koennen freigeschaltet werden.";
   }
@@ -71,6 +73,7 @@ export function getRelationshipRevalidationPaths(horseId: string, riderId: strin
     "/owner/reitbeteiligungen",
     "/owner/nachrichten",
     "/anfragen",
+    "/nachrichten",
     "/dashboard",
     "/owner/pferde-verwalten",
     `/pferde/${horseId}`,
@@ -102,21 +105,84 @@ async function getOwnedTrialRequest(supabase: SupabaseClient, requestId: string,
   return request;
 }
 
+function isFutureRelationshipBooking(endAt: string | null | undefined, now: Date) {
+  if (!endAt) {
+    return false;
+  }
+
+  const parsedEndAt = new Date(endAt);
+
+  if (Number.isNaN(parsedEndAt.getTime())) {
+    return false;
+  }
+
+  return parsedEndAt.getTime() > now.getTime();
+}
+
+function getRelationshipCleanupBookingRequestStatus(
+  request: RelationshipBookingRequestRecord,
+  futureBookingRequestIds: ReadonlySet<string>,
+  now: Date
+) {
+  if (request.status === BOOKING_REQUEST_STATUS.requested) {
+    return BOOKING_REQUEST_STATUS.declined;
+  }
+
+  if (
+    request.status === BOOKING_REQUEST_STATUS.accepted &&
+    (futureBookingRequestIds.has(request.id) || isFutureRelationshipBooking(request.requested_end_at ?? null, now))
+  ) {
+    return BOOKING_REQUEST_STATUS.canceled;
+  }
+
+  return null;
+}
+
 export async function cleanupRelationshipOperationalData(input: {
   horseId: string;
   logSupabaseError: LogSupabaseError;
   riderId: string;
   supabase: SupabaseClient;
 }) {
-  const { error: bookingRequestDeleteError } = await input.supabase
-    .from("booking_requests")
-    .delete()
-    .eq("horse_id", input.horseId)
-    .eq("rider_id", input.riderId);
+  const now = new Date();
+  const [{ data: bookingData }, { data: bookingRequestData }] = await Promise.all([
+    input.supabase.from("bookings").select("id, booking_request_id, end_at").eq("horse_id", input.horseId).eq("rider_id", input.riderId),
+    input.supabase
+      .from("booking_requests")
+      .select("id, status, requested_end_at")
+      .eq("horse_id", input.horseId)
+      .eq("rider_id", input.riderId)
+  ]);
+  const bookings = (bookingData as RelationshipBookingRecord[] | null) ?? [];
+  const bookingRequests = (bookingRequestData as RelationshipBookingRequestRecord[] | null) ?? [];
+  const futureBookings = bookings.filter((booking) => isFutureRelationshipBooking(booking.end_at, now));
+  const futureBookingRequestIds = new Set(futureBookings.map((booking) => booking.booking_request_id));
 
-  if (bookingRequestDeleteError) {
-    input.logSupabaseError("Relationship booking request cleanup failed", bookingRequestDeleteError);
-    return "Die operative Kalenderzuordnung konnte nicht bereinigt werden.";
+  for (const booking of futureBookings) {
+    const { error: bookingDeleteError } = await input.supabase.from("bookings").delete().eq("id", booking.id);
+
+    if (bookingDeleteError) {
+      input.logSupabaseError("Relationship booking cleanup failed", bookingDeleteError);
+      return "Die operative Kalenderzuordnung konnte nicht bereinigt werden.";
+    }
+  }
+
+  for (const request of bookingRequests) {
+    const nextStatus = getRelationshipCleanupBookingRequestStatus(request, futureBookingRequestIds, now);
+
+    if (!nextStatus || nextStatus === request.status) {
+      continue;
+    }
+
+    const { error: bookingRequestUpdateError } = await input.supabase
+      .from("booking_requests")
+      .update({ status: nextStatus })
+      .eq("id", request.id);
+
+    if (bookingRequestUpdateError) {
+      input.logSupabaseError("Relationship booking request cleanup failed", bookingRequestUpdateError);
+      return "Die operative Kalenderzuordnung konnte nicht bereinigt werden.";
+    }
   }
 
   const { error: riderLimitDeleteError } = await input.supabase

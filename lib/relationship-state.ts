@@ -1,7 +1,9 @@
 import type { Approval, TrialRequest, UserRole } from "@/types/database";
+import { isTrialRequestLifecycleStatus } from "./statuses.ts";
 
 export type RelationshipApprovalStatus = Approval["status"] | null | undefined;
 export type RelationshipConversationStage = "active" | "inactive" | "trial";
+export type RiderRelationshipSection = "active" | "archive" | "in_clarification";
 
 export function getRelationshipKey(horseId: string, riderId: string) {
   return `${horseId}:${riderId}`;
@@ -39,7 +41,29 @@ export function shouldShowTrialRequestInLifecycle(
     return false;
   }
 
-  return requestStatus === "requested" || requestStatus === "accepted" || requestStatus === "completed";
+  return isTrialRequestLifecycleStatus(requestStatus);
+}
+
+export function isCompletedTrialAwaitingDecision(
+  requestStatus: TrialRequest["status"] | null | undefined,
+  approvalStatus: RelationshipApprovalStatus
+) {
+  return requestStatus === "completed" && !hasRelationshipDecision(approvalStatus);
+}
+
+export function getRiderRelationshipSection(
+  requestStatus: TrialRequest["status"] | null | undefined,
+  approvalStatus: RelationshipApprovalStatus
+): RiderRelationshipSection {
+  if (isActiveRelationship(approvalStatus)) {
+    return "active";
+  }
+
+  if (requestStatus && shouldShowTrialRequestInLifecycle(requestStatus, approvalStatus)) {
+    return "in_clarification";
+  }
+
+  return "archive";
 }
 
 export function canAccessOperationalCalendar(args: {

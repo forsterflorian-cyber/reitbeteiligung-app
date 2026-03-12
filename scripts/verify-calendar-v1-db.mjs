@@ -407,19 +407,26 @@ async function runLiveSmoke(dbConfig) {
   const namespace = `cv1${Date.now().toString(36)}${randomUUID().slice(0, 4)}`.toLowerCase();
   const ownerEmail = `${namespace}-owner@example.com`;
   const riderEmail = `${namespace}-rider@example.com`;
+  const secondRiderEmail = `${namespace}-rider2@example.com`;
   let ownerId = null;
   let riderId = null;
+  let secondRiderId = null;
   let horseId = null;
 
   try {
     await db.query("set role postgres");
     ownerId = randomUUID();
     riderId = randomUUID();
+    secondRiderId = randomUUID();
     horseId = randomUUID();
 
     await insertAuthUser(db, ownerId, ownerEmail);
     await insertAuthUser(db, riderId, riderEmail);
-    await db.query("insert into public.profiles (id, role, is_premium) values ($1, 'owner', false), ($2, 'rider', false)", [ownerId, riderId]);
+    await insertAuthUser(db, secondRiderId, secondRiderEmail);
+    await db.query(
+      "insert into public.profiles (id, role, is_premium) values ($1, 'owner', false), ($2, 'rider', false), ($3, 'rider', false)",
+      [ownerId, riderId, secondRiderId]
+    );
     await db.query(
       "insert into public.horses (id, owner_id, title, plz, description, active) values ($1, $2, $3, $4, $5, true)",
       [horseId, ownerId, `Smoke ${namespace}`, "10115", "Calendar V1 staging smoke"]
@@ -455,6 +462,14 @@ async function runLiveSmoke(dbConfig) {
         on conflict (horse_id, rider_id) do update set status = excluded.status;
       `,
       [horseId, riderId]
+    );
+    await db.query(
+      `
+        insert into public.approvals (horse_id, rider_id, status)
+        values ($1, $2, 'approved')
+        on conflict (horse_id, rider_id) do update set status = excluded.status;
+      `,
+      [horseId, secondRiderId]
     );
 
     const directRule = await createOperationalRule(db, horseId, "2026-03-20T09:00:00.000Z", "2026-03-20T12:00:00.000Z");
@@ -511,7 +526,7 @@ async function runLiveSmoke(dbConfig) {
         )
         values
           ($1, $2, $3, $4, $5, 'requested', $6, $7, null),
-          ($8, $2, $3, $4, $5, 'requested', $9, $10, null)
+          ($8, $2, $3, $11, $5, 'requested', $9, $10, null)
       `,
       [
         requestA,
@@ -523,7 +538,8 @@ async function runLiveSmoke(dbConfig) {
         "2026-03-20T14:00:00.000Z",
         requestB,
         "2026-03-20T13:30:00.000Z",
-        "2026-03-20T14:30:00.000Z"
+        "2026-03-20T14:30:00.000Z",
+        secondRiderId
       ]
     );
 
@@ -595,6 +611,10 @@ async function runLiveSmoke(dbConfig) {
 
     if (riderId) {
       await db.query("delete from auth.users where id = $1", [riderId]);
+    }
+
+    if (secondRiderId) {
+      await db.query("delete from auth.users where id = $1", [secondRiderId]);
     }
 
     await db.end();

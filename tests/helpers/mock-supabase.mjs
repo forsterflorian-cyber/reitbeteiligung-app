@@ -7,9 +7,10 @@ function applyFilters(rows, filters) {
 }
 
 class QueryBuilder {
-  constructor(table, mode, state) {
+  constructor(table, mode, state, payload = null) {
     this.table = table;
     this.mode = mode;
+    this.payload = payload;
     this.state = state;
     this.filters = [];
   }
@@ -50,6 +51,21 @@ class QueryBuilder {
       return { data: clone(deletedRows), error: null };
     }
 
+    if (this.mode === "update") {
+      const updatedRows = [];
+      this.state.tables[this.table] = rows.map((row) => {
+        if (applyFilters([row], this.filters).length === 0) {
+          return row;
+        }
+
+        const updatedRow = { ...row, ...clone(this.payload) };
+        updatedRows.push(updatedRow);
+        return updatedRow;
+      });
+
+      return { data: clone(updatedRows), error: null };
+    }
+
     return { data: clone(applyFilters(rows, this.filters)), error: null };
   }
 
@@ -78,6 +94,9 @@ export function createSupabaseMock(seed = {}, options = {}) {
       return {
         delete() {
           return new QueryBuilder(table, "delete", state);
+        },
+        update(payload) {
+          return new QueryBuilder(table, "update", state, payload);
         },
         select() {
           return new QueryBuilder(table, "select", state);

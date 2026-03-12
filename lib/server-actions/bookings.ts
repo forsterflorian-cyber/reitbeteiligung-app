@@ -1,16 +1,21 @@
 import {
   getAcceptBookingErrorMessage,
+  getCancelBookingErrorMessage,
   getBookingConflictMessage,
   getDirectBookingErrorMessage,
-  isBookingWriteConflictError,
+  getRescheduleBookingErrorMessage,
   OPERATIONAL_RECURRENCE_NOT_ENABLED_MESSAGE,
-  shouldDirectBookOperationalSlot
+  shouldDirectBookOperationalSlot,
+  canCancelOperationalBooking,
+  canRescheduleOperationalBooking,
+  isFutureOperationalStartAt
 } from "../booking-guards.ts";
 import { asOptionalString, asString } from "../forms.ts";
 import { getApprovalStatus } from "../approvals.ts";
 import { isActiveRelationship } from "../relationship-state.ts";
+import { BOOKING_REQUEST_STATUS } from "../statuses.ts";
 import type { createClient } from "../supabase/server.ts";
-import type { AvailabilityRule, Booking, BookingRequest, CalendarBlock, RiderBookingLimit } from "../../types/database";
+import type { AvailabilityRule, Booking, BookingRequest, CalendarBlock } from "../../types/database";
 import { hasWindowConflict, isQuarterHourAligned, type CalendarBookingWindow as BookingWindow } from "./calendar.ts";
 import { getOwnedHorse } from "./horse.ts";
 
@@ -39,7 +44,8 @@ type BookingRequestRecord = Pick<
   BookingRequest,
   "id" | "slot_id" | "availability_rule_id" | "horse_id" | "rider_id" | "status" | "requested_start_at" | "requested_end_at" | "recurrence_rrule" | "created_at"
 >;
-type BookingRecord = Pick<Booking, "id" | "start_at" | "end_at">;
+type BookingPlanningRecord = Pick<Booking, "id" | "start_at" | "end_at">;
+type BookingRecord = Pick<Booking, "id" | "booking_request_id" | "horse_id" | "rider_id" | "start_at" | "end_at">;
 type TimeRangeRecord = Pick<CalendarBlock, "start_at" | "end_at">;
 type ParsedRecurrenceRule = {
   byDays: number[] | null;
@@ -326,6 +332,20 @@ function getDirectBookingPaths(horseId: string) {
   return [`/pferde/${horseId}/kalender`, "/anfragen", "/owner/reitbeteiligungen", "/dashboard", `/pferde/${horseId}`] as const;
 }
 
+function isSameBookingWindow(leftStartAt: string, leftEndAt: string, rightStartAt: string, rightEndAt: string) {
+  return leftStartAt === rightStartAt && leftEndAt === rightEndAt;
+}
+
+async function getOperationalBooking(supabase: SupabaseClient, bookingId: string) {
+  const { data } = await supabase
+    .from("bookings")
+    .select("id, booking_request_id, horse_id, rider_id, start_at, end_at")
+    .eq("id", bookingId)
+    .maybeSingle();
+
+  return (data as BookingRecord | null) ?? null;
+}
+
 function getOwnerBookingPaths(horseId: string) {
   return ["/owner/reitbeteiligungen", "/anfragen", "/dashboard", `/pferde/${horseId}`, `/pferde/${horseId}/kalender`] as const;
 }
@@ -363,7 +383,7 @@ async function loadBookingPlanningData(
 
   return {
     existingBlocks: (blocksData as TimeRangeRecord[] | null) ?? [],
-    existingBookings: (existingBookingsData as BookingRecord[] | null) ?? []
+    existingBookings: (existingBookingsData as BookingPlanningRecord[] | null) ?? []
   };
 }
 
@@ -414,6 +434,29 @@ export async function requestBookingForRider(input: {
     return errorResult(redirectPath, OPERATIONAL_RECURRENCE_NOT_ENABLED_MESSAGE);
   }
 
+  if (!isFutureOperationalStartAt({ startAt: startAtValue })) {
+    return errorResult(redirectPath, "Nur zukuenftige Termine koennen direkt gebucht werden.");
+  }
+
+  const requestedStartIso = startAt.toISOString();
+  const requestedEndIso = endAt.toISOString();
+
+  if (shouldDirectBookOperationalSlot(recurrenceRrule)) {
+    const { error } = await input.supabase.rpc("direct_book_operational_slot", {
+      p_end_at: requestedEndIso,
+      p_horse_id: horseId,
+      p_rule_id: ruleId,
+      p_start_at: requestedStartIso
+    });
+
+    if (error) {
+      input.logSupabaseError("Direct operational booking failed", error);
+      return errorResult(redirectPath, getDirectBookingErrorMessage(error));
+    }
+
+    return successResult(redirectPath, "Der Slot wurde direkt gebucht.", getDirectBookingPaths(horseId));
+  }
+
   const approvalStatus = await getApprovalStatus(horseId, input.userId, input.supabase);
 
   if (!isActiveRelationship(approvalStatus)) {
@@ -430,8 +473,6 @@ export async function requestBookingForRider(input: {
     return errorResult(redirectPath, "Dieser Slot gehoert zur Probephase und kann nicht direkt operativ gebucht werden.");
   }
 
-  const requestedStartIso = startAt.toISOString();
-  const requestedEndIso = endAt.toISOString();
   const ruleStart = new Date(rule.start_at);
   const ruleEnd = new Date(rule.end_at);
 
@@ -473,22 +514,6 @@ export async function requestBookingForRider(input: {
     return errorResult(redirectPath, getBookingConflictMessage(recurrenceRrule));
   }
 
-  if (shouldDirectBookOperationalSlot(recurrenceRrule)) {
-    const { error } = await input.supabase.rpc("direct_book_operational_slot", {
-      p_end_at: requestedEndIso,
-      p_horse_id: horseId,
-      p_rule_id: rule.id,
-      p_start_at: requestedStartIso
-    });
-
-    if (error) {
-      input.logSupabaseError("Direct operational booking failed", error);
-      return errorResult(redirectPath, getDirectBookingErrorMessage(error));
-    }
-
-    return successResult(redirectPath, "Der Slot wurde direkt gebucht.", getDirectBookingPaths(horseId));
-  }
-
   const { error } = await input.supabase.from("booking_requests").insert({
     availability_rule_id: rule.id,
     horse_id: horseId,
@@ -527,6 +552,10 @@ export async function acceptBookingRequestForOwner(input: {
 
   if (request.recurrence_rrule) {
     return errorResult(redirectPath, OPERATIONAL_RECURRENCE_NOT_ENABLED_MESSAGE);
+  }
+
+  if (!request.requested_start_at || !isFutureOperationalStartAt({ startAt: request.requested_start_at })) {
+    return errorResult(redirectPath, "Nur zukuenftige Termine koennen angenommen werden.");
   }
 
   if (!request.availability_rule_id) {
@@ -580,10 +609,180 @@ export async function declineBookingRequestForOwner(input: {
   ]);
 }
 
-export function getWeeklyBookingLimitMessage(limit: Pick<RiderBookingLimit, "weekly_hours_limit"> | null) {
-  if (!limit || typeof limit.weekly_hours_limit !== "number") {
-    return null;
+export async function cancelOperationalBookingForRider(input: {
+  bookingId: string;
+  logSupabaseError: LogSupabaseError;
+  riderId: string;
+  supabase: SupabaseClient;
+}): Promise<BookingMutationResult> {
+  const fallbackRedirectPath = "/anfragen";
+  const booking = await getOperationalBooking(input.supabase, input.bookingId);
+
+  if (!booking) {
+    return errorResult(fallbackRedirectPath, "Der Termin konnte nicht gefunden werden.");
   }
 
-  return limit.weekly_hours_limit;
+  const redirectPath = `/pferde/${booking.horse_id}/kalender`;
+
+  if (booking.rider_id !== input.riderId) {
+    return errorResult(redirectPath, "Du darfst diesen Termin nicht stornieren.");
+  }
+
+  if (!canCancelOperationalBooking({ startAt: booking.start_at, status: BOOKING_REQUEST_STATUS.accepted })) {
+    return errorResult(redirectPath, "Nur noch nicht begonnene Termine koennen storniert werden.");
+  }
+
+  const { error } = await input.supabase.rpc("cancel_operational_booking", {
+    p_booking_id: booking.id
+  });
+
+  if (error) {
+    input.logSupabaseError("Cancel operational booking failed", error);
+    return errorResult(redirectPath, getCancelBookingErrorMessage(error));
+  }
+
+  return successResult(redirectPath, "Der Termin wurde storniert.", getDirectBookingPaths(booking.horse_id));
+}
+
+export async function cancelOperationalBookingForOwner(input: {
+  bookingId: string;
+  logSupabaseError: LogSupabaseError;
+  ownerId: string;
+  supabase: SupabaseClient;
+}): Promise<BookingMutationResult> {
+  const fallbackRedirectPath = "/owner/reitbeteiligungen";
+  const booking = await getOperationalBooking(input.supabase, input.bookingId);
+
+  if (!booking) {
+    return errorResult(fallbackRedirectPath, "Der Termin konnte nicht gefunden werden.");
+  }
+
+  const redirectPath = `/pferde/${booking.horse_id}/kalender`;
+  const horse = await getOwnedHorse(input.supabase, booking.horse_id, input.ownerId);
+
+  if (!horse) {
+    return errorResult(redirectPath, "Du darfst diesen Termin nicht stornieren.");
+  }
+
+  if (!canCancelOperationalBooking({ startAt: booking.start_at, status: BOOKING_REQUEST_STATUS.accepted })) {
+    return errorResult(redirectPath, "Nur noch nicht begonnene Termine koennen storniert werden.");
+  }
+
+  const { error } = await input.supabase.rpc("cancel_operational_booking", {
+    p_booking_id: booking.id
+  });
+
+  if (error) {
+    input.logSupabaseError("Cancel operational booking failed", error);
+    return errorResult(redirectPath, getCancelBookingErrorMessage(error));
+  }
+
+  return successResult(redirectPath, "Der Termin wurde storniert.", getDirectBookingPaths(booking.horse_id));
+}
+
+async function rescheduleOperationalBooking(input: {
+  actorId: string;
+  bookingId: string;
+  endAtInput: string;
+  logSupabaseError: LogSupabaseError;
+  role: "owner" | "rider";
+  ruleId: string;
+  startAtInput: string;
+  supabase: SupabaseClient;
+}): Promise<BookingMutationResult> {
+  const fallbackRedirectPath = input.role === "owner" ? "/owner/reitbeteiligungen" : "/anfragen";
+  const booking = await getOperationalBooking(input.supabase, input.bookingId);
+
+  if (!booking) {
+    return errorResult(fallbackRedirectPath, "Der Termin konnte nicht gefunden werden.");
+  }
+
+  const redirectPath = `/pferde/${booking.horse_id}/kalender`;
+  const rescheduleRedirectPath = `${redirectPath}?rescheduleBooking=${booking.id}#umbuchen`;
+  const startAt = new Date(input.startAtInput);
+  const endAt = new Date(input.endAtInput);
+
+  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || endAt <= startAt) {
+    return errorResult(rescheduleRedirectPath, "Die Umbuchung enthaelt einen ungueltigen Zeitraum.");
+  }
+
+  if (!isFutureOperationalStartAt({ startAt: input.startAtInput })) {
+    return errorResult(rescheduleRedirectPath, "Der neue Termin muss in der Zukunft liegen.");
+  }
+
+  if (input.role === "rider") {
+    if (booking.rider_id !== input.actorId) {
+      return errorResult(rescheduleRedirectPath, "Du darfst diesen Termin nicht umbuchen.");
+    }
+  } else {
+    const horse = await getOwnedHorse(input.supabase, booking.horse_id, input.actorId);
+
+    if (!horse) {
+      return errorResult(rescheduleRedirectPath, "Du darfst diesen Termin nicht umbuchen.");
+    }
+  }
+
+  if (!canRescheduleOperationalBooking({ startAt: booking.start_at, status: BOOKING_REQUEST_STATUS.accepted })) {
+    return errorResult(rescheduleRedirectPath, "Nur noch nicht begonnene Termine koennen umgebucht werden.");
+  }
+
+  if (isSameBookingWindow(booking.start_at, booking.end_at, startAt.toISOString(), endAt.toISOString())) {
+    return errorResult(rescheduleRedirectPath, "Bitte waehle einen anderen freien Slot fuer die Umbuchung.");
+  }
+
+  const { error } = await input.supabase.rpc("reschedule_operational_booking", {
+    p_booking_id: booking.id,
+    p_end_at: endAt.toISOString(),
+    p_rule_id: input.ruleId,
+    p_start_at: startAt.toISOString()
+  });
+
+  if (error) {
+    input.logSupabaseError("Reschedule operational booking failed", error);
+    return errorResult(rescheduleRedirectPath, getRescheduleBookingErrorMessage(error));
+  }
+
+  return successResult(redirectPath, "Der Termin wurde umgebucht.", getDirectBookingPaths(booking.horse_id));
+}
+
+export async function rescheduleOperationalBookingForRider(input: {
+  bookingId: string;
+  endAtInput: string;
+  logSupabaseError: LogSupabaseError;
+  riderId: string;
+  ruleId: string;
+  startAtInput: string;
+  supabase: SupabaseClient;
+}): Promise<BookingMutationResult> {
+  return rescheduleOperationalBooking({
+    actorId: input.riderId,
+    bookingId: input.bookingId,
+    endAtInput: input.endAtInput,
+    logSupabaseError: input.logSupabaseError,
+    role: "rider",
+    ruleId: input.ruleId,
+    startAtInput: input.startAtInput,
+    supabase: input.supabase
+  });
+}
+
+export async function rescheduleOperationalBookingForOwner(input: {
+  bookingId: string;
+  endAtInput: string;
+  logSupabaseError: LogSupabaseError;
+  ownerId: string;
+  ruleId: string;
+  startAtInput: string;
+  supabase: SupabaseClient;
+}): Promise<BookingMutationResult> {
+  return rescheduleOperationalBooking({
+    actorId: input.ownerId,
+    bookingId: input.bookingId,
+    endAtInput: input.endAtInput,
+    logSupabaseError: input.logSupabaseError,
+    role: "owner",
+    ruleId: input.ruleId,
+    startAtInput: input.startAtInput,
+    supabase: input.supabase
+  });
 }

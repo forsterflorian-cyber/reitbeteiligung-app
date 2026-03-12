@@ -1,4 +1,5 @@
 import type { AvailabilityRule, TrialRequest } from "@/types/database";
+import { doesTrialRequestReserveTrialSlot } from "./trial-lifecycle.ts";
 
 type TrialSlotRule = Pick<AvailabilityRule, "id" | "active" | "start_at" | "end_at" | "is_trial_slot">;
 type TrialReservation = Pick<TrialRequest, "availability_rule_id" | "requested_start_at" | "requested_end_at" | "status">;
@@ -36,7 +37,7 @@ export function isTrialRuleBlocked(
   }
 
   const matchingReservation = reservedRequests.some((request) => {
-    if (request.status === "declined") {
+    if (!doesTrialRequestReserveTrialSlot(request.status)) {
       return false;
     }
 

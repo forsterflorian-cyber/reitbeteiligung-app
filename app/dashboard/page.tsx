@@ -17,10 +17,11 @@ import { requireProfile } from "@/lib/auth";
 import { hasUnreadOwnerMessage, loadOwnerWorkspaceData } from "@/lib/owner-workspace";
 import { OWNER_PLAN_LIMITS_ENABLED, PAID_PLAN_CONTACT_EMAIL, canStartOwnerTrial, getOwnerPlan, getOwnerPlanUsageSummary } from "@/lib/plans";
 import { getProfileDisplayName } from "@/lib/profiles";
-import { buildApprovalStatusMap, getApprovalStatusForPair, isActiveRelationship, shouldShowTrialRequestInLifecycle } from "@/lib/relationship-state";
-import { readSearchParam } from "@/lib/search-params";
+import { getRiderRelationshipSection, getRelationshipKey, isCompletedTrialAwaitingDecision } from "@/lib/relationship-state";
+import { hasUnreadRiderMessage, loadRiderWorkspaceData } from "@/lib/rider-workspace";
 import { R1_CORE_MODE } from "@/lib/release-stage";
-import type { Approval, Booking, Horse, RiderProfile, TrialRequest } from "@/types/database";
+import { readSearchParam } from "@/lib/search-params";
+import type { Booking, RiderProfile } from "@/types/database";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(new Date(value));
@@ -93,7 +94,7 @@ export default async function DashboardPage({
     const pendingCards = trialPipelineItems
       .slice(0, 4)
       .map((request) => ({
-        ctaLabel: "Probetermine öffnen",
+        ctaLabel: "Probetermine oeffnen",
         description:
           formatDateTimeRange(request.requested_start_at, request.requested_end_at) ??
           request.message?.trim() ??
@@ -124,23 +125,23 @@ export default async function DashboardPage({
             </>
           }
           backdropVariant="hero"
-          subtitle={`Hallo ${displayName}. Von hier springst du direkt in Pferde, Probetermine und dein laufendes Tagesgeschäft.`}
+          subtitle={`Hallo ${displayName}. Von hier springst du direkt in Pferde, Probetermine und dein laufendes Tagesgeschaeft.`}
           surface
-          title="Übersicht"
+          title="Uebersicht"
         />
         <Notice text={message} tone="success" />
         <StatGrid items={ownerStats} />
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
           <SectionCard
             action={<Link className={buttonVariants("secondary")} href={ownerManageHref}>Zur Verwaltung</Link>}
-            subtitle="Bestehende Pferde zuerst, das neue Pferd liegt bewusst im Untermenü."
+            subtitle="Bestehende Pferde zuerst, das neue Pferd liegt bewusst im Untermenue."
             title="Pferde im Blick"
           >
             <div className="space-y-4">
               {horses.length === 0 ? (
                 <EmptyState
                   action={<Link className={buttonVariants("primary")} href={ownerCreateHref}>Erstes Pferd anlegen</Link>}
-                  description="Lege zuerst ein Pferdeprofil an, damit Probetermine und Reitbeteiligungen starten können."
+                  description="Lege zuerst ein Pferdeprofil an, damit Probetermine und Reitbeteiligungen starten koennen."
                   title="Noch kein Pferd angelegt"
                 />
               ) : (
@@ -190,7 +191,7 @@ export default async function DashboardPage({
         {OWNER_PLAN_LIMITS_ENABLED ? (
           <SectionCard
             action={
-              (ownerPlan?.key !== "paid" || showStartTrial) ? (
+              ownerPlan?.key !== "paid" || showStartTrial ? (
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   {showStartTrial ? (
                     <form action={startOwnerTrialAction}>
@@ -206,7 +207,7 @@ export default async function DashboardPage({
                     </a>
                   ) : null}
                   <Link className={buttonVariants("ghost")} href={ownerRelationshipsHref}>
-                    Reitbeteiligungen öffnen
+                    Reitbeteiligungen oeffnen
                   </Link>
                 </div>
               ) : undefined
@@ -227,19 +228,13 @@ export default async function DashboardPage({
     );
   }
 
-  const riderRequestsHref = "/anfragen" as Route;
+  const riderRelationshipsHref = "/anfragen" as Route;
+  const riderMessagesHref = "/nachrichten" as Route;
   const riderProfileHref = "/rider/profile" as Route;
   const riderSearchHref = "/suchen" as Route;
 
-  const [{ data: riderProfileData }, { data: trialRequestsData }, { data: riderApprovalsData }, { data: upcomingBookingsData }] = await Promise.all([
+  const [{ data: riderProfileData }, { data: upcomingBookingsData }, riderWorkspace] = await Promise.all([
     supabase.from("rider_profiles").select("user_id").eq("user_id", user.id).maybeSingle(),
-    supabase
-      .from("trial_requests")
-      .select("id, horse_id, rider_id, status, message, availability_rule_id, requested_start_at, requested_end_at, created_at")
-      .eq("rider_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(5),
-    supabase.from("approvals").select("horse_id, rider_id, status, created_at").eq("rider_id", user.id),
     !R1_CORE_MODE
       ? supabase
           .from("bookings")
@@ -248,49 +243,54 @@ export default async function DashboardPage({
           .gte("start_at", new Date().toISOString())
           .order("start_at", { ascending: true })
           .limit(4)
-      : Promise.resolve({ data: [] as Booking[] | null })
+      : Promise.resolve({ data: [] as Booking[] | null }),
+    loadRiderWorkspaceData(supabase, user.id)
   ]);
 
   const riderProfile = (riderProfileData as Pick<RiderProfile, "user_id"> | null) ?? null;
-  const trials = (trialRequestsData as TrialRequest[] | null) ?? [];
-  const approvals = (riderApprovalsData as Approval[] | null) ?? [];
-  const activeApprovals = approvals.filter((approval) => isActiveRelationship(approval.status));
   const upcomingBookings = (upcomingBookingsData as Booking[] | null) ?? [];
   const nextBooking = !R1_CORE_MODE ? upcomingBookings[0] ?? null : null;
-  const approvalStatusMap = buildApprovalStatusMap(approvals);
-  const openTrials = trials.filter((trial) =>
-    shouldShowTrialRequestInLifecycle(trial.status, getApprovalStatusForPair(approvalStatusMap, trial.horse_id, trial.rider_id))
-  );
-  const openTrialCount = openTrials.length;
-  const riderHorseIds = [...new Set([...trials.map((trial) => trial.horse_id), ...(!R1_CORE_MODE ? upcomingBookings.map((booking) => booking.horse_id) : [])])];
-  let riderHorseMap = new Map<string, Pick<Horse, "id" | "title" | "plz">>();
+  const { activeRelationships, approvalStatusMap, conversations, horseMap, latestMessages, requests } = riderWorkspace;
+  const unreadCount = conversations.reduce((count, conversation) => {
+    const latestMessage = latestMessages.get(conversation.id) ?? null;
+    return hasUnreadRiderMessage(conversation, latestMessage, user.id) ? count + 1 : count;
+  }, 0);
+  const clarificationItems = requests
+    .map((item) => {
+      const approvalStatus = approvalStatusMap.get(getRelationshipKey(item.horse_id, item.rider_id)) ?? null;
 
-  if (riderHorseIds.length > 0) {
-    const { data: riderHorseData } = await supabase.from("horses").select("id, title, plz").in("id", riderHorseIds);
-    riderHorseMap = new Map(
-      (((riderHorseData as Array<Pick<Horse, "id" | "title" | "plz">> | null) ?? [])).map((horse) => [horse.id, horse])
-    );
-  }
-
-  const focusTrial = openTrials[0] ?? null;
-  const nextBookingHorse = nextBooking ? (riderHorseMap.get(nextBooking.horse_id) ?? null) : null;
+      return {
+        ...item,
+        approvalStatus,
+        isCompletedDecisionPending: isCompletedTrialAwaitingDecision(item.status, approvalStatus)
+      };
+    })
+    .filter((item) => getRiderRelationshipSection(item.status, item.approvalStatus) === "in_clarification")
+    .sort((left, right) => Date.parse(right.requested_start_at ?? right.created_at) - Date.parse(left.requested_start_at ?? left.created_at));
+  const focusItem = clarificationItems[0] ?? null;
+  const nextBookingHorse = nextBooking ? (horseMap.get(nextBooking.horse_id) ?? null) : null;
 
   const riderStats: StatItem[] = [
     {
       label: "Profilstatus",
-      value: <Badge tone={riderProfile ? "approved" : "pending"}>{riderProfile ? "Bereit" : "Unvollständig"}</Badge>,
+      value: <Badge tone={riderProfile ? "approved" : "pending"}>{riderProfile ? "Bereit" : "Unvollstaendig"}</Badge>,
       valueClassName: "text-base",
-      helper: riderProfile ? "Dein Reiterprofil ist angelegt." : "Bitte vervollständige dein Reiterprofil für passende Anfragen."
+      helper: riderProfile ? "Dein Reiterprofil ist angelegt." : "Bitte vervollstaendige dein Reiterprofil fuer passende Anfragen."
     },
     {
-      label: "Offene Probetermine",
-      value: openTrialCount,
-      helper: "Anfragen mit Status Ausstehend oder Angenommen."
+      label: "In Klaerung",
+      value: clarificationItems.length,
+      helper: "Offene Anfragen, geplante Proben und Entscheidungen, die noch ausstehen."
     },
     {
       label: "Aktive Reitbeteiligungen",
-      value: activeApprovals.length,
-      helper: activeApprovals.length > 0 ? "Diese Reitbeteiligungen sind bereits aktiv freigeschaltet." : "Nach der Freischaltung erscheinen aktive Reitbeteiligungen hier."
+      value: activeRelationships.length,
+      helper: activeRelationships.length > 0 ? "Diese Reitbeteiligungen sind bereits aktiv freigeschaltet." : "Aktive Reitbeteiligungen erscheinen hier nach der Freischaltung."
+    },
+    {
+      label: "Nachrichten",
+      value: unreadCount,
+      helper: unreadCount > 0 ? "Ungelesene Chats warten unter Nachrichten." : "Alle Chats sind aktuell gelesen."
     }
   ];
 
@@ -302,42 +302,46 @@ export default async function DashboardPage({
             <Link className={buttonVariants("primary", "w-full sm:w-auto")} href={riderSearchHref}>
               Pferde finden
             </Link>
-            <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href={riderRequestsHref}>
-              Proben & Chats
+            <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href={riderRelationshipsHref}>
+              Meine Reitbeteiligungen
             </Link>
-            <Link className={buttonVariants("ghost", "w-full sm:w-auto")} href={riderProfileHref}>
-              Profil bearbeiten
+            <Link className={buttonVariants("ghost", "w-full sm:w-auto")} href={riderMessagesHref}>
+              Nachrichten
             </Link>
           </>
         }
         backdropVariant="hero"
-        subtitle={`Hallo ${displayName}. Hier stehen offene Probetermine, Freischaltungen und deine Chats direkt im Fokus.`}
+        subtitle={`Hallo ${displayName}. Hier siehst du getrennt, was aktiv ist, was noch in Klaerung ist und wo deine Nachrichten warten.`}
         surface
-        title="Übersicht"
+        title="Uebersicht"
       />
       <Notice text={message} tone="success" />
-      <SectionCard subtitle="Dein nächster Probetermin oder der schnellste Einstieg in deine aktiven Reitbeteiligungen." title="Als Nächstes">
-        {focusTrial ? (
+      <SectionCard subtitle="Dein naechster offener Fall oder der schnellste Einstieg in eine laufende Reitbeteiligung." title="Als Naechstes">
+        {focusItem ? (
           <RequestCard
-            ctaLabel="Zur Anfrage"
-            description={formatDateTimeRange(focusTrial.requested_start_at, focusTrial.requested_end_at) ?? focusTrial.message?.trim() ?? "Keine Nachricht hinterlegt."}
-            eyebrow={riderHorseMap.get(focusTrial.horse_id)?.plz ? `PLZ ${riderHorseMap.get(focusTrial.horse_id)?.plz}` : "Probetermin"}
-            href={riderRequestsHref}
-            meta={formatDate(focusTrial.created_at)}
-            status={focusTrial.status}
-            title={riderHorseMap.get(focusTrial.horse_id)?.title ?? "Pferdeprofil"}
+            ctaLabel="Meine Reitbeteiligungen"
+            description={
+              focusItem.isCompletedDecisionPending
+                ? `Durchgefuehrt, Entscheidung offen. ${formatDateTimeRange(focusItem.requested_start_at, focusItem.requested_end_at) ?? focusItem.message?.trim() ?? "Keine Nachricht hinterlegt."}`
+                : formatDateTimeRange(focusItem.requested_start_at, focusItem.requested_end_at) ?? focusItem.message?.trim() ?? "Keine Nachricht hinterlegt."
+            }
+            eyebrow={horseMap.get(focusItem.horse_id)?.plz ? `PLZ ${horseMap.get(focusItem.horse_id)?.plz}` : "In Klaerung"}
+            href={riderRelationshipsHref}
+            meta={formatDate(focusItem.created_at)}
+            status={focusItem.status}
+            title={horseMap.get(focusItem.horse_id)?.title ?? "Pferdeprofil"}
           />
         ) : nextBooking ? (
           <Card className="p-5">
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge tone="approved">Nächste Buchung</Badge>
+                <Badge tone="approved">Naechste Buchung</Badge>
                 <p className="text-sm text-stone-500">{formatDate(nextBooking.start_at)}</p>
               </div>
               <p className="text-lg font-semibold text-stone-900">{nextBookingHorse?.title ?? "Reitbeteiligung"}</p>
               <p className="text-sm text-stone-600">{formatDateTimeRange(nextBooking.start_at, nextBooking.end_at)}</p>
-              <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href={riderRequestsHref}>
-                Reitbeteiligung planen
+              <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href={`/pferde/${nextBooking.horse_id}/kalender` as Route}>
+                Kalender oeffnen
               </Link>
             </div>
           </Card>
@@ -351,19 +355,19 @@ export default async function DashboardPage({
       </SectionCard>
       {!R1_CORE_MODE && upcomingBookings.length > 0 ? (
         <SectionCard
-          action={<Link className={buttonVariants("secondary")} href={riderRequestsHref}>Zur Planung</Link>}
-          subtitle="Deine nächsten bereits bestätigten Termine als aktive Reitbeteiligung."
-          title="Nächste Termine"
+          action={<Link className={buttonVariants("secondary")} href={riderRelationshipsHref}>Meine Reitbeteiligungen</Link>}
+          subtitle="Deine naechsten bereits bestaetigten Termine als aktive Reitbeteiligung."
+          title="Naechste Termine"
         >
           <div className="grid gap-3">
             {upcomingBookings.slice(0, 3).map((booking) => {
-              const horse = riderHorseMap.get(booking.horse_id);
+              const horse = horseMap.get(booking.horse_id) ?? null;
 
               return (
                 <Card className="p-4" key={booking.id}>
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge tone="approved">Bestätigt</Badge>
+                      <Badge tone="approved">Bestaetigt</Badge>
                       <p className="text-sm text-stone-500">{formatDate(booking.start_at)}</p>
                     </div>
                     <p className="font-semibold text-stone-900">{horse?.title ?? "Reitbeteiligung"}</p>
@@ -375,32 +379,36 @@ export default async function DashboardPage({
           </div>
         </SectionCard>
       ) : null}
-      <StatGrid className="xl:grid-cols-3" items={riderStats} />
+      <StatGrid className="xl:grid-cols-4" items={riderStats} />
       <SectionCard
-        action={<Link className={buttonVariants("secondary")} href={riderRequestsHref}>Alle Anfragen</Link>}
-        subtitle="Die neuesten Probetermine und ihr aktueller Stand."
-        title="Neueste Probetermine"
+        action={<Link className={buttonVariants("secondary")} href={riderRelationshipsHref}>Zur Klaerung</Link>}
+        subtitle="Die wichtigsten offenen Faelle fuer deine Reitbeteiligungen."
+        title="In Klaerung"
       >
         <div className="space-y-4">
-          {trials.length === 0 ? (
+          {clarificationItems.length === 0 ? (
             <EmptyState
               action={<Link className={buttonVariants("primary")} href={riderSearchHref}>Passende Pferde finden</Link>}
-              description="Sobald du deinen ersten Probetermin anfragst, erscheint er hier in der Übersicht."
-              title="Noch keine Probetermine"
+              description="Sobald ein neuer Fall offen ist, erscheint er hier zuerst."
+              title="Gerade nichts offen"
             />
           ) : (
-            trials.map((trial) => {
-              const horse = riderHorseMap.get(trial.horse_id);
+            clarificationItems.slice(0, 4).map((item) => {
+              const horse = horseMap.get(item.horse_id) ?? null;
 
               return (
                 <RequestCard
                   ctaLabel="Details"
-                  description={formatDateTimeRange(trial.requested_start_at, trial.requested_end_at) ?? trial.message?.trim() ?? "Keine Nachricht hinterlegt."}
+                  description={
+                    item.isCompletedDecisionPending
+                      ? `Durchgefuehrt, Entscheidung offen. ${formatDateTimeRange(item.requested_start_at, item.requested_end_at) ?? item.message?.trim() ?? "Keine Nachricht hinterlegt."}`
+                      : formatDateTimeRange(item.requested_start_at, item.requested_end_at) ?? item.message?.trim() ?? "Keine Nachricht hinterlegt."
+                  }
                   eyebrow={horse?.plz ? `PLZ ${horse.plz}` : "Pferdeprofil"}
-                  href={riderRequestsHref}
-                  key={trial.id}
-                  meta={formatDate(trial.created_at)}
-                  status={trial.status}
+                  href={riderRelationshipsHref}
+                  key={item.id}
+                  meta={formatDate(item.created_at)}
+                  status={item.status}
                   timeline
                   title={horse?.title ?? "Pferdeprofil"}
                 />
@@ -410,9 +418,9 @@ export default async function DashboardPage({
         </div>
       </SectionCard>
       {!riderProfile ? (
-        <SectionCard subtitle="Ohne Profil sehen Pferdehalter nur sehr wenig von dir." title="Profil vervollständigen">
+        <SectionCard subtitle="Ohne Profil sehen Pferdehalter nur sehr wenig von dir." title="Profil vervollstaendigen">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm leading-6 text-stone-600">Ergänze Erfahrung, Gewicht und Notizen, damit deine Anfragen besser einschätzbar sind.</p>
+            <p className="text-sm leading-6 text-stone-600">Ergaenze Erfahrung, Gewicht und Notizen, damit deine Anfragen besser einschaetzbar sind.</p>
             <Link className={buttonVariants("secondary", "w-full sm:w-auto")} href={riderProfileHref}>
               Jetzt bearbeiten
             </Link>

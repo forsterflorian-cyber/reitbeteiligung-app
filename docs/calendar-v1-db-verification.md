@@ -119,6 +119,8 @@ Der Live-Smoke prueft nach dem Push mit echten temporaeren Testnutzern und echte
 - alte Chat-URL wird nach `revoked` fachlich gesperrt
 - `revoked` entzieht operative Rechte sofort wieder
 
+Der Smoke laeuft direkt ueber die Linked-DB-Verbindung und benoetigt keinen `SUPABASE_SERVICE_ROLE_KEY`.
+
 ### 5. Abbruch-/Rollback-Hinweise
 
 Push sofort abbrechen oder Rollout stoppen, wenn:
@@ -173,6 +175,9 @@ Gegen das verlinkte Supabase-Projekt wurden bereits real ausgefuehrt:
 
 - `migration list`
 - `db push --dry-run`
+- Staging-Preflight gegen Live-Daten
+- echter `db push`
+- echter Live-Smoke nach Migration
 
 Nach Einfuehrung des neuen Preflight-/Staging-Runners gilt zusaetzlich:
 

@@ -19,8 +19,12 @@ const statusDisplayMap: Record<DisplayableStatus, { label: string; tone: StatusT
     tone: "rejected"
   },
   completed: {
-    label: "Durchgeführt",
+    label: "Durchgefuehrt",
     tone: "info"
+  },
+  withdrawn: {
+    label: "Zurueckgezogen",
+    tone: "neutral"
   },
   approved: {
     label: "Freigeschaltet",
@@ -33,6 +37,10 @@ const statusDisplayMap: Record<DisplayableStatus, { label: string; tone: StatusT
   canceled: {
     label: "Storniert",
     tone: "neutral"
+  },
+  rescheduled: {
+    label: "Umgebucht",
+    tone: "info"
   }
 };
 

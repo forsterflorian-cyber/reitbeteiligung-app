@@ -1,6 +1,6 @@
-export function getTrialRequestDuplicateError(status: "requested" | "accepted" | "declined" | "completed") {
+export function getTrialRequestDuplicateError(status: "requested" | "accepted" | "declined" | "completed" | "withdrawn") {
   if (status === "requested" || status === "accepted") {
-    return "Du hast f\u00fcr dieses Pferd bereits eine offene Probeanfrage. Ziehe sie unter Proben & Chats zur\u00fcck, bevor du erneut anfragst.";
+    return "Du hast f\u00fcr dieses Pferd bereits eine offene Probeanfrage. Ziehe sie unter Meine Reitbeteiligungen zur\u00fcck, bevor du erneut anfragst.";
   }
 
   return "Du hast f\u00fcr dieses Pferd bereits einen laufenden oder abgeschlossenen Probetermin.";
@@ -25,7 +25,7 @@ export function getTrialRequestSuccessMessage(hasExplicitTrialSlots: boolean) {
 }
 
 export function getTrialStatusTransitionError(
-  currentStatus: "requested" | "accepted" | "declined" | "completed",
+  currentStatus: "requested" | "accepted" | "declined" | "completed" | "withdrawn",
   nextStatus: "accepted" | "declined" | "completed"
 ) {
   if (nextStatus === "completed" && currentStatus !== "accepted") {

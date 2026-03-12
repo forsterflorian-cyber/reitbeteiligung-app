@@ -49,6 +49,7 @@ function getTrialLifecyclePaths(horseId: string) {
     "/owner/anfragen",
     "/owner/reitbeteiligungen",
     "/anfragen",
+    "/nachrichten",
     "/dashboard",
     `/pferde/${horseId}`,
     `/pferde/${horseId}/kalender`

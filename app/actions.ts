@@ -16,6 +16,7 @@ import { asInteger, asOptionalString, asString, isRole } from "@/lib/forms";
 import {
   APPROVAL_STATUS,
   TRIAL_REQUEST_STATUS,
+  isTrialRequestLifecycleStatus,
   isApprovalStatus,
   isMutableTrialRequestStatus
 } from "@/lib/statuses";
@@ -88,7 +89,11 @@ import {
 } from "@/lib/server-actions/calendar-actions";
 import {
   acceptBookingRequestForOwner,
+  cancelOperationalBookingForOwner,
+  cancelOperationalBookingForRider,
   declineBookingRequestForOwner,
+  rescheduleOperationalBookingForOwner,
+  rescheduleOperationalBookingForRider,
   requestBookingForRider
 } from "@/lib/server-actions/bookings";
 import { saveRiderBookingLimitForOwner } from "@/lib/server-actions/booking-limits";
@@ -220,18 +225,18 @@ export async function requestTrialAction(formData: FormData) {
   }
 
   const riderId = user.id;
-  const { data: existingOwnRequest } = await supabase
+  const { data: existingOwnRequestData } = await supabase
     .from("trial_requests")
-    .select("id, status")
+    .select("id, status, created_at")
     .eq("horse_id", horseId)
     .eq("rider_id", riderId)
-    .neq("status", TRIAL_REQUEST_STATUS.declined)
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+  const existingOwnRequest = (existingOwnRequestData as Pick<TrialRequest, "id" | "status"> | null) ?? null;
 
-  if (existingOwnRequest) {
-    const existingRequestStatus = (existingOwnRequest as Pick<TrialRequest, "id" | "status">).status;
-    redirectWithMessage(redirectPath, "error", getTrialRequestDuplicateError(existingRequestStatus));
+  if (existingOwnRequest && isTrialRequestLifecycleStatus(existingOwnRequest.status)) {
+    redirectWithMessage(redirectPath, "error", getTrialRequestDuplicateError(existingOwnRequest.status));
   }
 
   const nowIso = new Date().toISOString();
@@ -267,7 +272,6 @@ export async function requestTrialAction(formData: FormData) {
         .from("trial_requests")
         .select("availability_rule_id, requested_start_at, requested_end_at, status")
         .eq("horse_id", horseId)
-        .neq("status", TRIAL_REQUEST_STATUS.declined)
     ]);
 
     if (occupancyError) {
@@ -328,6 +332,7 @@ export async function requestTrialAction(formData: FormData) {
     revalidatePath(`/pferde/${horseId}`);
     revalidatePath(`/pferde/${horseId}/kalender`);
     revalidatePath("/anfragen");
+    revalidatePath("/nachrichten");
     revalidatePath("/owner/anfragen");
     redirectWithMessage(
       `/pferde/${horseId}`,
@@ -339,6 +344,7 @@ export async function requestTrialAction(formData: FormData) {
   revalidatePath(`/pferde/${horseId}`);
   revalidatePath(`/pferde/${horseId}/kalender`);
   revalidatePath("/anfragen");
+  revalidatePath("/nachrichten");
   revalidatePath("/owner/anfragen");
   redirectWithMessage(
     `/pferde/${horseId}`,
@@ -596,6 +602,7 @@ export async function saveProfileDetailsAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/profil");
   revalidatePath("/anfragen");
+  revalidatePath("/nachrichten");
   revalidatePath("/owner/anfragen");
   redirectWithMessage("/profil", "message", "Dein Profil wurde gespeichert.");
 }
@@ -1022,6 +1029,122 @@ export async function declineBookingRequestAction(formData: FormData) {
   const result = await declineBookingRequestForOwner({
     ownerId: user.id,
     requestId,
+    supabase
+  });
+
+  if (!result.ok) {
+    redirectWithMessage(result.redirectPath, "error", result.message);
+  }
+
+  for (const path of result.paths) {
+    revalidatePath(path);
+  }
+
+  redirectWithMessage(result.redirectPath, "message", result.message);
+}
+
+export async function cancelOperationalBookingForRiderAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("rider");
+  const bookingId = asString(formData.get("bookingId"));
+
+  if (!bookingId) {
+    redirectWithMessage("/anfragen", "error", "Der Termin konnte nicht gefunden werden.");
+  }
+
+  const result = await cancelOperationalBookingForRider({
+    bookingId,
+    logSupabaseError,
+    riderId: user.id,
+    supabase
+  });
+
+  if (!result.ok) {
+    redirectWithMessage(result.redirectPath, "error", result.message);
+  }
+
+  for (const path of result.paths) {
+    revalidatePath(path);
+  }
+
+  redirectWithMessage(result.redirectPath, "message", result.message);
+}
+
+export async function cancelOperationalBookingForOwnerAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const bookingId = asString(formData.get("bookingId"));
+
+  if (!bookingId) {
+    redirectWithMessage("/owner/reitbeteiligungen", "error", "Der Termin konnte nicht gefunden werden.");
+  }
+
+  const result = await cancelOperationalBookingForOwner({
+    bookingId,
+    logSupabaseError,
+    ownerId: user.id,
+    supabase
+  });
+
+  if (!result.ok) {
+    redirectWithMessage(result.redirectPath, "error", result.message);
+  }
+
+  for (const path of result.paths) {
+    revalidatePath(path);
+  }
+
+  redirectWithMessage(result.redirectPath, "message", result.message);
+}
+
+export async function rescheduleOperationalBookingForRiderAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("rider");
+  const bookingId = asString(formData.get("bookingId"));
+  const ruleId = asString(formData.get("ruleId"));
+  const startAt = asString(formData.get("startAt"));
+  const endAt = asString(formData.get("endAt"));
+
+  if (!bookingId || !ruleId || !startAt || !endAt) {
+    redirectWithMessage("/anfragen", "error", "Die Umbuchung konnte nicht zugeordnet werden.");
+  }
+
+  const result = await rescheduleOperationalBookingForRider({
+    bookingId,
+    endAtInput: endAt,
+    logSupabaseError,
+    riderId: user.id,
+    ruleId,
+    startAtInput: startAt,
+    supabase
+  });
+
+  if (!result.ok) {
+    redirectWithMessage(result.redirectPath, "error", result.message);
+  }
+
+  for (const path of result.paths) {
+    revalidatePath(path);
+  }
+
+  redirectWithMessage(result.redirectPath, "message", result.message);
+}
+
+export async function rescheduleOperationalBookingForOwnerAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const bookingId = asString(formData.get("bookingId"));
+  const ruleId = asString(formData.get("ruleId"));
+  const startAt = asString(formData.get("startAt"));
+  const endAt = asString(formData.get("endAt"));
+
+  if (!bookingId || !ruleId || !startAt || !endAt) {
+    redirectWithMessage("/owner/reitbeteiligungen", "error", "Die Umbuchung konnte nicht zugeordnet werden.");
+  }
+
+  const result = await rescheduleOperationalBookingForOwner({
+    bookingId,
+    endAtInput: endAt,
+    logSupabaseError,
+    ownerId: user.id,
+    ruleId,
+    startAtInput: startAt,
     supabase
   });
 

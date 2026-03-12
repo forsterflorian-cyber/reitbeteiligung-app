@@ -25,6 +25,7 @@ import {
 import { readSearchParam } from "@/lib/search-params";
 import { R1_CORE_MODE } from "@/lib/release-stage";
 import { createClient } from "@/lib/supabase/server";
+import { canRetryTrialRequest, getRiderTrialRequestStatusMessage } from "@/lib/trial-lifecycle";
 import type { AvailabilityRule, Horse, HorseImage, TrialRequest, TrialRequestStatus } from "@/types/database";
 
 function riderStatusText(status: TrialRequestStatus) {
@@ -140,13 +141,12 @@ export default async function PferdDetailPage({
         .from("trial_requests")
         .select("availability_rule_id, requested_start_at, requested_end_at, status")
         .eq("horse_id", horse.id)
-        .neq("status", "declined")
     ]);
 
     latestRequest = (requestData as TrialRequest | null) ?? null;
     approved = await isApproved(horse.id, user.id, supabase);
 
-    trialSlots = !approved && (!latestRequest || latestRequest.status === "declined")
+    trialSlots = !approved && (!latestRequest || canRetryTrialRequest(latestRequest.status))
       ? getUpcomingTrialSlots({
           occupiedRanges: ((occupancyData as Array<{ start_at: string; end_at: string }> | null) ?? []),
           reservedRequests: ((reservedTrialData as Array<Pick<TrialRequest, "availability_rule_id" | "requested_start_at" | "requested_end_at" | "status">> | null) ?? []),
@@ -159,7 +159,7 @@ export default async function PferdDetailPage({
     latestRequest?.requested_start_at && latestRequest?.requested_end_at
       ? formatTrialSlotRange(latestRequest.requested_start_at, latestRequest.requested_end_at)
       : null;
-  const canSelectTrialSlot = profile?.role === "rider" && !approved && (!latestRequest || latestRequest.status === "declined");
+  const canSelectTrialSlot = profile?.role === "rider" && !approved && (!latestRequest || canRetryTrialRequest(latestRequest.status));
   const hasExplicitTrialSlots = trialSlots.length > 0;
   const canRequest = canSelectTrialSlot && hasExplicitTrialSlots;
   const facts = horseFacts(horse);
@@ -296,7 +296,9 @@ export default async function PferdDetailPage({
               <div className="space-y-3">
                 <StatusBadge status={latestRequest.status} />
                 {latestRequestedSlotLabel ? <p className="text-sm font-semibold text-stone-900">{latestRequestedSlotLabel}</p> : null}
-                <p className="text-sm leading-6 text-stone-600">{riderStatusText(latestRequest.status)}</p>
+                <p className="text-sm leading-6 text-stone-600">
+                  {riderStatusText(latestRequest.status) ?? getRiderTrialRequestStatusMessage(latestRequest.status)}
+                </p>
               </div>
             </div>
           ) : null}

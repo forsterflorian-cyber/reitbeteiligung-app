@@ -1,7 +1,13 @@
 import type { Route } from "next";
 import Link from "next/link";
 
-import { createAvailabilityDayAction, createAvailabilityRuleAction, deleteAvailabilityRuleAction } from "@/app/actions";
+import {
+  cancelOperationalBookingForOwnerAction,
+  createAvailabilityDayAction,
+  createAvailabilityRuleAction,
+  deleteAvailabilityRuleAction
+} from "@/app/actions";
+import { rescheduleOperationalBookingForOwnerAction } from "@/app/actions";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
 import { StatusBadge } from "@/components/status-badge";
@@ -12,7 +18,27 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
-import type { AvailabilityRule, Booking, Horse, TrialRequest } from "@/types/database";
+import { canCancelOperationalBooking, canRescheduleOperationalBooking } from "@/lib/booking-guards";
+import { BOOKING_REQUEST_STATUS } from "@/lib/statuses";
+import type { AvailabilityRule, Booking, BookingRequest, Horse, TrialRequest } from "@/types/database";
+
+type OwnerOperationalSlot = {
+  availabilityRuleId: string;
+  endAt: string;
+  startAt: string;
+};
+
+type OwnerBookingCard = Booking & {
+  riderName: string | null;
+};
+
+type OwnerCanceledBookingCard = BookingRequest & {
+  riderName: string | null;
+};
+
+type OwnerRescheduledBookingCard = BookingRequest & {
+  riderName: string | null;
+};
 
 type OwnerHorseCalendarV1Props = {
   activeRelationshipCount: number;
@@ -25,7 +51,11 @@ type OwnerHorseCalendarV1Props = {
   nextTrialRequest: TrialRequest | null;
   nextTrialRiderName: string | null;
   operationalRules: AvailabilityRule[];
-  upcomingBookings: Booking[];
+  canceledBookings: OwnerCanceledBookingCard[];
+  openSlots: OwnerOperationalSlot[];
+  rescheduleBooking: OwnerBookingCard | null;
+  rescheduledBookings: OwnerRescheduledBookingCard[];
+  upcomingBookings: OwnerBookingCard[];
   trialRules: AvailabilityRule[];
 };
 
@@ -51,9 +81,15 @@ export function OwnerHorseCalendarV1({
   nextTrialRequest,
   nextTrialRiderName,
   operationalRules,
+  canceledBookings,
+  openSlots,
+  rescheduleBooking,
+  rescheduledBookings,
   upcomingBookings,
   trialRules
 }: OwnerHorseCalendarV1Props) {
+  const clearRescheduleHref = `/pferde/${horse.id}/kalender#operativer-kalender` as Route;
+
   return (
     <div className="space-y-6 sm:space-y-8">
       <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={detailHref}>
@@ -251,18 +287,141 @@ export function OwnerHorseCalendarV1({
                   <p className="ui-eyebrow">Naechste Direktbuchungen</p>
                   <p className="text-sm text-stone-600">So siehst du sofort, welche Slots bereits belegt wurden.</p>
                 </div>
+                {rescheduleBooking ? (
+                  <div className="space-y-3 rounded-2xl border border-sand bg-sand/30 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-stone-900">Termin wird umgebucht</p>
+                        <p className="text-sm text-stone-700">{formatDateRange(rescheduleBooking.start_at, rescheduleBooking.end_at)}</p>
+                        <p className="text-xs text-stone-600">
+                          {rescheduleBooking.riderName ? `Gebucht von ${rescheduleBooking.riderName}` : `Gebucht von Reiter ${rescheduleBooking.rider_id.slice(0, 8)}`}
+                        </p>
+                      </div>
+                      <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={clearRescheduleHref}>
+                        Umbuchung abbrechen
+                      </Link>
+                    </div>
+                    {openSlots.length === 0 ? (
+                      <EmptyState description="Aktuell gibt es keinen alternativen freien Slot fuer diese Umbuchung." title="Kein alternativer Slot frei" />
+                    ) : (
+                      <div className="space-y-2" id="umbuchen">
+                        {openSlots.map((slot) => (
+                          <div className="rounded-2xl border border-stone-200 bg-white px-3 py-3" key={slot.availabilityRuleId}>
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="space-y-1">
+                                <p className="text-sm font-semibold text-stone-900">{formatDateRange(slot.startAt, slot.endAt)}</p>
+                                <p className="text-xs text-stone-500">Freier Zielslot fuer die Umbuchung</p>
+                              </div>
+                              <form action={rescheduleOperationalBookingForOwnerAction} className="w-full sm:w-auto">
+                                <input name="bookingId" type="hidden" value={rescheduleBooking.id} />
+                                <input name="ruleId" type="hidden" value={slot.availabilityRuleId} />
+                                <input name="startAt" type="hidden" value={slot.startAt} />
+                                <input name="endAt" type="hidden" value={slot.endAt} />
+                                <SubmitButton className="w-full sm:w-auto" idleLabel="Auf diesen Slot umbuchen" pendingLabel="Wird umgebucht..." />
+                              </form>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
                 {upcomingBookings.length === 0 ? (
                   <EmptyState description="Sobald eine aktive Reitbeteiligung direkt bucht, erscheint der Termin hier." title="Noch keine Buchung" />
                 ) : (
                   <div className="space-y-2">
                     {upcomingBookings.slice(0, 6).map((booking) => (
-                      <div className="rounded-2xl border border-stone-200 bg-white px-3 py-3" key={booking.id}>
-                        <p className="text-sm font-semibold text-stone-900">{formatDateRange(booking.start_at, booking.end_at)}</p>
-                        <p className="mt-1 text-xs text-stone-500">Direkt gebuchter operativer Termin</p>
+                      <div className={`rounded-2xl border px-3 py-3 ${rescheduleBooking?.id === booking.id ? "border-sand bg-sand/20" : "border-stone-200 bg-white"}`} key={booking.id}>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="space-y-1">
+                            <p className="text-sm font-semibold text-stone-900">{formatDateRange(booking.start_at, booking.end_at)}</p>
+                            <p className="text-xs text-stone-500">
+                              {booking.riderName ? `Gebucht von ${booking.riderName}` : `Gebucht von Reiter ${booking.rider_id.slice(0, 8)}`}
+                            </p>
+                          </div>
+                          {canCancelOperationalBooking({ startAt: booking.start_at, status: BOOKING_REQUEST_STATUS.accepted }) ? (
+                            <div className="grid w-full grid-cols-1 gap-2 sm:w-auto">
+                              {canRescheduleOperationalBooking({ startAt: booking.start_at, status: BOOKING_REQUEST_STATUS.accepted }) ? (
+                                rescheduleBooking?.id === booking.id ? (
+                                  <Link className={buttonVariants("ghost", "w-full justify-center sm:w-auto")} href={clearRescheduleHref}>
+                                    Umbuchung abbrechen
+                                  </Link>
+                                ) : (
+                                  <Link className={buttonVariants("secondary", "w-full justify-center sm:w-auto")} href={`/pferde/${horse.id}/kalender?rescheduleBooking=${booking.id}#umbuchen` as Route}>
+                                    Termin umbuchen
+                                  </Link>
+                                )
+                              ) : null}
+                              <form action={cancelOperationalBookingForOwnerAction} className="w-full sm:w-auto">
+                                <input name="bookingId" type="hidden" value={booking.id} />
+                                <ConfirmSubmitButton
+                                  className={buttonVariants("secondary", "w-full border-rose-300 text-rose-700 hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700 sm:w-auto")}
+                                  confirmMessage="Moechtest du diesen operativen Termin wirklich stornieren? Der Slot wird danach wieder freigegeben."
+                                  idleLabel="Termin stornieren"
+                                  pendingLabel="Wird storniert..."
+                                />
+                              </form>
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
+                {rescheduledBookings.length > 0 ? (
+                  <div className="space-y-3 border-t border-stone-200 pt-4">
+                    <div className="space-y-1">
+                      <p className="ui-eyebrow">Umgebucht</p>
+                      <p className="text-sm text-stone-600">Diese operativen Termine wurden auf einen neuen freien Slot verschoben.</p>
+                    </div>
+                    <div className="space-y-2">
+                      {rescheduledBookings.slice(0, 6).map((booking) => (
+                        <div className="rounded-2xl border border-stone-200 bg-sand/20 px-3 py-3" key={booking.id}>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-stone-900">
+                                {booking.requested_start_at && booking.requested_end_at
+                                  ? formatDateRange(booking.requested_start_at, booking.requested_end_at)
+                                  : "Zeitpunkt wird noch geprueft"}
+                              </p>
+                              <p className="text-xs text-stone-500">
+                                {booking.riderName ? `Umbuchung fuer ${booking.riderName}` : `Umbuchung fuer Reiter ${booking.rider_id.slice(0, 8)}`}
+                              </p>
+                            </div>
+                            <StatusBadge status={booking.status} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {canceledBookings.length > 0 ? (
+                  <div className="space-y-3 border-t border-stone-200 pt-4">
+                    <div className="space-y-1">
+                      <p className="ui-eyebrow">Storniert</p>
+                      <p className="text-sm text-stone-600">Diese operativen Termine bleiben als Historie sichtbar und blockieren keinen aktiven Slot mehr.</p>
+                    </div>
+                    <div className="space-y-2">
+                      {canceledBookings.slice(0, 6).map((booking) => (
+                        <div className="rounded-2xl border border-stone-200 bg-stone-50 px-3 py-3" key={booking.id}>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-stone-900">
+                                {booking.requested_start_at && booking.requested_end_at
+                                  ? formatDateRange(booking.requested_start_at, booking.requested_end_at)
+                                  : "Zeitpunkt wird noch geprueft"}
+                              </p>
+                              <p className="text-xs text-stone-500">
+                                {booking.riderName ? `Storniert von ${booking.riderName}` : `Storniert von Reiter ${booking.rider_id.slice(0, 8)}`}
+                              </p>
+                            </div>
+                            <StatusBadge status={booking.status} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </Card>
           </div>

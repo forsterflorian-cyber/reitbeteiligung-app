@@ -37,6 +37,11 @@ test("isTrialRuleBlocked blockiert Belegung und bestehende Anfragen", () => {
     isTrialRuleBlocked(rule, [], [{ availability_rule_id: null, requested_start_at: "2026-03-12T09:15:00.000Z", requested_end_at: "2026-03-12T09:45:00.000Z", status: "declined" }]),
     false
   );
+
+  assert.equal(
+    isTrialRuleBlocked(rule, [], [{ availability_rule_id: "rule-1", requested_start_at: null, requested_end_at: null, status: "withdrawn" }]),
+    false
+  );
 });
 
 test("getUpcomingTrialSlots liefert nur aktive kommende freie Slots", () => {

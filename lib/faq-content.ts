@@ -30,7 +30,7 @@ export const FAQ_SECTIONS: readonly FaqSection[] = [
       },
       {
         question: "Kann ich eine Probeanfrage wieder zurueckziehen?",
-        answer: "Ja. Solange deine Anfrage noch offen oder bereits angenommen ist, kannst du sie unter Proben & Chats wieder zurueckziehen."
+        answer: "Ja. Solange deine Anfrage noch offen oder bereits angenommen ist, kannst du sie unter Meine Reitbeteiligungen wieder zurueckziehen."
       },
       {
         question: "Was passiert nach der Freischaltung?",

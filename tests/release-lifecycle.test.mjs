@@ -17,7 +17,7 @@ import {
 test("Probetermin anfragen prueft Duplikate, Slot-Auswahl und Erfolgsmeldungen direkt", () => {
   assert.equal(
     getTrialRequestDuplicateError("requested"),
-    "Du hast f\u00fcr dieses Pferd bereits eine offene Probeanfrage. Ziehe sie unter Proben & Chats zur\u00fcck, bevor du erneut anfragst."
+    "Du hast f\u00fcr dieses Pferd bereits eine offene Probeanfrage. Ziehe sie unter Meine Reitbeteiligungen zur\u00fcck, bevor du erneut anfragst."
   );
   assert.equal(
     getTrialRequestDuplicateError("completed"),
@@ -49,6 +49,10 @@ test("Aufnehmen als Reitbeteiligung haengt direkt am durchgefuehrten Probetermin
   assert.equal(getApprovalTransitionError("completed"), null);
   assert.equal(
     getApprovalTransitionError("accepted"),
+    "Nur durchgefuehrte Probetermine koennen freigeschaltet werden."
+  );
+  assert.equal(
+    getApprovalTransitionError("withdrawn"),
     "Nur durchgefuehrte Probetermine koennen freigeschaltet werden."
   );
   assert.equal(getApprovalSavedMessage("approved"), "Die Reitbeteiligung wurde freigeschaltet.");

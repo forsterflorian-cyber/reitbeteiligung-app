@@ -1,8 +1,8 @@
 export type UserRole = "owner" | "rider";
 
-export type TrialRequestStatus = "requested" | "accepted" | "declined" | "completed";
+export type TrialRequestStatus = "requested" | "accepted" | "declined" | "completed" | "withdrawn";
 export type ApprovalStatus = "approved" | "revoked";
-export type BookingRequestStatus = "requested" | "accepted" | "declined" | "canceled";
+export type BookingRequestStatus = "requested" | "accepted" | "declined" | "canceled" | "rescheduled";
 
 export type Profile = {
   id: string;
@@ -123,6 +123,7 @@ export type BookingRequest = {
   requested_start_at: string | null;
   requested_end_at: string | null;
   recurrence_rrule: string | null;
+  rescheduled_from_booking_request_id?: string | null;
   created_at: string;
 };
 

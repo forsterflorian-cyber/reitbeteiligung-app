@@ -1,39 +1,44 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { buildApprovalStatusMap, getRelationshipKey, isActiveRelationship, shouldShowTrialRequestInLifecycle } from "@/lib/relationship-state";
-import type { Approval, BookingRequest, Conversation, Horse, Message, RiderBookingLimit, TrialRequest } from "@/types/database";
+import { loadConversationSummaryMaps, type ConversationContactInfo } from "@/lib/message-summaries";
+import {
+  buildApprovalStatusMap,
+  getRelationshipKey,
+  hasVisibleRelationshipConversation,
+  isActiveRelationship,
+  shouldShowTrialRequestInLifecycle
+} from "@/lib/relationship-state";
+import type { Approval, Conversation, Message, TrialRequest } from "@/types/database";
 
-export type OwnerRequestItem = TrialRequest & {
-  horse?: Horse | null;
+type OwnerWorkspaceHorse = {
+  active: boolean;
+  created_at: string;
+  description: string | null;
+  id: string;
+  plz: string;
+  title: string;
 };
 
-export type OwnerBookingRequestItem = BookingRequest & {
-  horse?: Horse | null;
+export type OwnerRequestItem = TrialRequest & {
+  horse?: OwnerWorkspaceHorse | null;
 };
 
 export type ActiveRelationshipItem = {
   approval: Approval;
   conversation: Conversation | null;
-  horse: Horse | null;
+  horse: OwnerWorkspaceHorse | null;
   latestTrial: OwnerRequestItem | null;
-  riderBookingLimit: RiderBookingLimit | null;
-};
-
-type ContactInfoRecord = {
-  partner_name: string | null;
 };
 
 export type OwnerWorkspaceData = {
   activeRelationships: ActiveRelationshipItem[];
   approvalMap: Map<string, Approval>;
-  bookingItems: OwnerBookingRequestItem[];
-  conversationInfo: Map<string, ContactInfoRecord | null>;
+  conversationInfo: Map<string, ConversationContactInfo | null>;
   conversationMap: Map<string, Conversation>;
   conversations: Conversation[];
-  horseMap: Map<string, Horse>;
-  horses: Horse[];
+  horseMap: Map<string, OwnerWorkspaceHorse>;
+  horses: OwnerWorkspaceHorse[];
   latestMessages: Map<string, Message>;
-  riderBookingLimitMap: Map<string, RiderBookingLimit>;
   trialPipelineItems: OwnerRequestItem[];
 };
 
@@ -49,11 +54,11 @@ export function hasUnreadOwnerMessage(conversation: Conversation | null, latestM
 export async function loadOwnerWorkspaceData(supabase: SupabaseClient, ownerId: string): Promise<OwnerWorkspaceData> {
   const { data: horsesData } = await supabase
     .from("horses")
-    .select("id, owner_id, title, plz, description, active, created_at")
+    .select("id, title, plz, description, active, created_at")
     .eq("owner_id", ownerId)
     .order("created_at", { ascending: false });
 
-  const horses = (horsesData as Horse[] | null) ?? [];
+  const horses = (horsesData as OwnerWorkspaceHorse[] | null) ?? [];
   const horseMap = new Map(horses.map((horse) => [horse.id, horse]));
   const horseIds = horses.map((horse) => horse.id);
 
@@ -61,19 +66,17 @@ export async function loadOwnerWorkspaceData(supabase: SupabaseClient, ownerId: 
     return {
       activeRelationships: [],
       approvalMap: new Map(),
-      bookingItems: [],
       conversationInfo: new Map(),
       conversationMap: new Map(),
       conversations: [],
       horseMap,
       horses,
       latestMessages: new Map(),
-      riderBookingLimitMap: new Map(),
       trialPipelineItems: []
     };
   }
 
-  const [{ data: requestsData }, { data: approvalsData }, { data: conversationsData }, { data: bookingRequestsData }, { data: riderBookingLimitsData }] =
+  const [{ data: requestsData }, { data: approvalsData }, { data: conversationsData }] =
     await Promise.all([
       supabase
         .from("trial_requests")
@@ -86,63 +89,17 @@ export async function loadOwnerWorkspaceData(supabase: SupabaseClient, ownerId: 
         .from("conversations")
         .select("id, horse_id, rider_id, owner_id, owner_last_read_at, rider_last_read_at, created_at")
         .eq("owner_id", ownerId)
-        .in("horse_id", horseIds),
-      supabase
-        .from("booking_requests")
-        .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, recurrence_rrule, created_at")
-        .in("horse_id", horseIds)
-        .order("created_at", { ascending: false })
-        .limit(40),
-      supabase
-        .from("rider_booking_limits")
-        .select("horse_id, rider_id, weekly_hours_limit, created_at, updated_at")
         .in("horse_id", horseIds)
     ]);
 
   const requests = (requestsData as TrialRequest[] | null) ?? [];
   const approvals = (approvalsData as Approval[] | null) ?? [];
   const conversations = (conversationsData as Conversation[] | null) ?? [];
-  const bookingRequests = (bookingRequestsData as BookingRequest[] | null) ?? [];
-  const riderBookingLimits = (riderBookingLimitsData as RiderBookingLimit[] | null) ?? [];
-
-  const conversationIds = conversations.map((conversation) => conversation.id);
-  const { data: latestMessagesData } = conversationIds.length > 0
-    ? await supabase
-        .from("messages")
-        .select("id, conversation_id, sender_id, content, created_at")
-        .in("conversation_id", conversationIds)
-        .order("created_at", { ascending: false })
-    : { data: [] as Message[] };
-
-  const contactInfoEntries = await Promise.all(
-    conversations.map(async (conversation) => {
-      const { data } = await supabase.rpc("get_conversation_contact_info", {
-        p_conversation_id: conversation.id
-      });
-      const rows = Array.isArray(data) ? data : data ? [data] : [];
-      const record = (rows[0] as ContactInfoRecord | undefined) ?? null;
-      return [conversation.id, record] as const;
-    })
-  );
-
-  const latestMessages = new Map<string, Message>();
-  (((latestMessagesData as Message[] | null) ?? [])).forEach((message) => {
-    if (!latestMessages.has(message.conversation_id)) {
-      latestMessages.set(message.conversation_id, message);
-    }
-  });
 
   const approvalStatusMap = buildApprovalStatusMap(approvals);
   const approvalMap = new Map(approvals.map((approval) => [getRelationshipKey(approval.horse_id, approval.rider_id), approval]));
-  const conversationMap = new Map(conversations.map((conversation) => [getRelationshipKey(conversation.horse_id, conversation.rider_id), conversation]));
-  const riderBookingLimitMap = new Map(riderBookingLimits.map((limit) => [getRelationshipKey(limit.horse_id, limit.rider_id), limit]));
-  const conversationInfo = new Map(contactInfoEntries);
 
   const items: OwnerRequestItem[] = requests.map((request) => ({
-    ...request,
-    horse: horseMap.get(request.horse_id) ?? null
-  }));
-  const bookingItems: OwnerBookingRequestItem[] = bookingRequests.map((request) => ({
     ...request,
     horse: horseMap.get(request.horse_id) ?? null
   }));
@@ -155,6 +112,16 @@ export async function loadOwnerWorkspaceData(supabase: SupabaseClient, ownerId: 
       latestTrialByPair.set(key, item);
     }
   });
+  const visibleConversations = conversations.filter((conversation) => {
+    const key = getRelationshipKey(conversation.horse_id, conversation.rider_id);
+
+    return hasVisibleRelationshipConversation(latestTrialByPair.get(key)?.status ?? null, approvalStatusMap.get(key) ?? null);
+  });
+  const { conversationInfo, latestMessages } = await loadConversationSummaryMaps(
+    supabase,
+    visibleConversations.map((conversation) => conversation.id)
+  );
+  const conversationMap = new Map(visibleConversations.map((conversation) => [getRelationshipKey(conversation.horse_id, conversation.rider_id), conversation]));
 
   const activeRelationships: ActiveRelationshipItem[] = approvals
     .filter((approval) => isActiveRelationship(approval.status))
@@ -166,8 +133,7 @@ export async function loadOwnerWorkspaceData(supabase: SupabaseClient, ownerId: 
         approval,
         conversation: conversationMap.get(key) ?? null,
         horse: horseMap.get(approval.horse_id) ?? null,
-        latestTrial: latestTrialByPair.get(key) ?? null,
-        riderBookingLimit: riderBookingLimitMap.get(key) ?? null
+        latestTrial: latestTrialByPair.get(key) ?? null
       };
     });
 
@@ -178,14 +144,12 @@ export async function loadOwnerWorkspaceData(supabase: SupabaseClient, ownerId: 
   return {
     activeRelationships,
     approvalMap,
-    bookingItems,
     conversationInfo,
     conversationMap,
-    conversations,
+    conversations: visibleConversations,
     horseMap,
     horses,
     latestMessages,
-    riderBookingLimitMap,
     trialPipelineItems
   };
 }

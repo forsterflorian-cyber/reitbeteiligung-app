@@ -25,9 +25,15 @@ const riderNav = [
   },
   {
     href: "/anfragen" as Route,
-    label: "Proben & Chats",
-    match: ["/anfragen", "/chat"],
-    mobileLabel: "Proben"
+    label: "Meine Reitbeteiligungen",
+    match: ["/anfragen"],
+    mobileLabel: "Meine"
+  },
+  {
+    href: "/nachrichten" as Route,
+    label: "Nachrichten",
+    match: ["/nachrichten", "/chat"],
+    mobileLabel: "Chat"
   },
   {
     href: "/profil" as Route,
@@ -75,7 +81,7 @@ export function getNavItems(profile?: Pick<Profile, "role"> | null, options?: { 
 
   if (profile.role !== "owner") {
     return riderNav.map((item) => {
-      if (item.href === "/anfragen" && options?.unreadMessages) {
+      if (item.href === "/nachrichten" && options?.unreadMessages) {
         return {
           ...item,
           badgeCount: options.unreadMessages

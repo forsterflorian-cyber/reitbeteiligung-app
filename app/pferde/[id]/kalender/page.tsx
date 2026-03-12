@@ -36,14 +36,15 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { getApprovalStatus } from "@/lib/approvals";
 import { getViewerContext } from "@/lib/auth";
-import { formatWeeklyHoursLimit } from "@/lib/booking-limits";
+import { canRescheduleOperationalBooking } from "@/lib/booking-guards";
+import { formatBookingQuotaMinutes, formatWeeklyHoursLimit, type RiderWeeklyBookingQuota } from "@/lib/booking-limits";
 import { HORSE_SELECT_FIELDS } from "@/lib/horses";
 import { getUpcomingOperationalSlots, splitAvailabilityRulesByPhase, isTrialAvailabilityRule } from "@/lib/operational-slots";
 import { getOwnerPlan, getOwnerPlanUsage } from "@/lib/plans";
 import { canAccessOperationalCalendar, isActiveRelationship } from "@/lib/relationship-state";
 import { ACTIVE_RELATIONSHIP_CALENDAR_V1, R1_CORE_MODE } from "@/lib/release-stage";
 import { readSearchParam } from "@/lib/search-params";
-import type { AvailabilityRule, Booking, BookingRequest, CalendarBlock, Horse, Profile, RiderBookingLimit, TrialRequest } from "@/types/database";
+import type { AvailabilityRule, Booking, BookingRequest, CalendarBlock, Horse, Profile, TrialRequest } from "@/types/database";
 
 type PferdKalenderPageProps = {
   params: { id: string };
@@ -416,14 +417,6 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const isRider = profile?.role === "rider" && Boolean(user);
   const ownerTrialOnlyMode = isOwner && R1_CORE_MODE && !ACTIVE_RELATIONSHIP_CALENDAR_V1;
   const simpleCalendarV1Mode = R1_CORE_MODE && ACTIVE_RELATIONSHIP_CALENDAR_V1;
-  const { data: ownerProfileData } = await supabase
-    .from("profiles")
-    .select("id, role, is_premium, created_at, display_name, phone")
-    .eq("id", horse.owner_id)
-    .maybeSingle();
-  const ownerProfile = ((ownerProfileData as Profile | null) ?? null) || (isOwner ? profile : null);
-  const ownerPlanUsage = !ownerTrialOnlyMode && isOwner && user ? await getOwnerPlanUsage(supabase, user.id) : { approvedRiderCount: 0, horseCount: 1 };
-  const ownerPlan = getOwnerPlan(ownerProfile, ownerPlanUsage);
   const approvalStatus = isRider && user ? await getApprovalStatus(horse.id, user.id, supabase) : null;
   const riderApproved = isActiveRelationship(approvalStatus);
   const canUseCalendar = canAccessOperationalCalendar({
@@ -431,15 +424,38 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     isHorseOwner: isOwner,
     viewerRole: profile?.role
   });
-  const { data: riderBookingLimitData } = !R1_CORE_MODE && isRider && riderApproved && user
+
+  if (!canUseCalendar) {
+    const restrictedCalendarSubtitle =
+      profile?.role === "rider"
+        ? "Operative Slots sind nur fuer aktiv freigeschaltete Reitbeteiligungen sichtbar."
+        : profile
+          ? "Fuer dieses Pferd ist der operative Kalender nur fuer den Pferdehalter und aktive Reitbeteiligungen sichtbar."
+          : "Melde dich an, um Verfuegbarkeiten, Buchungen und deinen eigenen Status zu sehen.";
+
+    return (
+      <HorseCalendarRestrictedState
+        detailHref={detailHref}
+        error={error}
+        isAuthenticated={Boolean(profile)}
+        message={message}
+        showLoadError={false}
+        subtitle={restrictedCalendarSubtitle}
+        title={"Kalender fuer " + horse.title}
+      />
+    );
+  }
+
+  const { data: ownerProfileData } = !isOwner
     ? await supabase
-        .from("rider_booking_limits")
-        .select("horse_id, rider_id, weekly_hours_limit, created_at, updated_at")
-        .eq("horse_id", horse.id)
-        .eq("rider_id", user.id)
+        .from("profiles")
+        .select("role, is_premium, created_at, trial_started_at")
+        .eq("id", horse.owner_id)
         .maybeSingle()
-    : { data: null };
-  const riderBookingLimit = (riderBookingLimitData as RiderBookingLimit | null) ?? null;
+    : { data: null as Pick<Profile, "created_at" | "is_premium" | "role" | "trial_started_at"> | null };
+  const ownerProfile = (isOwner ? profile : null) || ((ownerProfileData as Pick<Profile, "created_at" | "is_premium" | "role" | "trial_started_at"> | null) ?? null);
+  const ownerPlanUsage = !ownerTrialOnlyMode && isOwner && user ? await getOwnerPlanUsage(supabase, user.id) : { approvedRiderCount: 0, horseCount: 1 };
+  const ownerPlan = getOwnerPlan(ownerProfile, ownerPlanUsage);
   const nowIso = new Date().toISOString();
 
   const [occupancyResult, rulesResult, ownerBlocksResult, ownerBookingRequestsResult, riderBookingRequestsResult, ownerNextTrialResult] = await Promise.all([
@@ -452,6 +468,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
       .from("availability_rules")
       .select("id, horse_id, slot_id, start_at, end_at, active, is_trial_slot, created_at")
       .eq("horse_id", horse.id)
+      .eq("active", true)
       .order("start_at", { ascending: true }),
     isOwner && !ownerTrialOnlyMode && !simpleCalendarV1Mode
       ? supabase
@@ -495,7 +512,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     (left, right) => new Date(left.start_at).getTime() - new Date(right.start_at).getTime()
   );
   const occupancyError = occupancyResult.error;
-  const rules = ((rulesResult.data as AvailabilityRule[] | null) ?? []).filter((rule) => rule.active);
+  const rules = (rulesResult.data as AvailabilityRule[] | null) ?? [];
   const ownerBlocks = (ownerBlocksResult.data as CalendarBlock[] | null) ?? [];
   const ownerBookingRequests = (ownerBookingRequestsResult.data as BookingRequest[] | null) ?? [];
   const riderBookingRequests = (riderBookingRequestsResult.data as BookingRequest[] | null) ?? [];
@@ -505,12 +522,15 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const trialSlotCount = trialRules.length;
   const ruleMap = new Map(rules.map((rule) => [rule.id, rule]));
   const requestedOwnerBookingItems = ownerBookingRequests.filter((request) => request.status === "requested");
-  const { data: nextTrialRiderData } = isOwner && nextTrialRequest
-    ? await supabase.from("profiles").select("display_name").eq("id", nextTrialRequest.rider_id).maybeSingle()
-    : { data: null };
-  const nextTrialRiderName = (((nextTrialRiderData as Pick<Profile, "display_name"> | null) ?? null)?.display_name ?? null)?.trim() || null;
 
-  const [activeRelationshipCountResult, ownerUpcomingBookingsResult, riderUpcomingBookingsResult] = await Promise.all([
+  const [
+    activeRelationshipCountResult,
+    ownerUpcomingBookingsResult,
+    riderUpcomingBookingsResult,
+    ownerHistoryBookingRequestsResult,
+    riderHistoryBookingRequestsResult,
+    riderWeeklyQuotaResult
+  ] = await Promise.all([
     simpleCalendarV1Mode && isOwner
       ? supabase.from("approvals").select("horse_id", { count: "exact", head: true }).eq("horse_id", horse.id).eq("status", "approved")
       : Promise.resolve({ count: 0 as number | null }),
@@ -532,7 +552,33 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
           .gte("end_at", nowIso)
           .order("start_at", { ascending: true })
           .limit(8)
-      : Promise.resolve({ data: [] as Booking[] | null })
+      : Promise.resolve({ data: [] as Booking[] | null }),
+    simpleCalendarV1Mode && isOwner
+      ? supabase
+          .from("booking_requests")
+          .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, recurrence_rrule, rescheduled_from_booking_request_id, created_at")
+          .eq("horse_id", horse.id)
+          .in("status", ["canceled", "rescheduled"])
+          .order("created_at", { ascending: false })
+          .limit(16)
+      : Promise.resolve({ data: [] as BookingRequest[] | null }),
+    simpleCalendarV1Mode && isRider && riderApproved && user
+      ? supabase
+          .from("booking_requests")
+          .select("id, slot_id, availability_rule_id, horse_id, rider_id, status, requested_start_at, requested_end_at, recurrence_rrule, rescheduled_from_booking_request_id, created_at")
+          .eq("horse_id", horse.id)
+          .eq("rider_id", user.id)
+          .in("status", ["canceled", "rescheduled"])
+          .order("created_at", { ascending: false })
+          .limit(16)
+      : Promise.resolve({ data: [] as BookingRequest[] | null }),
+    isRider && riderApproved && user
+      ? supabase.rpc("get_rider_weekly_booking_quota", {
+          p_horse_id: horse.id,
+          p_reference_at: nowIso,
+          p_rider_id: user.id
+        })
+      : Promise.resolve({ data: null as RiderWeeklyBookingQuota | RiderWeeklyBookingQuota[] | null })
   ]);
   const openOperationalSlots = getUpcomingOperationalSlots({
     occupiedRanges: occupancy,
@@ -541,6 +587,60 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   const activeRelationshipCount = activeRelationshipCountResult.count ?? 0;
   const ownerUpcomingBookings = (ownerUpcomingBookingsResult.data as Booking[] | null) ?? [];
   const riderUpcomingBookings = (riderUpcomingBookingsResult.data as Booking[] | null) ?? [];
+  const ownerHistoryBookings = (ownerHistoryBookingRequestsResult.data as BookingRequest[] | null) ?? [];
+  const riderHistoryBookings = (riderHistoryBookingRequestsResult.data as BookingRequest[] | null) ?? [];
+  const ownerCanceledBookings = ownerHistoryBookings.filter((booking) => booking.status === "canceled");
+  const riderCanceledBookings = riderHistoryBookings.filter((booking) => booking.status === "canceled");
+  const ownerRescheduledBookings = ownerHistoryBookings.filter((booking) => booking.status === "rescheduled");
+  const riderRescheduledBookings = riderHistoryBookings.filter((booking) => booking.status === "rescheduled");
+  const riderWeeklyQuotaRaw = (riderWeeklyQuotaResult.data as RiderWeeklyBookingQuota | RiderWeeklyBookingQuota[] | null) ?? null;
+  const riderWeeklyQuota = Array.isArray(riderWeeklyQuotaRaw) ? (riderWeeklyQuotaRaw[0] ?? null) : riderWeeklyQuotaRaw;
+  const ownerBookingRiderIds = isOwner
+    ? [
+    ...new Set([
+      ...(nextTrialRequest ? [nextTrialRequest.rider_id] : []),
+      ...ownerUpcomingBookings.map((booking) => booking.rider_id),
+      ...ownerCanceledBookings.map((booking) => booking.rider_id),
+      ...ownerRescheduledBookings.map((booking) => booking.rider_id)
+    ])
+  ]
+    : [];
+  const { data: ownerBookingProfilesData } = isOwner && ownerBookingRiderIds.length > 0
+    ? await supabase.from("profiles").select("id, display_name").in("id", ownerBookingRiderIds)
+    : { data: [] as Pick<Profile, "id" | "display_name">[] };
+  const ownerBookingProfileMap = new Map(
+    (((ownerBookingProfilesData as Pick<Profile, "id" | "display_name">[] | null) ?? [])).map((profile) => [profile.id, profile.display_name?.trim() || null])
+  );
+  const nextTrialRiderName = nextTrialRequest ? ownerBookingProfileMap.get(nextTrialRequest.rider_id) ?? null : null;
+  const ownerUpcomingBookingItems = ownerUpcomingBookings.map((booking) => ({
+    ...booking,
+    riderName: ownerBookingProfileMap.get(booking.rider_id) ?? null
+  }));
+  const ownerCanceledBookingItems = ownerCanceledBookings.map((booking) => ({
+    ...booking,
+    riderName: ownerBookingProfileMap.get(booking.rider_id) ?? null
+  }));
+  const ownerRescheduledBookingItems = ownerRescheduledBookings.map((booking) => ({
+    ...booking,
+    riderName: ownerBookingProfileMap.get(booking.rider_id) ?? null
+  }));
+  const rescheduleBookingParam = readSearchParam(searchParams, "rescheduleBooking");
+  const ownerRescheduleBooking =
+    simpleCalendarV1Mode && isOwner && rescheduleBookingParam
+      ? ownerUpcomingBookingItems.find(
+          (booking) =>
+            booking.id === rescheduleBookingParam &&
+            canRescheduleOperationalBooking({ startAt: booking.start_at, status: "accepted" })
+        ) ?? null
+      : null;
+  const riderRescheduleBooking =
+    simpleCalendarV1Mode && isRider && riderApproved && rescheduleBookingParam
+      ? riderUpcomingBookings.find(
+          (booking) =>
+            booking.id === rescheduleBookingParam &&
+            canRescheduleOperationalBooking({ startAt: booking.start_at, status: "accepted" })
+        ) ?? null
+      : null;
 
   if (ownerTrialOnlyMode) {
     return (
@@ -553,27 +653,6 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         nextTrialRequest={nextTrialRequest}
         nextTrialRiderName={nextTrialRiderName}
         rules={rules}
-      />
-    );
-  }
-
-  if (!canUseCalendar) {
-    const restrictedCalendarSubtitle =
-      profile?.role === "rider"
-        ? "Operative Slots sind nur fuer aktiv freigeschaltete Reitbeteiligungen sichtbar."
-        : profile
-          ? "Fuer dieses Pferd ist der operative Kalender nur fuer den Pferdehalter und aktive Reitbeteiligungen sichtbar."
-          : "Melde dich an, um Verfuegbarkeiten, Buchungen und deinen eigenen Status zu sehen.";
-
-    return (
-      <HorseCalendarRestrictedState
-        detailHref={detailHref}
-        error={error}
-        isAuthenticated={Boolean(profile)}
-        message={message}
-        showLoadError={Boolean(occupancyError)}
-        subtitle={restrictedCalendarSubtitle}
-        title={"Kalender fuer " + horse.title}
       />
     );
   }
@@ -591,8 +670,12 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         nextTrialRequest={nextTrialRequest}
         nextTrialRiderName={nextTrialRiderName}
         operationalRules={operationalRules}
+        canceledBookings={ownerCanceledBookingItems}
+        openSlots={openOperationalSlots}
+        rescheduleBooking={ownerRescheduleBooking}
+        rescheduledBookings={ownerRescheduledBookingItems}
         trialRules={trialRules}
-        upcomingBookings={ownerUpcomingBookings}
+        upcomingBookings={ownerUpcomingBookingItems}
       />
     );
   }
@@ -604,8 +687,12 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         error={error}
         horse={horse}
         message={message}
+        canceledBookings={riderCanceledBookings}
         openSlots={openOperationalSlots}
+        rescheduleBooking={riderRescheduleBooking}
+        rescheduledBookings={riderRescheduledBookings}
         upcomingBookings={riderUpcomingBookings}
+        weeklyQuota={riderWeeklyQuota}
       />
     );
   }
@@ -1564,10 +1651,30 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
             {riderApproved ? (
               rules.length > 0 ? (
                 <>
-                  {riderBookingLimit ? (
+                  {riderWeeklyQuota && typeof riderWeeklyQuota.weekly_hours_limit === "number" ? (
                     <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-4">
                       <p className="text-sm font-semibold text-stone-900">{"Dein Wochenkontingent f\u00fcr dieses Pferd"}</p>
-                      <p className="mt-1 text-sm text-stone-600">{formatWeeklyHoursLimit(riderBookingLimit.weekly_hours_limit)}</p>
+                      <p className="mt-1 text-sm text-stone-600">Gezaehlt wird nur, was in dieser Kalenderwoche noch aktiv operativ gebucht ist.</p>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Limit</p>
+                          <p className="mt-1 text-sm font-semibold text-stone-900">
+                            {formatWeeklyHoursLimit(riderWeeklyQuota.weekly_hours_limit)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Belegt</p>
+                          <p className="mt-1 text-sm font-semibold text-stone-900">
+                            {formatBookingQuotaMinutes(riderWeeklyQuota.booked_minutes)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Verbleibend</p>
+                          <p className="mt-1 text-sm font-semibold text-stone-900">
+                            {formatBookingQuotaMinutes(riderWeeklyQuota.remaining_minutes ?? 0)}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   ) : null}
                   <div className="space-y-3">

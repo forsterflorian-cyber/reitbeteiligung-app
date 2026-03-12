@@ -4,9 +4,9 @@ import Link from "next/link";
 import { HorseGroupChatThread } from "@/components/horse-group-chat-thread";
 import { Notice } from "@/components/notice";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
-import { buttonVariants } from "@/components/ui/button";
 import { isApproved } from "@/lib/approvals";
 import { requireProfile } from "@/lib/auth";
 import { redirectWithFlash } from "@/lib/server-flash";
@@ -38,7 +38,7 @@ export default async function HorseGroupChatPage({
   const riderApproved = profile.role === "rider" ? await isApproved(horse.id, user.id, supabase) : false;
 
   if (!isOwner && !riderApproved) {
-    redirectWithFlash(`/pferde/${horse.id}`, "error", "Der Pferde-Gruppenchat ist erst nach der Freischaltung verfügbar.");
+    redirectWithFlash(`/pferde/${horse.id}`, "error", "Der Pferde-Gruppenchat ist erst nach der Freischaltung verfuegbar.");
   }
 
   const [{ data: approvalData }, { data: messageData }] = await Promise.all([
@@ -68,20 +68,20 @@ export default async function HorseGroupChatPage({
     })
   );
 
-  const backHref: Route = profile.role === "owner" ? "/owner/reitbeteiligungen" : "/anfragen";
+  const backHref: Route = profile.role === "owner" ? "/owner/reitbeteiligungen" : "/nachrichten";
 
   return (
     <div className="space-y-6 sm:space-y-8">
       <PageHeader
         actions={
           <Link className={buttonVariants("ghost", "w-full sm:w-auto")} href={backHref}>
-            {profile.role === "owner" ? "Zurück zu den Reitbeteiligungen" : "Zurück zu meinen Reitbeteiligungen"}
+            {profile.role === "owner" ? "Zurueck zu den Reitbeteiligungen" : "Zurueck zu meinen Nachrichten"}
           </Link>
         }
         subtitle={`Pferdeprofil: ${horse.title}`}
         title="Pferde-Gruppenchat"
       />
-      <SectionCard subtitle="Hier schreiben Pferdehalter und alle bereits freigeschalteten Reitbeteiligungen gemeinsam für dieses Pferd." title="Teilnehmer & Status">
+      <SectionCard subtitle="Hier schreiben Pferdehalter und alle bereits freigeschalteten Reitbeteiligungen gemeinsam fuer dieses Pferd." title="Teilnehmer & Status">
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
             <Badge tone="approved">{approvals.length} aktive Reitbeteiligung{approvals.length === 1 ? "" : "en"}</Badge>

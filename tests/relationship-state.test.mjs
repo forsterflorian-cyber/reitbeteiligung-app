@@ -1,15 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { getStatusDisplay } from "../lib/status-display.ts";
 import {
   buildApprovalStatusMap,
   canAccessOperationalCalendar,
   getApprovalStatusForPair,
+  getRiderRelationshipSection,
   getRelationshipConversationStage,
   getRelationshipKey,
   hasVisibleRelationshipConversation,
   hasRelationshipDecision,
   isActiveRelationship,
+  isCompletedTrialAwaitingDecision,
   isRejectedTrialAfterCompletion,
   shouldShowTrialRequestInLifecycle
 } from "../lib/relationship-state.ts";
@@ -76,4 +79,39 @@ test("Revoked faellt weder in Trial-Chat noch in aktive Beziehung zurueck", () =
   assert.equal(getRelationshipConversationStage("completed", "revoked"), "inactive");
   assert.equal(hasVisibleRelationshipConversation("completed", "revoked"), false);
   assert.equal(isRejectedTrialAfterCompletion("completed", "revoked"), true);
+});
+
+test("Rider-Bereiche trennen aktiv, klaerung und archiv ohne neue UI-Sonderlogik", () => {
+  assert.equal(getRiderRelationshipSection("requested", null), "in_clarification");
+  assert.equal(getRiderRelationshipSection("completed", null), "in_clarification");
+  assert.equal(getRiderRelationshipSection("completed", "approved"), "active");
+  assert.equal(getRiderRelationshipSection("declined", null), "archive");
+  assert.equal(getRiderRelationshipSection("withdrawn", null), "archive");
+  assert.equal(getRiderRelationshipSection("completed", "revoked"), "archive");
+  assert.equal(isCompletedTrialAwaitingDecision("completed", null), true);
+  assert.equal(isCompletedTrialAwaitingDecision("completed", "revoked"), false);
+  assert.equal(isCompletedTrialAwaitingDecision("withdrawn", null), false);
+});
+
+test("Statusanzeige und Archivlabels bleiben fuer Historienstatus eindeutig", () => {
+  assert.deepEqual(getStatusDisplay("withdrawn"), {
+    label: "Zurueckgezogen",
+    tone: "neutral"
+  });
+  assert.deepEqual(getStatusDisplay("declined"), {
+    label: "Abgelehnt",
+    tone: "rejected"
+  });
+  assert.deepEqual(getStatusDisplay("revoked"), {
+    label: "Freischaltung entzogen",
+    tone: "rejected"
+  });
+  assert.deepEqual(getStatusDisplay("rescheduled"), {
+    label: "Umgebucht",
+    tone: "info"
+  });
+  assert.deepEqual(getStatusDisplay("canceled"), {
+    label: "Storniert",
+    tone: "neutral"
+  });
 });

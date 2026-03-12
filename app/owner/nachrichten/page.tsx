@@ -9,8 +9,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { requireProfile } from "@/lib/auth";
+import { loadLatestHorseGroupMessages } from "@/lib/message-summaries";
 import { hasUnreadOwnerMessage, loadOwnerWorkspaceData } from "@/lib/owner-workspace";
-import type { HorseGroupMessage } from "@/types/database";
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("de-DE", {
@@ -48,20 +48,11 @@ export default async function OwnerMessagesPage() {
 
   const unreadCount = items.filter((item) => item.hasUnread).length;
   const groupHorseIds = [...new Set(activeRelationships.map((item) => item.approval.horse_id))];
-  const { data: groupMessageData } = groupHorseIds.length > 0
-    ? await supabase
-        .from("horse_group_messages")
-        .select("id, horse_id, sender_id, content, created_at")
-        .in("horse_id", groupHorseIds)
-        .order("created_at", { ascending: false })
-    : { data: [] as HorseGroupMessage[] };
-
-  const latestGroupMessageByHorse = new Map<string, HorseGroupMessage>();
-  (((groupMessageData as HorseGroupMessage[] | null) ?? [])).forEach((message) => {
-    if (!latestGroupMessageByHorse.has(message.horse_id)) {
-      latestGroupMessageByHorse.set(message.horse_id, message);
-    }
-  });
+  const activeRelationshipCountByHorse = activeRelationships.reduce((counts, item) => {
+    counts.set(item.approval.horse_id, (counts.get(item.approval.horse_id) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
+  const latestGroupMessageByHorse = await loadLatestHorseGroupMessages(supabase, groupHorseIds);
 
   return (
     <AppPageShell>
@@ -107,7 +98,7 @@ export default async function OwnerMessagesPage() {
             {groupHorseIds.map((horseId) => {
               const horse = horseMap.get(horseId) ?? null;
               const latestGroupMessage = latestGroupMessageByHorse.get(horseId) ?? null;
-              const activeCount = activeRelationships.filter((item) => item.approval.horse_id === horseId).length;
+              const activeCount = activeRelationshipCountByHorse.get(horseId) ?? 0;
 
               return (
                 <Card className="p-5" key={horseId}>
