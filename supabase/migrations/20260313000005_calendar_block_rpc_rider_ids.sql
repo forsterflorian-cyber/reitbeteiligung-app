@@ -1,15 +1,17 @@
 -- =============================================================
--- create_calendar_block_for_horse  (extended return)
---
--- Adds cancelled_rider_ids, cancelled_start_ats, cancelled_end_ats
--- to the return table so the JS layer can build consistent
--- booking_cancelled payloads (with start_at, end_at, rider_id)
--- for both domain events and notifications.
---
--- All other logic is identical to the previous version.
--- BLOCK_OVERLAP guard (exclusion_violation) is preserved.
+-- calendar_block RPC extension
+-- Adds rider + time arrays for cancelled bookings so the
+-- application layer can emit correct booking_cancelled events
 -- =============================================================
-create or replace function public.create_calendar_block_for_horse(
+
+drop function if exists public.create_calendar_block_for_horse(
+  uuid,
+  timestamptz,
+  timestamptz,
+  text
+);
+
+create function public.create_calendar_block_for_horse(
   p_horse_id uuid,
   p_start_at timestamptz,
   p_end_at   timestamptz,
@@ -35,32 +37,38 @@ declare
   v_cancelled_ends   timestamptz[] := '{}';
   v_booking          record;
 begin
-  -- Explicit time range validation
+
+  -- Validate time range
   if p_end_at <= p_start_at then
     raise exception 'INVALID_TIME_RANGE';
   end if;
 
   -- Ownership check
-  select horses.owner_id into v_owner_id
+  select owner_id
+  into v_owner_id
   from public.horses
-  where horses.id = p_horse_id;
+  where id = p_horse_id;
 
   if v_owner_id is null or auth.uid() <> v_owner_id then
     raise exception 'NOT_ALLOWED';
   end if;
 
-  -- Insert block — exclusion constraint fires here on overlap
+  -- Insert block (exclusion constraint handles overlaps)
   insert into public.calendar_blocks (horse_id, start_at, end_at, title)
   values (p_horse_id, p_start_at, p_end_at, p_title)
   returning id into v_block_id;
 
-  -- Find stornierbare bookings and collect full info before deletion:
-  --   Overlap:     b.start_at < p_end_at AND b.end_at > p_start_at
-  --   Stornierbar: start_at >= now() AND status = 'accepted' AND no recurrence
+  -- Cancel overlapping future bookings
   for v_booking in
-    select b.id, b.booking_request_id, b.rider_id, b.start_at, b.end_at
+    select
+      b.id,
+      b.booking_request_id,
+      b.rider_id,
+      b.start_at,
+      b.end_at
     from public.bookings b
-    join public.booking_requests br on br.id = b.booking_request_id
+    join public.booking_requests br
+      on br.id = b.booking_request_id
     where b.horse_id          = p_horse_id
       and br.status           = 'accepted'
       and br.recurrence_rrule is null
@@ -68,14 +76,20 @@ begin
       and b.start_at          <  p_end_at
       and b.end_at            >  p_start_at
   loop
-    perform public._cancel_booking_data(v_booking.id, v_booking.booking_request_id);
+
+    perform public._cancel_booking_data(
+      v_booking.id,
+      v_booking.booking_request_id
+    );
+
     v_cancelled        := array_append(v_cancelled,        v_booking.id);
     v_cancelled_riders := array_append(v_cancelled_riders, v_booking.rider_id);
     v_cancelled_starts := array_append(v_cancelled_starts, v_booking.start_at);
     v_cancelled_ends   := array_append(v_cancelled_ends,   v_booking.end_at);
+
   end loop;
 
-  -- Domain event — same transaction as block insert and cancellations
+  -- Emit domain event
   insert into public.domain_events (event_type, horse_id, payload)
   values (
     'calendar_block_created',
@@ -89,13 +103,24 @@ begin
     )
   );
 
-  return query select v_block_id, v_cancelled, v_cancelled_riders, v_cancelled_starts, v_cancelled_ends;
+  return query
+    select
+      v_block_id,
+      v_cancelled,
+      v_cancelled_riders,
+      v_cancelled_starts,
+      v_cancelled_ends;
 
 exception
   when exclusion_violation then
     raise exception 'BLOCK_OVERLAP';
+
 end;
 $$;
 
-revoke all on function public.create_calendar_block_for_horse(uuid, timestamptz, timestamptz, text) from public;
-grant execute on function public.create_calendar_block_for_horse(uuid, timestamptz, timestamptz, text) to authenticated;
+grant execute on function public.create_calendar_block_for_horse(
+  uuid,
+  timestamptz,
+  timestamptz,
+  text
+) to authenticated;
