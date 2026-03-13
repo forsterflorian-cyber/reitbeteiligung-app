@@ -14,9 +14,10 @@ type TopNavProps = {
   email?: string | null;
   profile?: Profile | null;
   unreadMessages?: number;
+  unreadNotifications?: number;
 };
 
-export function TopNav({ email, profile, unreadMessages = 0 }: TopNavProps) {
+export function TopNav({ email, profile, unreadMessages = 0, unreadNotifications = 0 }: TopNavProps) {
   if (!profile) {
     return <LandingNav />;
   }
@@ -25,6 +26,7 @@ export function TopNav({ email, profile, unreadMessages = 0 }: TopNavProps) {
   const displayName = getProfileDisplayName(profile, email);
   const roleLabel = getRoleLabel(profile.role);
   const unreadLabel = unreadMessages === 1 ? "1 neue Nachricht" : `${unreadMessages} neue Nachrichten`;
+  const notifLabel = unreadNotifications === 1 ? "1 Benachrichtigung" : `${unreadNotifications} Benachrichtigungen`;
 
   return (
     <header className="relative border-b border-stone-200/80 bg-white/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90">
@@ -40,6 +42,11 @@ export function TopNav({ email, profile, unreadMessages = 0 }: TopNavProps) {
                 {roleLabel}
               </Badge>
               {unreadMessages > 0 ? <Badge tone="info">{unreadLabel}</Badge> : null}
+              {unreadNotifications > 0 ? (
+                <Link href="/benachrichtigungen">
+                  <Badge tone="pending">🔔 {notifLabel}</Badge>
+                </Link>
+              ) : null}
               <span className="truncate font-medium text-stone-700">{displayName}</span>
             </div>
           </div>

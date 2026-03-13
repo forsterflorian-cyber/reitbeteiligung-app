@@ -155,3 +155,13 @@ export type Booking = {
   end_at: string;
   created_at: string;
 };
+
+export type Notification = {
+  id: string;
+  user_id: string;
+  event_type: string;
+  horse_id: string | null;
+  payload: Record<string, unknown>;
+  read_at: string | null;
+  created_at: string;
+};

@@ -3,7 +3,15 @@ function clone(value) {
 }
 
 function applyFilters(rows, filters) {
-  return rows.filter((row) => filters.every((filter) => row?.[filter.column] === filter.value));
+  return rows.filter((row) =>
+    filters.every((filter) => {
+      if (Object.prototype.hasOwnProperty.call(filter, "isNull")) {
+        return filter.isNull ? row?.[filter.column] == null : row?.[filter.column] != null;
+      }
+
+      return row?.[filter.column] === filter.value;
+    })
+  );
 }
 
 class QueryBuilder {
@@ -16,6 +24,19 @@ class QueryBuilder {
   }
 
   select() {
+    return this;
+  }
+
+  order() {
+    return this;
+  }
+
+  limit() {
+    return this;
+  }
+
+  is(column, value) {
+    this.filters.push({ column, isNull: value === null });
     return this;
   }
 

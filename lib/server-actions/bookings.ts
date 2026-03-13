@@ -21,6 +21,7 @@ import { BOOKING_REQUEST_STATUS } from "../statuses.ts";
 import type { createClient } from "../supabase/server.ts";
 import type { AvailabilityRule, Booking, BookingRequest, CalendarBlock } from "../../types/database";
 import { emitDomainEvent } from "../domain-events.ts";
+import { createNotification } from "../notifications.ts";
 import { hasWindowConflict, isQuarterHourAligned, type CalendarBookingWindow as BookingWindow } from "./calendar.ts";
 import { getOwnedHorse } from "./horse.ts";
 
@@ -553,7 +554,7 @@ export async function requestBookingForRider(input: {
   }
 
   if (shouldDirectBookOperationalSlot(recurrenceRrule)) {
-    const { error } = await input.supabase.rpc("direct_book_operational_slot", {
+    const { data: bookingRequestId, error } = await input.supabase.rpc("direct_book_operational_slot", {
       p_end_at: requestedEndIso,
       p_horse_id: horseId,
       p_rule_id: ruleId,
@@ -568,9 +569,29 @@ export async function requestBookingForRider(input: {
     await emitDomainEvent(input.supabase, {
       event_type: "booking_created",
       horse_id: horseId,
-      payload: { end_at: requestedEndIso, start_at: requestedStartIso },
+      payload: { booking_request_id: (bookingRequestId as string | null) ?? null, end_at: requestedEndIso, start_at: requestedStartIso },
       rider_id: input.userId
     });
+
+    const { data: horseOwner } = await input.supabase
+      .from("horses")
+      .select("owner_id")
+      .eq("id", horseId)
+      .maybeSingle();
+    const ownerId = (horseOwner as { owner_id: string } | null)?.owner_id ?? null;
+    if (ownerId) {
+      await createNotification(input.supabase, {
+        eventType: "booking_created",
+        horseId,
+        payload: {
+          booking_request_id: (bookingRequestId as string | null) ?? null,
+          end_at: requestedEndIso,
+          rider_id: input.userId,
+          start_at: requestedStartIso
+        },
+        userId: ownerId
+      });
+    }
 
     return successResult(redirectPath, "Der Slot wurde direkt gebucht.", getDirectBookingPaths(horseId));
   }
@@ -635,9 +656,10 @@ export async function acceptBookingRequestForOwner(input: {
   await emitDomainEvent(input.supabase, {
     event_type: "booking_created",
     horse_id: request.horse_id,
-    payload: { end_at: request.requested_end_at ?? null, start_at: request.requested_start_at ?? null },
+    payload: { booking_request_id: input.requestId, end_at: request.requested_end_at ?? null, start_at: request.requested_start_at ?? null },
     rider_id: request.rider_id
   });
+  // No notification — owner is the actor
 
   return successResult(
     redirectPath,
@@ -720,8 +742,15 @@ export async function cancelOperationalBookingForRider(input: {
   await emitDomainEvent(input.supabase, {
     event_type: "booking_cancelled",
     horse_id: booking.horse_id,
-    payload: { end_at: booking.end_at, start_at: booking.start_at },
+    payload: { end_at: booking.end_at, reason: "manual", start_at: booking.start_at },
     rider_id: booking.rider_id
+  });
+
+  await createNotification(input.supabase, {
+    eventType: "booking_cancelled",
+    horseId: booking.horse_id,
+    payload: { end_at: booking.end_at, reason: "manual", start_at: booking.start_at },
+    userId: booking.rider_id
   });
 
   return successResult(redirectPath, "Der Termin wurde storniert.", getDirectBookingPaths(booking.horse_id));
@@ -771,8 +800,15 @@ export async function cancelOperationalBookingForOwner(input: {
   await emitDomainEvent(input.supabase, {
     event_type: "booking_cancelled",
     horse_id: booking.horse_id,
-    payload: { end_at: booking.end_at, start_at: booking.start_at },
+    payload: { end_at: booking.end_at, reason: "manual", start_at: booking.start_at },
     rider_id: booking.rider_id
+  });
+
+  await createNotification(input.supabase, {
+    eventType: "booking_cancelled",
+    horseId: booking.horse_id,
+    payload: { end_at: booking.end_at, reason: "manual", start_at: booking.start_at },
+    userId: booking.rider_id
   });
 
   return successResult(redirectPath, "Der Termin wurde storniert.", getDirectBookingPaths(booking.horse_id));
@@ -951,6 +987,18 @@ async function rescheduleOperationalBooking(input: {
       old_start_at: booking.start_at
     },
     rider_id: booking.rider_id
+  });
+
+  await createNotification(input.supabase, {
+    eventType: "booking_rescheduled",
+    horseId: booking.horse_id,
+    payload: {
+      new_end_at: endAt.toISOString(),
+      new_start_at: startAt.toISOString(),
+      old_end_at: booking.end_at,
+      old_start_at: booking.start_at
+    },
+    userId: booking.rider_id
   });
 
   return successResult(redirectPath, "Der Termin wurde umgebucht.", getDirectBookingPaths(booking.horse_id));

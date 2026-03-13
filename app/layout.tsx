@@ -6,6 +6,7 @@ import { NavShell } from "@/components/nav/NavShell";
 import { Backdrop } from "@/components/ui/backdrop";
 import { getViewerContext } from "@/lib/auth";
 import { getUnreadMessageCount } from "@/lib/chat-notifications";
+import { getUnreadNotificationCount } from "@/lib/server-actions/notifications";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://reitbeteiligung.app"),
@@ -45,7 +46,10 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const { profile, supabase, user } = await getViewerContext();
   const isAuthed = Boolean(user);
-  const unreadMessages = user ? await getUnreadMessageCount(supabase, profile, user.id) : 0;
+  const [unreadMessages, unreadNotifications] = await Promise.all([
+    user ? getUnreadMessageCount(supabase, profile, user.id) : Promise.resolve(0),
+    user ? getUnreadNotificationCount(supabase) : Promise.resolve(0)
+  ]);
 
   return (
     <html lang="de">
@@ -57,7 +61,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </div>
         ) : null}
         <div className="relative z-10">
-          <NavShell email={user?.email} profile={profile} unreadMessages={unreadMessages} />
+          <NavShell email={user?.email} profile={profile} unreadMessages={unreadMessages} unreadNotifications={unreadNotifications} />
           <main>
             <div className="mx-auto w-full max-w-md px-4 py-5 pb-28 sm:max-w-2xl sm:px-5 sm:py-6 sm:pb-28 md:max-w-4xl md:pb-8 lg:max-w-6xl lg:px-8 lg:py-8">
               <GlobalFlashNotice />

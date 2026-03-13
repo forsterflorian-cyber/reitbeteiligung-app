@@ -98,6 +98,7 @@ import {
   requestBookingForRider
 } from "@/lib/server-actions/bookings";
 import { saveRiderBookingLimitForOwner } from "@/lib/server-actions/booking-limits";
+import { markNotificationRead } from "@/lib/server-actions/notifications";
 import type { Approval, AvailabilityRule, CalendarBlock, Horse, HorseImage, TrialRequest } from "@/types/database";
 
 const PASSWORD_RESET_REDIRECT_URL = "https://reitbeteiligung.app/passwort-zuruecksetzen";
@@ -1308,4 +1309,12 @@ export async function saveRiderProfileAction(formData: FormData) {
   revalidatePath("/rider/profile");
   revalidatePath("/dashboard");
   redirectWithMessage("/rider/profile", "message", "Das Reiterprofil wurde gespeichert.");
+}
+
+export async function markNotificationReadAction(formData: FormData) {
+  const { supabase } = await requireProfile();
+  const notificationId = asString(formData.get("notificationId"));
+  if (!notificationId) return;
+  await markNotificationRead(supabase, notificationId);
+  revalidatePath("/benachrichtigungen");
 }

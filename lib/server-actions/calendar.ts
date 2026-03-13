@@ -1,6 +1,7 @@
 import type { createClient } from "../supabase/server";
 import type { AvailabilityRule, CalendarBlock } from "../../types/database";
 import { emitDomainEvent } from "../domain-events.ts";
+import { createNotification } from "../notifications.ts";
 
 type CalendarBlockRecord = Pick<CalendarBlock, "id" | "horse_id" | "title" | "start_at" | "end_at" | "created_at">;
 type AvailabilityRuleRecord = Pick<AvailabilityRule, "id" | "horse_id" | "slot_id" | "start_at" | "end_at" | "active" | "is_trial_slot" | "created_at">;
@@ -547,6 +548,9 @@ export async function getActiveAvailabilityRanges(
 type CalendarBlockRpcRow = {
   block_id: string;
   cancelled_booking_ids: string[] | null;
+  cancelled_rider_ids: string[] | null;
+  cancelled_start_ats: string[] | null;
+  cancelled_end_ats: string[] | null;
 };
 
 export async function createCalendarBlockForOwner(input: {
@@ -579,14 +583,32 @@ export async function createCalendarBlockForOwner(input: {
   }
 
   const cancelledBookingIds: string[] = row.cancelled_booking_ids ?? [];
+  const cancelledRiderIds: string[] = row.cancelled_rider_ids ?? [];
+  const cancelledStartAts: string[] = row.cancelled_start_ats ?? [];
+  const cancelledEndAts: string[] = row.cancelled_end_ats ?? [];
 
-  // fire-and-forget booking_cancelled events for each block-induced cancellation
-  for (const bookingId of cancelledBookingIds) {
+  // fire-and-forget booking_cancelled events and notifications for each block-induced cancellation
+  for (let i = 0; i < cancelledBookingIds.length; i++) {
+    const bookingId = cancelledBookingIds[i];
+    const riderId = cancelledRiderIds[i] ?? null;
+    const startAt = cancelledStartAts[i] ?? null;
+    const endAt = cancelledEndAts[i] ?? null;
+
     await emitDomainEvent(input.supabase, {
       event_type: "booking_cancelled",
       horse_id: input.horseId,
-      payload: { booking_id: bookingId, reason: "owner_block" }
+      payload: { booking_id: bookingId, end_at: endAt, reason: "owner_block", start_at: startAt },
+      rider_id: riderId
     });
+
+    if (riderId) {
+      await createNotification(input.supabase, {
+        eventType: "booking_cancelled",
+        horseId: input.horseId,
+        payload: { booking_id: bookingId, end_at: endAt, reason: "owner_block", start_at: startAt },
+        userId: riderId
+      });
+    }
   }
 
   return {

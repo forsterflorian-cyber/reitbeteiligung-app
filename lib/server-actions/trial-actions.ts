@@ -1,4 +1,5 @@
 import { emitDomainEvent } from "../domain-events.ts";
+import { createNotification } from "../notifications.ts";
 import { TRIAL_REQUEST_STATUS, type MutableTrialRequestStatus } from "../statuses.ts";
 import { getTrialStatusTransitionError } from "./trial.ts";
 import type { createClient } from "../supabase/server.ts";
@@ -151,6 +152,13 @@ export async function updateTrialRequestStatusForOwner(input: {
       horse_id: request.horse_id,
       payload: { request_id: request.id },
       rider_id: request.rider_id
+    });
+
+    await createNotification(input.supabase, {
+      eventType: "trial_accepted",
+      horseId: request.horse_id,
+      payload: { request_id: request.id },
+      userId: request.rider_id
     });
   }
 
