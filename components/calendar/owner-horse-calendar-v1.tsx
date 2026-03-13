@@ -5,7 +5,9 @@ import {
   cancelOperationalBookingForOwnerAction,
   createAvailabilityDayAction,
   createAvailabilityRuleAction,
-  deleteAvailabilityRuleAction
+  createCalendarBlockV1Action,
+  deleteAvailabilityRuleAction,
+  deleteCalendarBlockAction
 } from "@/app/actions";
 import { rescheduleOperationalBookingForOwnerAction } from "@/app/actions";
 import { OperationalWeekOverview } from "@/components/calendar/operational-week-overview";
@@ -22,7 +24,7 @@ import { SectionCard } from "@/components/ui/section-card";
 import { canCancelOperationalBooking, canRescheduleOperationalBooking } from "@/lib/booking-guards";
 import type { OperationalWeekDay } from "@/lib/operational-week";
 import { BOOKING_REQUEST_STATUS } from "@/lib/statuses";
-import type { AvailabilityRule, Booking, BookingRequest, Horse, TrialRequest } from "@/types/database";
+import type { AvailabilityRule, Booking, BookingRequest, CalendarBlock, Horse, TrialRequest } from "@/types/database";
 
 type OwnerOperationalSlot = {
   availabilityRuleId: string;
@@ -44,6 +46,7 @@ type OwnerRescheduledBookingCard = BookingRequest & {
 
 type OwnerHorseCalendarV1Props = {
   activeRelationshipCount: number;
+  calendarBlocks: CalendarBlock[];
   defaultOperationalDate: string;
   defaultTrialDate: string;
   detailHref: Route;
@@ -78,6 +81,7 @@ function formatDateRange(startAt: string, endAt: string) {
 
 export function OwnerHorseCalendarV1({
   activeRelationshipCount,
+  calendarBlocks,
   defaultOperationalDate,
   defaultTrialDate,
   detailHref,
@@ -444,33 +448,96 @@ export function OwnerHorseCalendarV1({
                 ) : null}
               </div>
             </Card>
+
+            {calendarBlocks.length > 0 ? (
+              <Card className="p-5 sm:p-6">
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <p className="ui-eyebrow">Aktive Sperren</p>
+                    <p className="text-sm text-stone-600">Diese Zeitraeume koennen nicht gebucht werden.</p>
+                  </div>
+                  <div className="space-y-2">
+                    {calendarBlocks.slice(0, 8).map((block) => (
+                      <div className="rounded-2xl border border-stone-300 bg-stone-50 px-3 py-3" key={block.id}>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="space-y-1">
+                            <p className="text-sm font-semibold text-stone-900">{block.title ?? "Sperre"}</p>
+                            <p className="text-xs text-stone-500">{formatDateRange(block.start_at, block.end_at)}</p>
+                          </div>
+                          <form action={deleteCalendarBlockAction} className="w-full sm:w-auto">
+                            <input name="blockId" type="hidden" value={block.id} />
+                            <ConfirmSubmitButton
+                              className={buttonVariants("secondary", "w-full text-sm sm:w-auto")}
+                              confirmMessage="Moechtest du diese Sperre wirklich entfernen?"
+                              idleLabel="Sperre entfernen"
+                              pendingLabel="Wird entfernt..."
+                            />
+                          </form>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            ) : null}
           </div>
 
-          <Card className="p-5 sm:p-6">
-            <form action={createAvailabilityDayAction} className="space-y-4">
-              <input name="horseId" type="hidden" value={horse.id} />
-              <div className="space-y-1">
-                <p className="text-sm font-semibold text-stone-900">Neuen operativen Slot anlegen</p>
-                <p className="text-sm text-stone-600">Minimal-V1: konkrete Einzeltermine statt komplexer Regeln.</p>
-              </div>
-              <div>
-                <label htmlFor="operationalDate">Datum</label>
-                <input defaultValue={defaultOperationalDate} id="operationalDate" name="selectedDate" required type="date" />
-              </div>
-              <div className="ui-field-grid sm:grid-cols-2">
-                <div>
-                  <label htmlFor="operationalStartTime">Von</label>
-                  <input defaultValue="17:00" id="operationalStartTime" name="startTime" required step={900} type="time" />
+          <div className="space-y-5">
+            <Card className="p-5 sm:p-6">
+              <form action={createAvailabilityDayAction} className="space-y-4">
+                <input name="horseId" type="hidden" value={horse.id} />
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-stone-900">Neuen operativen Slot anlegen</p>
+                  <p className="text-sm text-stone-600">Minimal-V1: konkrete Einzeltermine statt komplexer Regeln.</p>
                 </div>
                 <div>
-                  <label htmlFor="operationalEndTime">Bis</label>
-                  <input defaultValue="18:00" id="operationalEndTime" name="endTime" required step={900} type="time" />
+                  <label htmlFor="operationalDate">Datum</label>
+                  <input defaultValue={defaultOperationalDate} id="operationalDate" name="selectedDate" required type="date" />
                 </div>
-              </div>
-              <p className="text-sm leading-6 text-stone-600">Dieses Fenster wird bewusst nicht als Probetermin markiert und steht nur aktiven Reitbeteiligungen offen.</p>
-              <SubmitButton idleLabel="Operativen Slot speichern" pendingLabel="Wird gespeichert..." />
-            </form>
-          </Card>
+                <div className="ui-field-grid sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="operationalStartTime">Von</label>
+                    <input defaultValue="17:00" id="operationalStartTime" name="startTime" required step={900} type="time" />
+                  </div>
+                  <div>
+                    <label htmlFor="operationalEndTime">Bis</label>
+                    <input defaultValue="18:00" id="operationalEndTime" name="endTime" required step={900} type="time" />
+                  </div>
+                </div>
+                <p className="text-sm leading-6 text-stone-600">Dieses Fenster wird bewusst nicht als Probetermin markiert und steht nur aktiven Reitbeteiligungen offen.</p>
+                <SubmitButton idleLabel="Operativen Slot speichern" pendingLabel="Wird gespeichert..." />
+              </form>
+            </Card>
+
+            <Card className="p-5 sm:p-6">
+              <form action={createCalendarBlockV1Action} className="space-y-4">
+                <input name="horseId" type="hidden" value={horse.id} />
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-stone-900">Zeitraum blockieren</p>
+                  <p className="text-sm text-stone-600">Sperrt den Zeitraum und storniert betroffene Buchungen automatisch.</p>
+                </div>
+                <div>
+                  <label htmlFor="blockDate">Datum</label>
+                  <input defaultValue={defaultOperationalDate} id="blockDate" name="selectedDate" required type="date" />
+                </div>
+                <div className="ui-field-grid sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="blockStartTime">Von</label>
+                    <input defaultValue="09:00" id="blockStartTime" name="startTime" required step={900} type="time" />
+                  </div>
+                  <div>
+                    <label htmlFor="blockEndTime">Bis</label>
+                    <input defaultValue="18:00" id="blockEndTime" name="endTime" required step={900} type="time" />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="blockTitle">Titel <span className="font-normal text-stone-400">(optional)</span></label>
+                  <input id="blockTitle" name="title" placeholder="z. B. Hufschmied oder Stallruhe" type="text" />
+                </div>
+                <SubmitButton idleLabel="Zeitraum blockieren" pendingLabel="Wird gespeichert..." />
+              </form>
+            </Card>
+          </div>
         </div>
         </SectionCard>
       </div>

@@ -474,7 +474,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
       .eq("horse_id", horse.id)
       .eq("active", true)
       .order("start_at", { ascending: true }),
-    isOwner && !ownerTrialOnlyMode && !simpleCalendarV1Mode
+    isOwner && !ownerTrialOnlyMode
       ? supabase
           .from("calendar_blocks")
           .select("id, horse_id, title, start_at, end_at, created_at")
@@ -729,6 +729,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
         nextTrialRiderName={nextTrialRiderName}
         nextWeekHref={nextSimpleWeekHref}
         operationalRules={operationalRules}
+        calendarBlocks={ownerBlocks}
         canceledBookings={ownerCanceledBookingItems}
         openSlots={openOperationalSlots}
         previousWeekHref={previousSimpleWeekHref}

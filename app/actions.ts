@@ -51,6 +51,7 @@ import { deleteHorseImageForOwner, uploadHorseImagesForOwner } from "@/lib/serve
 import {
   buildAvailabilityWindows,
   buildSingleAvailabilityWindow,
+  createCalendarBlockForOwner as createCalendarBlockWithRpcForOwner,
   getActiveAvailabilityRanges,
   getAvailabilityAccessError,
   getAvailabilityConflictError,
@@ -925,6 +926,52 @@ export async function deleteCalendarBlockAction(formData: FormData) {
   }
   redirectWithMessage(redirectPath, "message", result.successMessage);
 }
+
+export async function createCalendarBlockV1Action(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const horseId = asString(formData.get("horseId"));
+
+  if (!horseId) {
+    redirectWithMessage("/owner/horses", "error", getCalendarBlockAccessError("missing_horse"));
+  }
+
+  const redirectPath = `/pferde/${horseId}/kalender`;
+  const selectedDate = asString(formData.get("selectedDate")) || new Date().toISOString().slice(0, 10);
+  const startTime = parseClockTime(asString(formData.get("startTime")));
+  const endTime = parseClockTime(asString(formData.get("endTime")));
+
+  if (!startTime || !endTime) {
+    redirectWithMessage(redirectPath, "error", getCalendarBlockTimeError());
+  }
+
+  const window = buildSingleAvailabilityWindow(selectedDate, startTime, endTime);
+
+  if (!window) {
+    redirectWithMessage(redirectPath, "error", getCalendarBlockInvalidWindowError());
+  }
+
+  const title = asOptionalString(formData.get("title"));
+
+  const result = await createCalendarBlockWithRpcForOwner({
+    endAt: window.endAt,
+    horseId,
+    logSupabaseError,
+    startAt: window.startAt,
+    supabase,
+    ...(title ? { title } : {})
+  });
+
+  if (!result.ok) {
+    redirectWithMessage(redirectPath, "error", result.message);
+  }
+
+  for (const path of result.paths) {
+    revalidatePath(path);
+  }
+
+  redirectWithMessage(redirectPath, "message", result.message);
+}
+
 export async function createAvailabilityRuleAction(formData: FormData) {
   const { supabase, user } = await requireProfile("owner");
   const result = await createAvailabilityRuleForOwner({
