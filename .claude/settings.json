@@ -4,7 +4,9 @@
       "Bash(find /e/Verwaltung/'07_IT & Identität'/'IT Projekte'/reitbeteiligung.app/lib -type f -name \"*.ts\")",
       "Bash(find \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\" -type f -name \"*.ts\" -path \"*/lib/server-actions/*\")",
       "Bash(ls -la \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app/supabase/migrations/\")",
-      "Bash(node --no-warnings --experimental-specifier-resolution=node --test --experimental-strip-types tests/server-actions-calendar-blocks.test.mjs)"
+      "Bash(node --no-warnings --experimental-specifier-resolution=node --test --experimental-strip-types tests/server-actions-calendar-blocks.test.mjs)",
+      "Bash(node --experimental-strip-types node_modules/.bin/node-test tests/server-actions-calendar-blocks.test.mjs)",
+      "Bash(node --experimental-strip-types --test tests/server-actions-calendar-blocks.test.mjs)"
     ]
   }
 }

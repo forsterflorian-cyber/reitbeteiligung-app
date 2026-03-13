@@ -367,6 +367,40 @@ test("Owner-Block schlaegt fehl wenn Caller nicht Owner ist (RPC NOT_ALLOWED)", 
   assert.equal(supabase.state.tables.domain_events.length, 0, "Kein Event geschrieben");
 });
 
+test("Owner-Block schlaegt fehl wenn zweiter Block denselben Zeitraum ueberlappt (BLOCK_OVERLAP)", async () => {
+  // Existing block: 10:00–12:00. New block: 11:00–13:00 → overlaps.
+  // The DB exclusion constraint fires; RPC re-raises as BLOCK_OVERLAP.
+  const supabase = createSupabaseMock(
+    {
+      calendar_blocks: [
+        {
+          created_at: "2026-03-13T08:00:00.000Z",
+          end_at: "2026-03-20T12:00:00.000Z",
+          horse_id: "horse-1",
+          id: "block-1",
+          start_at: "2026-03-20T10:00:00.000Z",
+          title: null
+        }
+      ],
+      domain_events: [],
+      horses: [{ id: "horse-1", owner_id: "owner-1" }]
+    },
+    { rpcHandlers: { create_calendar_block_for_horse: () => ({ data: null, error: { message: "BLOCK_OVERLAP" } }) } }
+  );
+
+  const result = await createCalendarBlockForOwner({
+    endAt: "2026-03-20T13:00:00.000Z",
+    horseId: "horse-1",
+    logSupabaseError: () => {},
+    startAt: "2026-03-20T11:00:00.000Z",
+    supabase
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(supabase.state.tables.calendar_blocks.length, 1, "Kein zweiter Block angelegt");
+  assert.equal(supabase.state.tables.domain_events.length, 0, "Kein Event geschrieben");
+});
+
 test("Owner-Block schlaegt fehl bei ungueltiger Zeitspanne (RPC INVALID_TIME_RANGE)", async () => {
   const supabase = createSupabaseMock(
     { calendar_blocks: [], domain_events: [], horses: [{ id: "horse-1", owner_id: "owner-1" }] },
