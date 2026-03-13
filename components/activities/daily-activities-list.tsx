@@ -7,6 +7,8 @@ type DailyActivitiesListProps = {
   activities: DailyActivityWithActorName[];
   /** The user_id of the currently authenticated viewer, used to show the correction action. */
   viewerUserId: string | null;
+  /** When true, each entry shows its activity_date. Use for multi-day lists. */
+  showDate?: boolean;
 };
 
 function formatActivityTime(time: string | null) {
@@ -18,8 +20,26 @@ function formatActivityTime(time: string | null) {
   return time.slice(0, 5);
 }
 
-export function DailyActivitiesList({ activities, viewerUserId }: DailyActivitiesListProps) {
-  const activeActivities = activities.filter((a) => a.status === "active");
+function formatActivityDate(date: string) {
+  return new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(new Date(date));
+}
+
+function sortActivities(activities: DailyActivityWithActorName[]): DailyActivityWithActorName[] {
+  return [...activities].sort((a, b) => {
+    if (a.activity_date !== b.activity_date) {
+      return b.activity_date.localeCompare(a.activity_date);
+    }
+    if (a.activity_time !== b.activity_time) {
+      if (!a.activity_time) return 1;
+      if (!b.activity_time) return -1;
+      return a.activity_time.localeCompare(b.activity_time);
+    }
+    return b.created_at.localeCompare(a.created_at);
+  });
+}
+
+export function DailyActivitiesList({ activities, viewerUserId, showDate = false }: DailyActivitiesListProps) {
+  const activeActivities = sortActivities(activities.filter((a) => a.status === "active"));
 
   if (activeActivities.length === 0) {
     return null;
@@ -44,6 +64,9 @@ export function DailyActivitiesList({ activities, viewerUserId }: DailyActivitie
                 {time ? <span className="ml-1.5 font-normal text-stone-500">{time} Uhr</span> : null}
                 <span className="ml-1.5 font-normal text-stone-500">({actorName})</span>
               </p>
+              {showDate ? (
+                <p className="text-xs text-stone-400">{formatActivityDate(activity.activity_date)}</p>
+              ) : null}
               {activity.comment ? (
                 <p className="truncate text-xs text-stone-500">{activity.comment}</p>
               ) : null}

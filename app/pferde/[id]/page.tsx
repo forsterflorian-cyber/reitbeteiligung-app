@@ -180,21 +180,36 @@ export default async function PferdDetailPage({
   const canUseActivities = isHorseOwner || isApprovedRider;
 
   const todayDateString = new Date().toISOString().slice(0, 10);
+  const fourteenDaysAgoString = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const todayActivities: DailyActivityWithActorName[] = [];
+  const recentActivities: DailyActivityWithActorName[] = [];
 
   if (canUseActivities && user) {
-    const { data: rawTodayActivities } = await supabase
-      .from("horse_daily_activities")
-      .select("id, horse_id, user_id, activity_type, activity_date, activity_time, comment, status, created_at, updated_at")
-      .eq("horse_id", horse.id)
-      .eq("activity_date", todayDateString)
-      .eq("status", "active")
-      .order("created_at", { ascending: true });
+    const [{ data: rawTodayActivities }, { data: rawRecentActivities }] = await Promise.all([
+      supabase
+        .from("horse_daily_activities")
+        .select("id, horse_id, user_id, activity_type, activity_date, activity_time, comment, status, created_at, updated_at")
+        .eq("horse_id", horse.id)
+        .eq("activity_date", todayDateString)
+        .eq("status", "active")
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("horse_daily_activities")
+        .select("id, horse_id, user_id, activity_type, activity_date, activity_time, comment, status, created_at, updated_at")
+        .eq("horse_id", horse.id)
+        .gte("activity_date", fourteenDaysAgoString)
+        .lt("activity_date", todayDateString)
+        .eq("status", "active")
+        .order("activity_date", { ascending: false })
+        .order("created_at", { ascending: false })
+    ]);
 
-    const rawList = (rawTodayActivities as HorseDailyActivity[] | null) ?? [];
+    const todayRaw = (rawTodayActivities as HorseDailyActivity[] | null) ?? [];
+    const recentRaw = (rawRecentActivities as HorseDailyActivity[] | null) ?? [];
+    const allRaw = [...todayRaw, ...recentRaw];
 
-    if (rawList.length > 0) {
-      const actorIds = [...new Set(rawList.map((a) => a.user_id))];
+    if (allRaw.length > 0) {
+      const actorIds = [...new Set(allRaw.map((a) => a.user_id))];
       const { data: actorProfilesData } = await supabase
         .from("profiles")
         .select("id, display_name")
@@ -206,8 +221,15 @@ export default async function PferdDetailPage({
         ])
       );
 
-      for (const activity of rawList) {
+      for (const activity of todayRaw) {
         todayActivities.push({
+          ...activity,
+          actorName: actorProfileMap.get(activity.user_id) ?? null
+        });
+      }
+
+      for (const activity of recentRaw) {
+        recentActivities.push({
           ...activity,
           actorName: actorProfileMap.get(activity.user_id) ?? null
         });
@@ -423,6 +445,19 @@ export default async function PferdDetailPage({
               <LogActivityForm defaultDate={todayDateString} horseId={horse.id} />
             </div>
           </div>
+        </SectionCard>
+      ) : null}
+
+      {canUseActivities && recentActivities.length > 0 ? (
+        <SectionCard
+          subtitle="Aktivitäten der letzten 14 Tage – eigene Einträge können korrigiert werden."
+          title="Letzte Aktivitäten"
+        >
+          <DailyActivitiesList
+            activities={recentActivities}
+            showDate
+            viewerUserId={user?.id ?? null}
+          />
         </SectionCard>
       ) : null}
     </div>
