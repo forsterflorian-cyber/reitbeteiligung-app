@@ -1,5 +1,6 @@
 import type { createClient } from "../supabase/server";
 import type { AvailabilityRule, CalendarBlock } from "../../types/database";
+import { emitDomainEvent } from "../domain-events.ts";
 
 type CalendarBlockRecord = Pick<CalendarBlock, "id" | "horse_id" | "title" | "start_at" | "end_at" | "created_at">;
 type AvailabilityRuleRecord = Pick<AvailabilityRule, "id" | "horse_id" | "slot_id" | "start_at" | "end_at" | "active" | "is_trial_slot" | "created_at">;
@@ -540,5 +541,81 @@ export async function getActiveAvailabilityRanges(
       end_at: range.end_at,
       start_at: range.start_at
     }))
+  };
+}
+
+type CalendarBlockRpcRow = {
+  block_id: string;
+  cancelled_booking_ids: string[] | null;
+};
+
+export async function createCalendarBlockForOwner(input: {
+  endAt: string;
+  horseId: string;
+  logSupabaseError: (context: string, error: { message: string }) => void;
+  startAt: string;
+  supabase: ReturnType<typeof createClient>;
+  title?: string;
+}): Promise<
+  | { ok: false; message: string }
+  | { ok: true; blockId: string; cancelledBookingIds: string[]; message: string; paths: readonly string[] }
+> {
+  const { data, error } = await input.supabase.rpc("create_calendar_block_for_horse", {
+    p_end_at: input.endAt,
+    p_horse_id: input.horseId,
+    p_start_at: input.startAt,
+    p_title: input.title ?? null
+  });
+
+  if (error) {
+    input.logSupabaseError("createCalendarBlockForOwner", error);
+    return { ok: false, message: getCalendarBlockSaveError("create") };
+  }
+
+  const row = (data as CalendarBlockRpcRow[] | null)?.[0] ?? null;
+
+  if (!row) {
+    return { ok: false, message: getCalendarBlockSaveError("create") };
+  }
+
+  const cancelledBookingIds: string[] = row.cancelled_booking_ids ?? [];
+
+  // fire-and-forget booking_cancelled events for each block-induced cancellation
+  for (const bookingId of cancelledBookingIds) {
+    await emitDomainEvent(input.supabase, {
+      event_type: "booking_cancelled",
+      horse_id: input.horseId,
+      payload: { booking_id: bookingId, reason: "owner_block" }
+    });
+  }
+
+  return {
+    ok: true,
+    blockId: row.block_id,
+    cancelledBookingIds,
+    message: getCalendarBlockSavedMessage("create"),
+    paths: getCalendarBlockRevalidationPaths(input.horseId)
+  };
+}
+
+export async function deleteCalendarBlockForOwner(input: {
+  blockId: string;
+  horseId: string;
+  logSupabaseError: (context: string, error: { message: string }) => void;
+  supabase: ReturnType<typeof createClient>;
+}): Promise<{ ok: false; message: string } | { ok: true; message: string; paths: readonly string[] }> {
+  const { error } = await input.supabase.rpc("delete_calendar_block_for_horse", {
+    p_block_id: input.blockId
+  });
+
+  if (error) {
+    input.logSupabaseError("deleteCalendarBlockForOwner", error);
+    return { ok: false, message: getCalendarBlockSaveError("delete") };
+  }
+
+  return {
+    ok: true,
+    message: getCalendarBlockSavedMessage("delete"),
+    paths: getCalendarBlockRevalidationPaths(input.horseId)
   };
 }
