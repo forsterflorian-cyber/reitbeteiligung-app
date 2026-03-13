@@ -1319,5 +1319,16 @@ export async function markNotificationReadAction(formData: FormData) {
   revalidatePath("/benachrichtigungen");
 }
 
-export { correctHorseActivityAction, logHorseActivityAction } from "@/lib/server-actions/activities";
+import {
+  correctHorseActivityAction as correctHorseActivityActionImpl,
+  logHorseActivityAction as logHorseActivityActionImpl
+} from "@/lib/server-actions/activities";
+
+export async function logHorseActivityAction(formData: FormData) {
+  return logHorseActivityActionImpl(formData);
+}
+
+export async function correctHorseActivityAction(formData: FormData) {
+  return correctHorseActivityActionImpl(formData);
+}
 
