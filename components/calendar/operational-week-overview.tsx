@@ -13,6 +13,8 @@ import type { DailyActivityWithActorName } from "@/types/database";
 type OperationalWeekOverviewProps = {
   dailyActivities?: Record<string, DailyActivityWithActorName[]>;
   days: OperationalWeekDay[];
+  /** When true, available-slot entries are hidden — use for free-booking mode where slots are not meaningful UI. */
+  hideAvailableEntries?: boolean;
   nextWeekHref: Route;
   previousWeekHref: Route;
   subtitle: string;
@@ -114,6 +116,7 @@ function entryClassName(kind: OperationalWeekEntryKind) {
 export function OperationalWeekOverview({
   dailyActivities,
   days,
+  hideAvailableEntries = false,
   nextWeekHref,
   previousWeekHref,
   subtitle,
@@ -148,14 +151,19 @@ export function OperationalWeekOverview({
             <p className="text-sm text-stone-600">{rangeLabel ?? "Aktuelle Woche"}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge tone="approved">Frei</Badge>
+            {hideAvailableEntries ? null : <Badge tone="approved">Frei</Badge>}
             <Badge tone="info">Gebucht</Badge>
             <Badge tone="rejected">Blockiert</Badge>
           </div>
         </div>
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
-          {days.map((day) => (
+          {days.map((day) => {
+            const visibleEntries = hideAvailableEntries
+              ? day.entries.filter((e) => e.kind !== "available")
+              : day.entries;
+
+            return (
             <Card className="border-stone-200 bg-white/90 p-3" key={day.dayKey}>
               <div className="space-y-3">
                 <div className="space-y-2">
@@ -167,19 +175,19 @@ export function OperationalWeekOverview({
                     {day.isToday ? <Badge tone="neutral">Heute</Badge> : null}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {countEntries(day.entries, "available") > 0 ? <Badge tone="approved">{countEntries(day.entries, "available")} frei</Badge> : null}
+                    {!hideAvailableEntries && countEntries(day.entries, "available") > 0 ? <Badge tone="approved">{countEntries(day.entries, "available")} frei</Badge> : null}
                     {countEntries(day.entries, "booking") > 0 ? <Badge tone="info">{countEntries(day.entries, "booking")} gebucht</Badge> : null}
                     {countEntries(day.entries, "block") > 0 ? <Badge tone="rejected">{countEntries(day.entries, "block")} blockiert</Badge> : null}
                   </div>
                 </div>
 
-                {day.entries.length === 0 ? (
+                {visibleEntries.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50/60 px-3 py-3">
                     <p className="text-xs text-stone-500">Keine freien oder belegten Zeiten.</p>
                   </div>
                 ) : (
                   <div className="space-y-1.5">
-                    {day.entries.map((entry) => (
+                    {visibleEntries.map((entry) => (
                       <div className={cx("rounded-2xl border px-3 py-2.5", entryClassName(entry.kind))} key={entry.key}>
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div className="flex flex-wrap items-center gap-2">
@@ -208,7 +216,8 @@ export function OperationalWeekOverview({
                 ) : null}
               </div>
             </Card>
-          ))}
+            );
+          })}
         </div>
       </div>
     </SectionCard>

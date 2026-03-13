@@ -7,6 +7,7 @@ import {
   rescheduleOperationalBookingForRiderAction
 } from "@/app/actions";
 import { OperationalWeekOverview } from "@/components/calendar/operational-week-overview";
+import { RiderBookingWindowForm } from "@/components/calendar/rider-booking-window-form";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
 import { StatusBadge } from "@/components/status-badge";
@@ -110,6 +111,16 @@ export function RiderOperationalCalendar({
 }: RiderOperationalCalendarProps) {
   const clearRescheduleHref = `/pferde/${horse.id}/kalender#meine-buchungen` as Route;
   const historyCount = rescheduledBookings.length + canceledBookings.length;
+  const isFreeMode = horse.booking_mode === "free";
+
+  // Used for RiderBookingWindowForm in free mode — derive rule options from
+  // the already-computed open slots so the calendar page needs no changes.
+  const freeBookingRuleOptions = openSlots.map((slot) => ({
+    endAt: slot.endAt,
+    id: slot.availabilityRuleId,
+    label: formatSlotSummary(slot.startAt, slot.endAt),
+    startAt: slot.startAt
+  }));
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -133,6 +144,7 @@ export function RiderOperationalCalendar({
         <Notice text={message} tone="success" />
       </div>
 
+      {/* ── Meine naechsten Termine ── shared between both modes ──────────── */}
       <SectionCard
         action={<Badge tone={upcomingBookings.length > 0 ? "info" : "neutral"}>{upcomingBookings.length} geplant</Badge>}
         id="meine-buchungen"
@@ -201,111 +213,195 @@ export function RiderOperationalCalendar({
         )}
       </SectionCard>
 
-      <SectionCard
-        action={<Badge tone={openSlots.length > 0 ? "approved" : "neutral"}>{openSlots.length} frei</Badge>}
-        id="umbuchen"
-        subtitle={
-          rescheduleBooking
-            ? "Waehle einen freien Termin aus. Der bisherige Termin wird dabei ersetzt und bleibt nur in der Historie sichtbar."
-            : horse.booking_mode === "slots"
-              ? "Buchungen sind auf freigegebene Slots beschraenkt. Waehle einen der verfuegbaren Termine aus."
-              : "Freie Zeiten kannst du direkt buchen, solange sie noch verfuegbar sind."
-        }
-        title={rescheduleBooking ? "Freie Termine fuer deine Umbuchung" : "Freie Termine"}
-      >
-        <div className="space-y-4">
-          {weeklyQuota && typeof weeklyQuota.weekly_hours_limit === "number" ? (
-            <Card className="border-stone-200 bg-stone-50/80 p-4">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-stone-900">Wochenkontingent</p>
-                  <p className="text-sm text-stone-600">Gezaehlt werden nur aktuell wirksame Termine dieser Kalenderwoche.</p>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[360px]">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Limit</p>
-                    <p className="mt-1 text-sm font-semibold text-stone-900">{formatWeeklyHoursLimit(weeklyQuota.weekly_hours_limit)}</p>
+      {/* ── Booking section — mode-specific ───────────────────────────────── */}
+      {isFreeMode ? (
+        // Free mode: rider picks custom time within an open availability window
+        <SectionCard
+          id="umbuchen"
+          subtitle={
+            rescheduleBooking
+              ? "Waehle einen neuen Termin. Der bisherige Termin wird dabei ersetzt und bleibt nur in der Historie sichtbar."
+              : "Waehle ein offenes Zeitfenster und deinen Wunschtermin innerhalb davon."
+          }
+          title={rescheduleBooking ? "Termin umbuchen" : "Termin buchen"}
+        >
+          <div className="space-y-4">
+            {weeklyQuota && typeof weeklyQuota.weekly_hours_limit === "number" ? (
+              <Card className="border-stone-200 bg-stone-50/80 p-4">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-stone-900">Wochenkontingent</p>
+                    <p className="text-sm text-stone-600">Gezaehlt werden nur aktuell wirksame Termine dieser Kalenderwoche.</p>
                   </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Belegt</p>
-                    <p className="mt-1 text-sm font-semibold text-stone-900">{formatBookingQuotaMinutes(weeklyQuota.booked_minutes)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Verbleibend</p>
-                    <p className="mt-1 text-sm font-semibold text-stone-900">
-                      {formatBookingQuotaMinutes(weeklyQuota.remaining_minutes ?? 0)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          ) : null}
-          {rescheduleBooking ? (
-            <Card className="border-sand bg-sand/30 p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-stone-900">Du buchst gerade diesen Termin um</p>
-                  <p className="text-sm text-stone-700">{formatDateRange(rescheduleBooking.start_at, rescheduleBooking.end_at)}</p>
-                </div>
-                <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={clearRescheduleHref}>
-                  Umbuchung abbrechen
-                </Link>
-              </div>
-            </Card>
-          ) : null}
-          {openSlots.length === 0 ? (
-            <EmptyState
-              description={
-                rescheduleBooking
-                  ? "Aktuell gibt es keinen anderen freien Termin fuer diese Umbuchung."
-                  : "Aktuell gibt es fuer dieses Pferd keine freien Termine."
-              }
-              title={rescheduleBooking ? "Kein anderer Termin frei" : "Keine freien Termine"}
-            />
-          ) : (
-            <div className="grid gap-2.5 lg:grid-cols-2">
-              {openSlots.map((slot) => (
-                <Card className="p-4" key={`${slot.availabilityRuleId}:${slot.startAt}`}>
-                  <div className="flex h-full flex-col gap-4">
-                    <div className="flex items-start gap-3">
-                      <div className="min-w-[132px] rounded-2xl border border-stone-200 bg-stone-50 px-3 py-3 text-center">
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">{formatDayLabel(slot.startAt)}</p>
-                        <p className="mt-1 text-sm font-semibold text-stone-900">{formatSlotSummary(slot.startAt, slot.endAt)}</p>
-                      </div>
-                      <div className="space-y-2">
-                        <Badge tone="approved">{rescheduleBooking ? "Frei fuer Umbuchung" : "Frei"}</Badge>
-                        <p className="text-sm text-stone-600">
-                          {rescheduleBooking ? "Dieser Termin kann direkt dein aktuelles Zeitfenster ersetzen." : "Diesen Termin kannst du direkt buchen."}
-                        </p>
-                      </div>
+                  <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[360px]">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Limit</p>
+                      <p className="mt-1 text-sm font-semibold text-stone-900">{formatWeeklyHoursLimit(weeklyQuota.weekly_hours_limit)}</p>
                     </div>
-                    <form action={rescheduleBooking ? rescheduleOperationalBookingForRiderAction : requestBookingAction} className="mt-auto w-full">
-                      {rescheduleBooking ? <input name="bookingId" type="hidden" value={rescheduleBooking.id} /> : null}
-                      <input name="horseId" type="hidden" value={horse.id} />
-                      <input name="ruleId" type="hidden" value={slot.availabilityRuleId} />
-                      <input name="startAt" type="hidden" value={slot.startAt} />
-                      <input name="endAt" type="hidden" value={slot.endAt} />
-                      <input name="recurrenceRrule" type="hidden" value="" />
-                      <SubmitButton
-                        className={buttonVariants("primary", "w-full")}
-                        idleLabel={rescheduleBooking ? "Diesen Termin waehlen" : "Jetzt buchen"}
-                        pendingLabel={rescheduleBooking ? "Wird umgebucht..." : "Wird gebucht..."}
-                      />
-                    </form>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Belegt</p>
+                      <p className="mt-1 text-sm font-semibold text-stone-900">{formatBookingQuotaMinutes(weeklyQuota.booked_minutes)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Verbleibend</p>
+                      <p className="mt-1 text-sm font-semibold text-stone-900">
+                        {formatBookingQuotaMinutes(weeklyQuota.remaining_minutes ?? 0)}
+                      </p>
+                    </div>
                   </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      </SectionCard>
+                </div>
+              </Card>
+            ) : null}
 
+            {rescheduleBooking ? (
+              <Card className="border-sand bg-sand/30 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-stone-900">Du buchst gerade diesen Termin um</p>
+                    <p className="text-sm text-stone-700">{formatDateRange(rescheduleBooking.start_at, rescheduleBooking.end_at)}</p>
+                  </div>
+                  <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={clearRescheduleHref}>
+                    Umbuchung abbrechen
+                  </Link>
+                </div>
+              </Card>
+            ) : null}
+
+            {freeBookingRuleOptions.length === 0 ? (
+              <EmptyState
+                description={
+                  rescheduleBooking
+                    ? "Aktuell gibt es kein anderes offenes Zeitfenster fuer diese Umbuchung."
+                    : "Aktuell gibt es fuer dieses Pferd keine offenen Zeitfenster."
+                }
+                title={rescheduleBooking ? "Kein anderes Zeitfenster verfuegbar" : "Keine offenen Zeitfenster"}
+              />
+            ) : (
+              <form action={rescheduleBooking ? rescheduleOperationalBookingForRiderAction : requestBookingAction} className="space-y-4">
+                {rescheduleBooking ? <input name="bookingId" type="hidden" value={rescheduleBooking.id} /> : null}
+                <input name="horseId" type="hidden" value={horse.id} />
+                <RiderBookingWindowForm rules={freeBookingRuleOptions} />
+                <SubmitButton
+                  className={buttonVariants("primary", "w-full")}
+                  idleLabel={rescheduleBooking ? "Diesen Termin waehlen" : "Jetzt buchen"}
+                  pendingLabel={rescheduleBooking ? "Wird umgebucht..." : "Wird gebucht..."}
+                />
+              </form>
+            )}
+          </div>
+        </SectionCard>
+      ) : (
+        // Slots mode: rider may only pick from pre-defined available slots
+        <SectionCard
+          action={<Badge tone={openSlots.length > 0 ? "approved" : "neutral"}>{openSlots.length} frei</Badge>}
+          id="umbuchen"
+          subtitle={
+            rescheduleBooking
+              ? "Waehle einen freien Termin aus. Der bisherige Termin wird dabei ersetzt und bleibt nur in der Historie sichtbar."
+              : "Buchungen sind auf freigegebene Slots beschraenkt. Waehle einen der verfuegbaren Termine aus."
+          }
+          title={rescheduleBooking ? "Freie Termine fuer deine Umbuchung" : "Freie Termine"}
+        >
+          <div className="space-y-4">
+            {weeklyQuota && typeof weeklyQuota.weekly_hours_limit === "number" ? (
+              <Card className="border-stone-200 bg-stone-50/80 p-4">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-stone-900">Wochenkontingent</p>
+                    <p className="text-sm text-stone-600">Gezaehlt werden nur aktuell wirksame Termine dieser Kalenderwoche.</p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[360px]">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Limit</p>
+                      <p className="mt-1 text-sm font-semibold text-stone-900">{formatWeeklyHoursLimit(weeklyQuota.weekly_hours_limit)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Belegt</p>
+                      <p className="mt-1 text-sm font-semibold text-stone-900">{formatBookingQuotaMinutes(weeklyQuota.booked_minutes)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Verbleibend</p>
+                      <p className="mt-1 text-sm font-semibold text-stone-900">
+                        {formatBookingQuotaMinutes(weeklyQuota.remaining_minutes ?? 0)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ) : null}
+            {rescheduleBooking ? (
+              <Card className="border-sand bg-sand/30 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-stone-900">Du buchst gerade diesen Termin um</p>
+                    <p className="text-sm text-stone-700">{formatDateRange(rescheduleBooking.start_at, rescheduleBooking.end_at)}</p>
+                  </div>
+                  <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={clearRescheduleHref}>
+                    Umbuchung abbrechen
+                  </Link>
+                </div>
+              </Card>
+            ) : null}
+            {openSlots.length === 0 ? (
+              <EmptyState
+                description={
+                  rescheduleBooking
+                    ? "Aktuell gibt es keinen anderen freien Termin fuer diese Umbuchung."
+                    : "Aktuell gibt es fuer dieses Pferd keine freien Termine."
+                }
+                title={rescheduleBooking ? "Kein anderer Termin frei" : "Keine freien Termine"}
+              />
+            ) : (
+              <div className="grid gap-2.5 lg:grid-cols-2">
+                {openSlots.map((slot) => (
+                  <Card className="p-4" key={`${slot.availabilityRuleId}:${slot.startAt}`}>
+                    <div className="flex h-full flex-col gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className="min-w-[132px] rounded-2xl border border-stone-200 bg-stone-50 px-3 py-3 text-center">
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">{formatDayLabel(slot.startAt)}</p>
+                          <p className="mt-1 text-sm font-semibold text-stone-900">{formatSlotSummary(slot.startAt, slot.endAt)}</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Badge tone="approved">{rescheduleBooking ? "Frei fuer Umbuchung" : "Frei"}</Badge>
+                          <p className="text-sm text-stone-600">
+                            {rescheduleBooking ? "Dieser Termin kann direkt dein aktuelles Zeitfenster ersetzen." : "Diesen Termin kannst du direkt buchen."}
+                          </p>
+                        </div>
+                      </div>
+                      <form action={rescheduleBooking ? rescheduleOperationalBookingForRiderAction : requestBookingAction} className="mt-auto w-full">
+                        {rescheduleBooking ? <input name="bookingId" type="hidden" value={rescheduleBooking.id} /> : null}
+                        <input name="horseId" type="hidden" value={horse.id} />
+                        <input name="ruleId" type="hidden" value={slot.availabilityRuleId} />
+                        <input name="startAt" type="hidden" value={slot.startAt} />
+                        <input name="endAt" type="hidden" value={slot.endAt} />
+                        <input name="recurrenceRrule" type="hidden" value="" />
+                        <SubmitButton
+                          className={buttonVariants("primary", "w-full")}
+                          idleLabel={rescheduleBooking ? "Diesen Termin waehlen" : "Jetzt buchen"}
+                          pendingLabel={rescheduleBooking ? "Wird umgebucht..." : "Wird gebucht..."}
+                        />
+                      </form>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </SectionCard>
+      )}
+
+      {/* ── Weekly overview — informational in both modes ──────────────────── */}
       <OperationalWeekOverview
         dailyActivities={dailyActivities}
         days={weekDays}
+        hideAvailableEntries={isFreeMode}
         nextWeekHref={nextWeekHref}
         previousWeekHref={previousWeekHref}
-        subtitle="Freie Termine, gebuchte Zeiten und Blocks dieser Woche kompakt im Ueberblick."
+        subtitle={
+          isFreeMode
+            ? "Gebuchte und blockierte Zeiten dieser Woche im Ueberblick."
+            : "Freie Termine, gebuchte Zeiten und Blocks dieser Woche kompakt im Ueberblick."
+        }
         title="Diese Woche"
         todayHref={todayWeekHref}
       />
