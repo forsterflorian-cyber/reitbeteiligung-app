@@ -2,7 +2,7 @@ import type { createClient } from "./supabase/server.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
-export type DomainEventType = "booking_cancelled" | "booking_created" | "booking_rescheduled" | "calendar_block_created" | "calendar_block_deleted" | "trial_accepted";
+export type DomainEventType = "booking_cancelled" | "booking_created" | "booking_rescheduled" | "calendar_block_created" | "calendar_block_deleted" | "horse_activity_logged" | "trial_accepted";
 
 type DomainEventPayload = Record<string, null | string>;
 

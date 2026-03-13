@@ -1318,3 +1318,6 @@ export async function markNotificationReadAction(formData: FormData) {
   await markNotificationRead(supabase, notificationId);
   revalidatePath("/benachrichtigungen");
 }
+
+export { correctHorseActivityAction, logHorseActivityAction } from "@/lib/server-actions/activities";
+

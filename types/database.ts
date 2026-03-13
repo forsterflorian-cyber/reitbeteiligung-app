@@ -165,3 +165,34 @@ export type Notification = {
   read_at: string | null;
   created_at: string;
 };
+
+export type HorseDailyActivityType =
+  | "ride"
+  | "groundwork"
+  | "hack"
+  | "lunge"
+  | "free_movement"
+  | "care"
+  | "other";
+
+export type HorseDailyActivityStatus = "active" | "corrected";
+
+export type HorseDailyActivity = {
+  id: string;
+  horse_id: string;
+  user_id: string;
+  activity_type: HorseDailyActivityType;
+  /** ISO date string, YYYY-MM-DD */
+  activity_date: string;
+  /** HH:MM time string, or null */
+  activity_time: string | null;
+  comment: string | null;
+  status: HorseDailyActivityStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+/** HorseDailyActivity enriched with the actor's display name for rendering. */
+export type DailyActivityWithActorName = HorseDailyActivity & {
+  actorName: string | null;
+};

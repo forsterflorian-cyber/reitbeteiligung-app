@@ -41,12 +41,12 @@ import { canRescheduleOperationalBooking } from "@/lib/booking-guards";
 import { formatBookingQuotaMinutes, formatWeeklyHoursLimit, type RiderWeeklyBookingQuota } from "@/lib/booking-limits";
 import { HORSE_SELECT_FIELDS } from "@/lib/horses";
 import { getUpcomingOperationalSlots, splitAvailabilityRulesByPhase, isTrialAvailabilityRule } from "@/lib/operational-slots";
-import { buildOperationalWeekDays, parseOperationalWeekOffset } from "@/lib/operational-week";
+import { addOperationalWeekDays, buildOperationalWeekDays, parseOperationalWeekOffset, startOfOperationalWeek, toOperationalWeekDayKey } from "@/lib/operational-week";
 import { getOwnerPlan, getOwnerPlanUsage } from "@/lib/plans";
 import { canAccessOperationalCalendar, isActiveRelationship } from "@/lib/relationship-state";
 import { ACTIVE_RELATIONSHIP_CALENDAR_V1, R1_CORE_MODE } from "@/lib/release-stage";
 import { readSearchParam } from "@/lib/search-params";
-import type { AvailabilityRule, Booking, BookingRequest, CalendarBlock, Horse, Profile, TrialRequest } from "@/types/database";
+import type { AvailabilityRule, Booking, BookingRequest, CalendarBlock, DailyActivityWithActorName, HorseDailyActivity, Horse, Profile, TrialRequest } from "@/types/database";
 
 type PferdKalenderPageProps = {
   params: { id: string };
@@ -684,6 +684,58 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     weekOffset: simpleWeekOffset
   });
 
+  // Fetch daily activities for the visible week — only when the user can access the operational calendar.
+  // Activities are contextual data only and do not affect any booking or scheduling logic.
+  const simpleWeekStart = addOperationalWeekDays(startOfOperationalWeek(now), simpleWeekOffset * 7);
+  const simpleWeekEnd = addOperationalWeekDays(simpleWeekStart, 7);
+  const simpleWeekStartDate = toOperationalWeekDayKey(simpleWeekStart);
+  const simpleWeekEndDate = toOperationalWeekDayKey(addOperationalWeekDays(simpleWeekEnd, -1));
+
+  const activitiesForCalendar: DailyActivityWithActorName[] = [];
+
+  if (simpleCalendarV1Mode && (isOwner || (isRider && riderApproved))) {
+    const { data: rawActivities } = await supabase
+      .from("horse_daily_activities")
+      .select("id, horse_id, user_id, activity_type, activity_date, activity_time, comment, status, created_at, updated_at")
+      .eq("horse_id", horseId)
+      .eq("status", "active")
+      .gte("activity_date", simpleWeekStartDate)
+      .lte("activity_date", simpleWeekEndDate)
+      .order("activity_date", { ascending: true });
+
+    const weekActivities = (rawActivities as HorseDailyActivity[] | null) ?? [];
+
+    if (weekActivities.length > 0) {
+      const activityActorIds = [...new Set(weekActivities.map((a) => a.user_id))];
+      const { data: activityProfilesData } = await supabase
+        .from("profiles")
+        .select("id, display_name")
+        .in("id", activityActorIds);
+      const activityProfileMap = new Map(
+        ((activityProfilesData as Pick<Profile, "id" | "display_name">[] | null) ?? []).map((p) => [
+          p.id,
+          p.display_name?.trim() || null
+        ])
+      );
+
+      for (const activity of weekActivities) {
+        activitiesForCalendar.push({
+          ...activity,
+          actorName: activityProfileMap.get(activity.user_id) ?? null
+        });
+      }
+    }
+  }
+
+  const dailyActivitiesRecord: Record<string, DailyActivityWithActorName[]> = {};
+  for (const activity of activitiesForCalendar) {
+    const key = activity.activity_date;
+    if (!dailyActivitiesRecord[key]) {
+      dailyActivitiesRecord[key] = [];
+    }
+    dailyActivitiesRecord[key].push(activity);
+  }
+
   function buildSimpleWeekHref(weekOffset: number) {
     const nextSearchParams = new URLSearchParams();
 
@@ -719,6 +771,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     return (
       <OwnerHorseCalendarV1
         activeRelationshipCount={activeRelationshipCount}
+        dailyActivities={dailyActivitiesRecord}
         defaultOperationalDate={toDayKey(now)}
         defaultTrialDate={toDayKey(now)}
         detailHref={detailHref}
@@ -746,6 +799,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   if (simpleCalendarV1Mode && isRider && riderApproved) {
     return (
       <RiderOperationalCalendar
+        dailyActivities={dailyActivitiesRecord}
         detailHref={detailHref}
         error={error}
         horse={horse}

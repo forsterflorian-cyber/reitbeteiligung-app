@@ -1,14 +1,17 @@
 import type { Route } from "next";
 import Link from "next/link";
 
+import { getActivityTypeLabel } from "@/components/activities/activity-type-label";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SectionCard } from "@/components/ui/section-card";
 import { cx } from "@/lib/cx";
 import type { OperationalWeekDay, OperationalWeekEntry, OperationalWeekEntryKind } from "@/lib/operational-week";
+import type { DailyActivityWithActorName } from "@/types/database";
 
 type OperationalWeekOverviewProps = {
+  dailyActivities?: Record<string, DailyActivityWithActorName[]>;
   days: OperationalWeekDay[];
   nextWeekHref: Route;
   previousWeekHref: Route;
@@ -109,6 +112,7 @@ function entryClassName(kind: OperationalWeekEntryKind) {
 }
 
 export function OperationalWeekOverview({
+  dailyActivities,
   days,
   nextWeekHref,
   previousWeekHref,
@@ -188,6 +192,20 @@ export function OperationalWeekOverview({
                     ))}
                   </div>
                 )}
+
+                {dailyActivities && dailyActivities[day.dayKey] && dailyActivities[day.dayKey].filter((a) => a.status === "active").length > 0 ? (
+                  <div className="space-y-1 pt-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-stone-400">Heute passiert</p>
+                    {dailyActivities[day.dayKey]
+                      .filter((a) => a.status === "active")
+                      .map((activity) => (
+                        <p className="text-xs text-stone-600" key={activity.id}>
+                          ✓ {getActivityTypeLabel(activity.activity_type)}
+                          {activity.actorName ? ` (${activity.actorName})` : null}
+                        </p>
+                      ))}
+                  </div>
+                ) : null}
               </div>
             </Card>
           ))}

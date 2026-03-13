@@ -18,7 +18,16 @@
       "Bash(find \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app\" -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" \\\\\\))",
       "Bash(xargs grep:*)",
       "Bash(grep -l \"riderName\\\\|riderId\" /e/Verwaltung/'07_IT & Identität'/'IT Projekte'/reitbeteiligung.app/components/owner/*.tsx)",
-      "Bash(grep -l \"riderName\\\\|riderId\" /e/Verwaltung/'07_IT & Identität'/'IT Projekte'/reitbeteiligung.app/lib/*.ts)"
+      "Bash(grep -l \"riderName\\\\|riderId\" /e/Verwaltung/'07_IT & Identität'/'IT Projekte'/reitbeteiligung.app/lib/*.ts)",
+      "Bash(find \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\" -type f -name \"*.sql\")",
+      "Bash(ls -la \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\")",
+      "Bash(ls -la \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app/app\")",
+      "Bash(find \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app/supabase/migrations\" -type f -name \"*.sql\")",
+      "Bash(ls -la \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app/lib/server-actions\")",
+      "Bash(ls -la \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app/components/calendar\")",
+      "Bash(ls -la \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app/components/notifications\")",
+      "Bash(ls -la \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app/components/owner\")",
+      "Bash(wc -l \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app/actions.ts\")"
     ]
   }
 }

@@ -24,7 +24,7 @@ import { SectionCard } from "@/components/ui/section-card";
 import { canCancelOperationalBooking, canRescheduleOperationalBooking } from "@/lib/booking-guards";
 import type { OperationalWeekDay } from "@/lib/operational-week";
 import { BOOKING_REQUEST_STATUS } from "@/lib/statuses";
-import type { AvailabilityRule, Booking, BookingRequest, CalendarBlock, Horse, TrialRequest } from "@/types/database";
+import type { AvailabilityRule, Booking, BookingRequest, CalendarBlock, DailyActivityWithActorName, Horse, TrialRequest } from "@/types/database";
 
 type OwnerOperationalSlot = {
   availabilityRuleId: string;
@@ -47,6 +47,7 @@ type OwnerRescheduledBookingCard = BookingRequest & {
 type OwnerHorseCalendarV1Props = {
   activeRelationshipCount: number;
   calendarBlocks: CalendarBlock[];
+  dailyActivities?: Record<string, DailyActivityWithActorName[]>;
   defaultOperationalDate: string;
   defaultTrialDate: string;
   detailHref: Route;
@@ -82,6 +83,7 @@ function formatDateRange(startAt: string, endAt: string) {
 export function OwnerHorseCalendarV1({
   activeRelationshipCount,
   calendarBlocks,
+  dailyActivities,
   defaultOperationalDate,
   defaultTrialDate,
   detailHref,
@@ -256,6 +258,7 @@ export function OwnerHorseCalendarV1({
         </div>
 
         <OperationalWeekOverview
+          dailyActivities={dailyActivities}
           days={weekDays}
           nextWeekHref={nextWeekHref}
           previousWeekHref={previousWeekHref}

@@ -21,7 +21,7 @@ import { canCancelOperationalBooking, canRescheduleOperationalBooking } from "@/
 import { formatBookingQuotaMinutes, formatWeeklyHoursLimit, type RiderWeeklyBookingQuota } from "@/lib/booking-limits";
 import type { OperationalWeekDay } from "@/lib/operational-week";
 import { BOOKING_REQUEST_STATUS } from "@/lib/statuses";
-import type { Booking, BookingRequest, Horse } from "@/types/database";
+import type { Booking, BookingRequest, DailyActivityWithActorName, Horse } from "@/types/database";
 
 type RiderOperationalSlot = {
   availabilityRuleId: string;
@@ -31,6 +31,7 @@ type RiderOperationalSlot = {
 
 type RiderOperationalCalendarProps = {
   canceledBookings: BookingRequest[];
+  dailyActivities?: Record<string, DailyActivityWithActorName[]>;
   detailHref: Route;
   error: string | null;
   horse: Horse;
@@ -92,6 +93,7 @@ function formatSlotSummary(startAt: string, endAt: string) {
 
 export function RiderOperationalCalendar({
   canceledBookings,
+  dailyActivities,
   detailHref,
   error,
   horse,
@@ -297,6 +299,7 @@ export function RiderOperationalCalendar({
       </SectionCard>
 
       <OperationalWeekOverview
+        dailyActivities={dailyActivities}
         days={weekDays}
         nextWeekHref={nextWeekHref}
         previousWeekHref={previousWeekHref}

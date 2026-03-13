@@ -4,6 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requestTrialAction } from "@/app/actions";
+import { DailyActivitiesList } from "@/components/activities/daily-activities-list";
+import { LogActivityForm } from "@/components/activities/log-activity-form";
 import { Notice } from "@/components/notice";
 import { StatusBadge } from "@/components/status-badge";
 import { SubmitButton } from "@/components/submit-button";
@@ -27,7 +29,7 @@ import { readSearchParam } from "@/lib/search-params";
 import { R1_CORE_MODE } from "@/lib/release-stage";
 import { createClient } from "@/lib/supabase/server";
 import { canRetryTrialRequest, getRiderTrialRequestStatusMessage } from "@/lib/trial-lifecycle";
-import type { Approval, AvailabilityRule, Horse, HorseImage, TrialRequest, TrialRequestStatus } from "@/types/database";
+import type { Approval, AvailabilityRule, DailyActivityWithActorName, Horse, HorseImage, HorseDailyActivity, Profile, TrialRequest, TrialRequestStatus } from "@/types/database";
 
 function riderStatusText(status: TrialRequestStatus) {
   switch (status) {
@@ -171,6 +173,47 @@ export default async function PferdDetailPage({
   const canRequest = canSelectTrialSlot && hasExplicitTrialSlots;
   const facts = horseFacts(horse);
   const calendarHref = `/pferde/${horse.id}/kalender` as Route;
+
+  // Determine if the viewer may log and view daily activities for this horse.
+  const isHorseOwner = profile?.role === "owner" && user?.id === horse.owner_id;
+  const isApprovedRider = profile?.role === "rider" && approved;
+  const canUseActivities = isHorseOwner || isApprovedRider;
+
+  const todayDateString = new Date().toISOString().slice(0, 10);
+  const todayActivities: DailyActivityWithActorName[] = [];
+
+  if (canUseActivities && user) {
+    const { data: rawTodayActivities } = await supabase
+      .from("horse_daily_activities")
+      .select("id, horse_id, user_id, activity_type, activity_date, activity_time, comment, status, created_at, updated_at")
+      .eq("horse_id", horse.id)
+      .eq("activity_date", todayDateString)
+      .eq("status", "active")
+      .order("created_at", { ascending: true });
+
+    const rawList = (rawTodayActivities as HorseDailyActivity[] | null) ?? [];
+
+    if (rawList.length > 0) {
+      const actorIds = [...new Set(rawList.map((a) => a.user_id))];
+      const { data: actorProfilesData } = await supabase
+        .from("profiles")
+        .select("id, display_name")
+        .in("id", actorIds);
+      const actorProfileMap = new Map(
+        ((actorProfilesData as Pick<Profile, "id" | "display_name">[] | null) ?? []).map((p) => [
+          p.id,
+          p.display_name?.trim() || null
+        ])
+      );
+
+      for (const activity of rawList) {
+        todayActivities.push({
+          ...activity,
+          actorName: actorProfileMap.get(activity.user_id) ?? null
+        });
+      }
+    }
+  }
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -357,6 +400,29 @@ export default async function PferdDetailPage({
               title="Aktuell keine Probetermine verfügbar"
             />
           ) : null}
+        </SectionCard>
+      ) : null}
+
+      {canUseActivities ? (
+        <SectionCard
+          subtitle="Was heute mit dem Pferd gemacht wurde – unabhängig von Buchungen."
+          title="Heute"
+        >
+          <div className="space-y-4">
+            {todayActivities.length > 0 ? (
+              <DailyActivitiesList
+                activities={todayActivities}
+                viewerUserId={user?.id ?? null}
+              />
+            ) : (
+              <p className="text-sm text-stone-500">Noch keine Aktivitäten für heute eingetragen.</p>
+            )}
+
+            <div className="border-t border-stone-100 pt-4">
+              <p className="mb-3 text-sm font-medium text-stone-700">Aktivität eintragen</p>
+              <LogActivityForm defaultDate={todayDateString} horseId={horse.id} />
+            </div>
+          </div>
         </SectionCard>
       ) : null}
     </div>
