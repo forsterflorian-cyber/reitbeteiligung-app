@@ -207,7 +207,9 @@ export function RiderOperationalCalendar({
         subtitle={
           rescheduleBooking
             ? "Waehle einen freien Termin aus. Der bisherige Termin wird dabei ersetzt und bleibt nur in der Historie sichtbar."
-            : "Freie Zeiten kannst du direkt buchen, solange sie noch verfuegbar sind."
+            : horse.booking_mode === "slots"
+              ? "Buchungen sind auf freigegebene Slots beschraenkt. Waehle einen der verfuegbaren Termine aus."
+              : "Freie Zeiten kannst du direkt buchen, solange sie noch verfuegbar sind."
         }
         title={rescheduleBooking ? "Freie Termine fuer deine Umbuchung" : "Freie Termine"}
       >

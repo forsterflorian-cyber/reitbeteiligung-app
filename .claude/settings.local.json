@@ -27,7 +27,12 @@
       "Bash(ls -la \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app/components/calendar\")",
       "Bash(ls -la \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app/components/notifications\")",
       "Bash(ls -la \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app/components/owner\")",
-      "Bash(wc -l \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app/actions.ts\")"
+      "Bash(wc -l \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app/actions.ts\")",
+      "Bash(find \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app\" -type f -name \"*horse*\")",
+      "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")",
+      "Bash(find \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app\" -type f -name \"*settings*\")",
+      "Bash(ls -lhrt \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/supabase/migrations\")",
+      "Bash(find \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app\" -type f -name \"*.tsx\")"
     ]
   }
 }

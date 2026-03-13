@@ -353,6 +353,41 @@ export default async function OwnerManageHorsesPage({
                             <label htmlFor={`description-${horse.id}`}>Beschreibung</label>
                             <textarea defaultValue={horse.description ?? ""} id={`description-${horse.id}`} name="description" rows={5} />
                           </div>
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-stone-700">Buchungsmodus</label>
+                            <div className="space-y-2">
+                              <label className="flex min-h-[44px] cursor-pointer items-start gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-900 has-[:checked]:border-forest has-[:checked]:bg-sand">
+                                <input
+                                  className="mt-0.5 h-4 w-4 shrink-0 border-stone-300"
+                                  defaultChecked={horse.booking_mode !== "free"}
+                                  name="bookingMode"
+                                  type="radio"
+                                  value="slots"
+                                />
+                                <span>
+                                  <span className="font-semibold">Nur freigegebene Slots</span>
+                                  <span className="mt-0.5 block text-xs text-stone-500">
+                                    Reiter können nur explizit freigegebene Zeitfenster buchen.
+                                  </span>
+                                </span>
+                              </label>
+                              <label className="flex min-h-[44px] cursor-pointer items-start gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-900 has-[:checked]:border-forest has-[:checked]:bg-sand">
+                                <input
+                                  className="mt-0.5 h-4 w-4 shrink-0 border-stone-300"
+                                  defaultChecked={horse.booking_mode === "free"}
+                                  name="bookingMode"
+                                  type="radio"
+                                  value="free"
+                                />
+                                <span>
+                                  <span className="font-semibold">Freies Buchen</span>
+                                  <span className="mt-0.5 block text-xs text-stone-500">
+                                    Reiter können selbst Zeiten innerhalb der Verfügbarkeitsfenster wählen.
+                                  </span>
+                                </span>
+                              </label>
+                            </div>
+                          </div>
                           <label className="flex min-h-[44px] items-center gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-900">
                             <input className="h-4 w-4 rounded border-stone-300" defaultChecked={horse.active} name="active" type="checkbox" />
                             Pferdeprofil veröffentlichen

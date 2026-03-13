@@ -1,5 +1,8 @@
 export type UserRole = "owner" | "rider";
 
+/** Determines how approved riders may create bookings for a horse. */
+export type HorseBookingMode = "free" | "slots";
+
 export type TrialRequestStatus = "requested" | "accepted" | "declined" | "completed" | "withdrawn";
 export type ApprovalStatus = "approved" | "rejected" | "revoked";
 export type BookingRequestStatus = "requested" | "accepted" | "declined" | "canceled" | "rescheduled";
@@ -23,6 +26,7 @@ export type Horse = {
   location_notes?: string | null;
   description: string | null;
   active: boolean;
+  booking_mode: HorseBookingMode;
   height_cm?: number | null;
   breed?: string | null;
   color?: string | null;

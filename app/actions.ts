@@ -99,7 +99,7 @@ import {
 } from "@/lib/server-actions/bookings";
 import { saveRiderBookingLimitForOwner } from "@/lib/server-actions/booking-limits";
 import { markNotificationRead } from "@/lib/server-actions/notifications";
-import type { Approval, AvailabilityRule, CalendarBlock, Horse, HorseImage, TrialRequest } from "@/types/database";
+import type { Approval, AvailabilityRule, CalendarBlock, Horse, HorseBookingMode, HorseImage, TrialRequest } from "@/types/database";
 
 const PASSWORD_RESET_REDIRECT_URL = "https://reitbeteiligung.app/passwort-zuruecksetzen";
 
@@ -623,6 +623,8 @@ export async function saveHorseAction(formData: FormData) {
   const sexValue = asOptionalString(formData.get("sex"));
   const birthYear = asInteger(formData.get("birthYear"));
   const active = formData.get("active") === "on";
+  const bookingModeRaw = asString(formData.get("bookingMode"));
+  const bookingMode: HorseBookingMode = bookingModeRaw === "free" ? "free" : "slots";
   const currentYear = new Date().getFullYear();
 
   const horseValidationError = getHorseValidationError({
@@ -642,6 +644,7 @@ export async function saveHorseAction(formData: FormData) {
   const horseValues = {
     active,
     birth_year: birthYear,
+    booking_mode: bookingMode,
     breed,
     color,
     description,
