@@ -1844,6 +1844,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
                             endAt: rule.end_at,
                             id: rule.id,
                             label: ruleLabel(rule),
+                            ruleId: rule.id,
                             startAt: rule.start_at
                           }))}
                         />

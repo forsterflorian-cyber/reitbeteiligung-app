@@ -130,8 +130,11 @@ export function RiderOperationalCalendar({
   // Used for window mode — label always includes date so each option is unambiguous.
   const windowBookingRuleOptions = openSlots.map((slot) => ({
     endAt: slot.endAt,
-    id: slot.availabilityRuleId,
+    // Composite key ensures each free segment is selectable even when multiple
+    // segments originate from the same availability rule.
+    id: `${slot.availabilityRuleId}|${slot.startAt}|${slot.endAt}`,
     label: formatWindowRuleLabel(slot.startAt, slot.endAt),
+    ruleId: slot.availabilityRuleId,
     startAt: slot.startAt
   }));
 

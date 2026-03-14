@@ -6,8 +6,11 @@ import { cx } from "@/lib/cx";
 
 type RuleOption = {
   endAt: string;
+  // Composite key used only for UI selection identity (ruleId|startAt|endAt).
+  // Multiple free segments from the same rule share the same ruleId but differ here.
   id: string;
   label: string;
+  ruleId: string;
   startAt: string;
 };
 
@@ -69,8 +72,8 @@ export function RiderBookingWindowForm({
   showRecurrence = false,
   startName = "startAt"
 }: RiderBookingWindowFormProps) {
-  const initialRuleId = defaultRuleId && rules.some((r) => r.id === defaultRuleId)
-    ? defaultRuleId
+  const initialRuleId = defaultRuleId && rules.some((r) => r.ruleId === defaultRuleId)
+    ? rules.find((r) => r.ruleId === defaultRuleId)!.id
     : rules[0]?.id ?? "";
   const [selectedRuleId, setSelectedRuleId] = useState(initialRuleId);
   const selectedRule = useMemo(() => rules.find((rule) => rule.id === selectedRuleId) ?? rules[0] ?? null, [rules, selectedRuleId]);
@@ -123,7 +126,8 @@ export function RiderBookingWindowForm({
 
       <div>
         <label htmlFor="riderRuleId">Offenes Zeitfenster</label>
-        <select id="riderRuleId" name={ruleName} onChange={(event) => setSelectedRuleId(event.currentTarget.value)} required value={selectedRule?.id ?? ""}>
+        <input name={ruleName} type="hidden" value={selectedRule?.ruleId ?? ""} />
+        <select id="riderRuleId" onChange={(event) => setSelectedRuleId(event.currentTarget.value)} required value={selectedRule?.id ?? ""}>
           {rules.map((rule) => (
             <option key={rule.id} value={rule.id}>
               {rule.label}
