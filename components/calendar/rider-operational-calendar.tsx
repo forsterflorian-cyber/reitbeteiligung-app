@@ -36,6 +36,7 @@ type RiderOperationalSlot = {
 type RiderOperationalCalendarProps = {
   canceledBookings: BookingRequest[];
   dailyActivities?: Record<string, DailyActivityWithActorName[]>;
+  defaultSlotRuleId?: string | null;
   detailHref: Route;
   error: string | null;
   horse: Horse;
@@ -95,9 +96,15 @@ function formatSlotSummary(startAt: string, endAt: string) {
   return `${formatTimeLabel(startAt)} - ${formatTimeLabel(endAt)} Uhr`;
 }
 
+function formatWindowRuleLabel(startAt: string, endAt: string) {
+  // Always shows day + time range so each window is unambiguously identifiable
+  return `${formatDayLabel(startAt)} · ${formatTimeLabel(startAt)} – ${formatTimeLabel(endAt)}`;
+}
+
 export function RiderOperationalCalendar({
   canceledBookings,
   dailyActivities,
+  defaultSlotRuleId,
   detailHref,
   error,
   horse,
@@ -117,12 +124,11 @@ export function RiderOperationalCalendar({
   const bookingMode = horse.booking_mode;
   const isSlotMode = bookingMode === "slots";
 
-  // Used for window/free modes — derive rule options from the already-computed
-  // open slots so the calendar page needs no changes.
+  // Used for window mode — label always includes date so each option is unambiguous.
   const windowBookingRuleOptions = openSlots.map((slot) => ({
     endAt: slot.endAt,
     id: slot.availabilityRuleId,
-    label: formatSlotSummary(slot.startAt, slot.endAt),
+    label: formatWindowRuleLabel(slot.startAt, slot.endAt),
     startAt: slot.startAt
   }));
 
@@ -447,7 +453,7 @@ export function RiderOperationalCalendar({
               <form action={rescheduleBooking ? rescheduleOperationalBookingForRiderAction : requestBookingAction} className="space-y-4">
                 {rescheduleBooking ? <input name="bookingId" type="hidden" value={rescheduleBooking.id} /> : null}
                 <input name="horseId" type="hidden" value={horse.id} />
-                <RiderBookingWindowForm rules={windowBookingRuleOptions} />
+                <RiderBookingWindowForm defaultRuleId={defaultSlotRuleId ?? undefined} rules={windowBookingRuleOptions} />
                 <SubmitButton
                   className={buttonVariants("primary", "w-full")}
                   idleLabel={rescheduleBooking ? "Diesen Termin waehlen" : "Termin buchen"}

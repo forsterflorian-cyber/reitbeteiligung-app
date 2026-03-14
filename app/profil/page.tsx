@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { saveProfileDetailsAction, startOwnerTrialAction } from "@/app/actions";
+import { deleteOwnerAccountAction, deleteRiderAccountAction, saveProfileDetailsAction, startOwnerTrialAction } from "@/app/actions";
+import { DeleteAccountSection } from "@/components/delete-account-section";
 import { LogoutForm } from "@/components/logout-form";
 import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
@@ -127,6 +128,30 @@ export default async function ProfilPage({
           )}
           <SectionCard title="Abmelden">
             <LogoutForm />
+          </SectionCard>
+          <SectionCard
+            subtitle={
+              profile.role === "rider"
+                ? "Nur moeglich, wenn keine aktiven Reitbeteiligungen, bevorstehenden Buchungen oder offenen Anfragen bestehen."
+                : "Nur moeglich, wenn alle Pferde deaktiviert sind und keine aktiven Reitbeteiligungen oder bevorstehenden Buchungen bestehen."
+            }
+            title="Konto loeschen"
+          >
+            <div className="space-y-4">
+              <p className="text-sm text-stone-600">
+                {profile.role === "rider"
+                  ? "Loescht dein Konto, dein Reiterprofil und alle deine Daten dauerhaft. Diese Aktion kann nicht rueckgaengig gemacht werden."
+                  : "Loescht dein Konto, alle Pferdeprofile und alle dazugehoerigen Daten dauerhaft. Diese Aktion kann nicht rueckgaengig gemacht werden."}
+              </p>
+              <DeleteAccountSection
+                action={profile.role === "rider" ? deleteRiderAccountAction : deleteOwnerAccountAction}
+                blockerHint={
+                  profile.role === "rider"
+                    ? "Vorher beenden: aktive Reitbeteiligungen, bevorstehende Buchungen, offene Probeterminanfragen."
+                    : "Vorher beenden: Pferdeprofile deaktivieren, Reitbeteiligungen entziehen, offene Buchungen klaeren."
+                }
+              />
+            </div>
           </SectionCard>
         </div>
       </div>

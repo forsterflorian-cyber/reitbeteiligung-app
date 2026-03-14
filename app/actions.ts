@@ -100,6 +100,7 @@ import {
   rescheduleOperationalBookingForRider,
   requestBookingForRider
 } from "@/lib/server-actions/bookings";
+import { deleteOwnerAccount, deleteRiderAccount, getAccountDeleteErrorMessage } from "@/lib/server-actions/account";
 import { saveRiderBookingLimitForOwner } from "@/lib/server-actions/booking-limits";
 import { markNotificationRead } from "@/lib/server-actions/notifications";
 import type { Approval, AvailabilityRule, CalendarBlock, Horse, HorseBookingMode, HorseImage, TrialRequest } from "@/types/database";
@@ -1437,3 +1438,27 @@ export async function correctHorseActivityAction(formData: FormData) {
   return correctHorseActivityActionImpl(formData);
 }
 
+
+export async function deleteRiderAccountAction() {
+  const { supabase } = await requireProfile("rider");
+  const result = await deleteRiderAccount(supabase);
+
+  if (!result.ok) {
+    redirectWithMessage("/profil", "error", getAccountDeleteErrorMessage(result.errorCode, "rider"));
+  }
+
+  await supabase.auth.signOut();
+  redirectWithFlash("/login", "success", "Dein Konto wurde geloescht.");
+}
+
+export async function deleteOwnerAccountAction() {
+  const { supabase } = await requireProfile("owner");
+  const result = await deleteOwnerAccount(supabase);
+
+  if (!result.ok) {
+    redirectWithMessage("/profil", "error", getAccountDeleteErrorMessage(result.errorCode, "owner"));
+  }
+
+  await supabase.auth.signOut();
+  redirectWithFlash("/login", "success", "Dein Konto wurde geloescht.");
+}

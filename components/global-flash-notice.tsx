@@ -1,6 +1,7 @@
-import { cookies } from "next/headers";
+"use client";
 
-import { FlashCookieClearer } from "@/components/flash-cookie-clearer";
+import { useEffect, useState } from "react";
+
 import { FLASH_COOKIE_NAME, type FlashPayload } from "@/lib/flash";
 
 const toastTones = {
@@ -8,18 +9,25 @@ const toastTones = {
   success: "border-emerald-200 bg-emerald-50 text-emerald-800"
 };
 
-function readFlashCookie() {
-  const rawValue = cookies().get(FLASH_COOKIE_NAME)?.value;
+function readAndClearFlash(): FlashPayload | null {
+  const raw = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith(FLASH_COOKIE_NAME + "="))
+    ?.split("=")
+    .slice(1)
+    .join("=");
 
-  if (!rawValue) {
+  if (!raw) {
     return null;
   }
 
+  // Clear immediately so no subsequent server render picks it up stale
+  document.cookie = `${FLASH_COOKIE_NAME}=; Max-Age=0; path=/; SameSite=Lax`;
+
   try {
-    const parsed = JSON.parse(decodeURIComponent(rawValue)) as Partial<FlashPayload>;
+    const parsed = JSON.parse(decodeURIComponent(raw)) as Partial<FlashPayload>;
 
     if (
-      typeof parsed.pathname !== "string" ||
       typeof parsed.text !== "string" ||
       (parsed.tone !== "error" && parsed.tone !== "success")
     ) {
@@ -33,20 +41,21 @@ function readFlashCookie() {
 }
 
 export function GlobalFlashNotice() {
-  const payload = readFlashCookie();
+  const [payload, setPayload] = useState<FlashPayload | null>(null);
+
+  useEffect(() => {
+    setPayload(readAndClearFlash());
+  }, []);
 
   if (!payload) {
     return null;
   }
 
   return (
-    <>
-      <FlashCookieClearer />
-      <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4 sm:justify-end sm:px-6">
-        <div className={`pointer-events-auto max-w-sm rounded-2xl border px-4 py-3 text-sm shadow-lg ${toastTones[payload.tone]}`}>
-          {payload.text}
-        </div>
+    <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4 sm:justify-end sm:px-6">
+      <div className={`pointer-events-auto max-w-sm rounded-2xl border px-4 py-3 text-sm shadow-lg ${toastTones[payload.tone]}`}>
+        {payload.text}
       </div>
-    </>
+    </div>
   );
 }

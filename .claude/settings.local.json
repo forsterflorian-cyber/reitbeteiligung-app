@@ -36,7 +36,16 @@
       "Bash(find \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\" -type f -name \"*.tsx\" -o -name \"*.ts\")",
       "Bash(find \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\" -name rider-operational-calendar* -o -name owner-operational-workspace* -o -name owner-horse-calendar*)",
       "Bash(find \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\" -path \"*node_modules\" -prune -o -path \"*\\\\.next\" -prune -o -name \"*action*\" -type f -print)",
-      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")"
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(wc -l \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\\\\app\\\\actions.ts\")",
+      "Bash(ls -la \"/e/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app/owner\")",
+      "Bash(ls -la \"/e/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/types\")",
+      "Bash(find \"/e/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app\" -name \"*.tsx\" -o -name \"*.ts\")",
+      "Bash(wc -l \"/e/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app/actions.ts\")",
+      "Bash(grep -r \"delete.*account\\\\|account.*delete\\\\|loeschen\" \"/e/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app\" --include=*.ts --include=*.tsx)",
+      "Bash(ls -la \"/e/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app/owner/reiter\")",
+      "Bash(find \"/e/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app\" -path */components/* -name *profile* -o -path */components/* -name *settings*)",
+      "Bash(tail -20 \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app/actions.ts\")"
     ]
   }
 }

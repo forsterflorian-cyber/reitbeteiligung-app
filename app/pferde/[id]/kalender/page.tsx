@@ -642,6 +642,7 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
     riderName: ownerBookingProfileMap.get(booking.rider_id) ?? null
   }));
   const rescheduleBookingParam = readSearchParam(searchParams, "rescheduleBooking");
+  const slotRuleIdParam = readSearchParam(searchParams, "slotRuleId");
   const ownerRescheduleBooking =
     simpleCalendarV1Mode && isOwner && rescheduleBookingParam
       ? ownerUpcomingBookingItems.find(
@@ -799,12 +800,13 @@ export default async function PferdKalenderPage({ params, searchParams }: PferdK
   if (simpleCalendarV1Mode && isRider && riderApproved) {
     return (
       <RiderOperationalCalendar
+        canceledBookings={riderCanceledBookings}
         dailyActivities={dailyActivitiesRecord}
+        defaultSlotRuleId={slotRuleIdParam ?? null}
         detailHref={detailHref}
         error={error}
         horse={horse}
         message={message}
-        canceledBookings={riderCanceledBookings}
         nextWeekHref={nextSimpleWeekHref}
         openSlots={openOperationalSlots}
         previousWeekHref={previousSimpleWeekHref}

@@ -17,11 +17,13 @@ type QuarterSlot = {
 };
 
 type RiderBookingWindowFormProps = {
+  defaultRuleId?: string;
+  endName?: string;
   recurrenceName?: string;
   ruleName?: string;
   rules: RuleOption[];
+  showRecurrence?: boolean;
   startName?: string;
-  endName?: string;
 };
 
 const QUARTER_MINUTES = 15;
@@ -58,13 +60,18 @@ function buildQuarterSlots(startAt: string, endAt: string) {
 }
 
 export function RiderBookingWindowForm({
+  defaultRuleId,
+  endName = "endAt",
   recurrenceName = "recurrenceRrule",
   ruleName = "ruleId",
   rules,
-  startName = "startAt",
-  endName = "endAt"
+  showRecurrence = false,
+  startName = "startAt"
 }: RiderBookingWindowFormProps) {
-  const [selectedRuleId, setSelectedRuleId] = useState(rules[0]?.id ?? "");
+  const initialRuleId = defaultRuleId && rules.some((r) => r.id === defaultRuleId)
+    ? defaultRuleId
+    : rules[0]?.id ?? "";
+  const [selectedRuleId, setSelectedRuleId] = useState(initialRuleId);
   const selectedRule = useMemo(() => rules.find((rule) => rule.id === selectedRuleId) ?? rules[0] ?? null, [rules, selectedRuleId]);
   const quarterSlots = useMemo(
     () => (selectedRule ? buildQuarterSlots(selectedRule.startAt, selectedRule.endAt) : []),
@@ -158,11 +165,15 @@ export function RiderBookingWindowForm({
         )}
       </div>
 
-      <div>
-        <label htmlFor="riderRecurrenceRrule">Wiederholung (optional)</label>
-        <input id="riderRecurrenceRrule" name={recurrenceName} placeholder="FREQ=WEEKLY;INTERVAL=1;COUNT=6" type="text" />
-        <p className="mt-2 text-sm text-stone-600">Beispiel: jede Woche für sechs Termine.</p>
-      </div>
+      {showRecurrence ? (
+        <div>
+          <label htmlFor="riderRecurrenceRrule">Wiederholung (optional)</label>
+          <input id="riderRecurrenceRrule" name={recurrenceName} placeholder="FREQ=WEEKLY;INTERVAL=1;COUNT=6" type="text" />
+          <p className="mt-2 text-sm text-stone-600">Beispiel: jede Woche fuer sechs Termine.</p>
+        </div>
+      ) : (
+        <input name={recurrenceName} type="hidden" value="" />
+      )}
 
       <div className="flex flex-wrap gap-2 text-xs text-stone-500">
         <span

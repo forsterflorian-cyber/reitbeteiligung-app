@@ -28,21 +28,21 @@ function formatDateRange(startAt: string, endAt: string) {
 function getOpenSlotsTitle(mode: HorseBookingMode, hasSelectedBooking: boolean): string {
   if (hasSelectedBooking) {
     if (mode === "slots") return "Freie Zielslots fuer die Umbuchung";
-    if (mode === "window") return "Offene Zeitfenster fuer die Umbuchung";
+    if (mode === "window") return "Naechste Zeitfenster fuer die Umbuchung";
     return "Freie Zeiten fuer die Umbuchung";
   }
-  if (mode === "slots") return "Freie Slots in den naechsten Tagen";
-  if (mode === "window") return "Offene Zeitfenster in den naechsten Tagen";
+  if (mode === "slots") return "Naechste freie Slots";
+  if (mode === "window") return "Naechste moegliche Termine";
   return "Freie Zeiten in den naechsten Tagen";
 }
 
 function getOpenSlotsSubtitle(mode: HorseBookingMode, hasSelectedBooking: boolean): string {
   if (hasSelectedBooking) {
     if (mode === "slots") return "Nur fachlich gueltige freie Zielslots werden angeboten.";
-    return "Gueltige freie Zeitfenster fuer diese Umbuchung – im Kalender kannst du Start und Ende anpassen.";
+    return "Klicke auf ein Fenster, um es direkt fuer die Umbuchung im Kalender zu oeffnen.";
   }
-  if (mode === "slots") return "Diese operativen Slots kannst du direkt ohne weiteren Seitensprung buchen.";
-  if (mode === "window") return "Offene Zeitfenster fuer dieses Pferd – oeffne den Kalender, um Beginn und Ende zu waehlen.";
+  if (mode === "slots") return "Diese Slots kannst du direkt ohne weiteren Seitensprung buchen.";
+  if (mode === "window") return "Die naechsten buchbaren Zeitfenster – Klick oeffnet den Kalender mit vorausgefuelltem Fenster.";
   return "Freie Zeitraeume fuer dieses Pferd – oeffne den Kalender, um deinen Termin zu buchen.";
 }
 
@@ -265,13 +265,13 @@ export function RiderOperationalWorkspace({
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                   <div className="space-y-1">
                                     <p className="text-sm font-semibold text-stone-900">{formatDateRange(slot.startAt, slot.endAt)}</p>
-                                    <p className="text-sm text-stone-600">Offenes Zeitfenster – waehle Start und Ende im Kalender.</p>
+                                    <p className="text-sm text-stone-600">Offenes Zeitfenster – Klick oeffnet den Kalender mit diesem Fenster vorausgewaehlt.</p>
                                   </div>
                                   <Link
                                     className={buttonVariants("secondary", "w-full justify-center sm:w-auto")}
-                                    href={`/pferde/${item.horseId}/kalender` as Route}
+                                    href={`/pferde/${item.horseId}/kalender?slotRuleId=${slot.availabilityRuleId}#umbuchen` as Route}
                                   >
-                                    Im Kalender buchen
+                                    Termin buchen
                                   </Link>
                                 </div>
                               </Card>
