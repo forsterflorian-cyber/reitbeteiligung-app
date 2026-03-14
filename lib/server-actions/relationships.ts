@@ -55,7 +55,7 @@ export function getApprovalTransitionError(requestStatus: "requested" | "accepte
   return null;
 }
 
-export function getApprovalSavedMessage(nextStatus: Approval["status"]) {
+export function getApprovalSavedMessage(nextStatus: OwnerTrialDecisionStatus): string {
   switch (nextStatus) {
     case "approved":
       return "Die Reitbeteiligung wurde freigeschaltet.";
