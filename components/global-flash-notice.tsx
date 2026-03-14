@@ -1,9 +1,12 @@
 import { cookies } from "next/headers";
 
 import { FlashCookieClearer } from "@/components/flash-cookie-clearer";
-import { Notice } from "@/components/notice";
 import { FLASH_COOKIE_NAME, type FlashPayload } from "@/lib/flash";
 
+const toastTones = {
+  error: "border-red-200 bg-red-50 text-red-700",
+  success: "border-emerald-200 bg-emerald-50 text-emerald-800"
+};
 
 function readFlashCookie() {
   const rawValue = cookies().get(FLASH_COOKIE_NAME)?.value;
@@ -39,7 +42,11 @@ export function GlobalFlashNotice() {
   return (
     <>
       <FlashCookieClearer />
-      <Notice text={payload.text} tone={payload.tone} />
+      <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4 sm:justify-end sm:px-6">
+        <div className={`pointer-events-auto max-w-sm rounded-2xl border px-4 py-3 text-sm shadow-lg ${toastTones[payload.tone]}`}>
+          {payload.text}
+        </div>
+      </div>
     </>
   );
 }
