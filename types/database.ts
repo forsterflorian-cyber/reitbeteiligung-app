@@ -1,7 +1,12 @@
 export type UserRole = "owner" | "rider";
 
-/** Determines how approved riders may create bookings for a horse. */
-export type HorseBookingMode = "free" | "slots";
+/**
+ * Determines how approved riders may create bookings for a horse.
+ *   'slots'  — riders may only book exact pre-defined slots.
+ *   'window' — riders may pick any start/end within an owner-defined window.
+ *   'free'   — riders may book any free time (conflict detection still applies).
+ */
+export type HorseBookingMode = "free" | "slots" | "window";
 
 export type TrialRequestStatus = "requested" | "accepted" | "declined" | "completed" | "withdrawn";
 export type ApprovalStatus = "approved" | "rejected" | "revoked";

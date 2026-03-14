@@ -13,6 +13,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
+import type { HorseBookingMode } from "@/types/database";
 import type { OwnerOperationalWorkspaceItem } from "@/lib/owner-workspace";
 
 function formatDateRange(startAt: string, endAt: string) {
@@ -28,6 +29,47 @@ function getTodayDateInputValue() {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" }).format(new Date());
 }
 
+function getOpenSlotsTitle(mode: HorseBookingMode, hasSelectedBooking: boolean): string {
+  if (hasSelectedBooking) {
+    if (mode === "slots") return "Freie Zielslots fuer die Umbuchung";
+    if (mode === "window") return "Offene Zeitfenster fuer die Umbuchung";
+    return "Freie Zeiten fuer die Umbuchung";
+  }
+  if (mode === "slots") return "Freie Slots in den naechsten Tagen";
+  if (mode === "window") return "Offene Zeitfenster in den naechsten Tagen";
+  return "Freie Zeiten in den naechsten Tagen";
+}
+
+function getOpenSlotsSubtitle(mode: HorseBookingMode, hasSelectedBooking: boolean): string {
+  if (hasSelectedBooking) {
+    if (mode === "slots") return "Nur derzeit freie und fachlich gueltige Zielslots werden angeboten.";
+    return "Gueltige freie Zeitfenster fuer diese Umbuchung.";
+  }
+  if (mode === "slots") return "So siehst du sofort, wo noch Platz ist, ohne erst in die Detailansicht zu gehen.";
+  if (mode === "window") return "Offene Zeitfenster fuer dieses Pferd – Reiter koennen Start und Ende selbst waehlen.";
+  return "Freie Zeitraeume fuer dieses Pferd – Reiter buchen direkt ohne Slotbindung.";
+}
+
+function getEmptySlotTitle(mode: HorseBookingMode, hasSelectedBooking: boolean): string {
+  if (hasSelectedBooking) {
+    if (mode === "slots") return "Kein Zielslot frei";
+    return "Kein freies Zeitfenster";
+  }
+  if (mode === "slots") return "Keine freien Slots";
+  if (mode === "window") return "Keine offenen Zeitfenster";
+  return "Keine freien Zeiten";
+}
+
+function getEmptySlotDescription(mode: HorseBookingMode, hasSelectedBooking: boolean): string {
+  if (hasSelectedBooking) {
+    if (mode === "slots") return "Aktuell gibt es keinen anderen freien Zielslot fuer diese Umbuchung.";
+    return "Aktuell gibt es kein anderes freies Zeitfenster fuer diese Umbuchung.";
+  }
+  if (mode === "slots") return "Im Moment ist fuer dieses Pferd kein freier operativer Slot hinterlegt.";
+  if (mode === "window") return "Im Moment ist fuer dieses Pferd kein offenes Zeitfenster hinterlegt.";
+  return "Im Moment ist fuer dieses Pferd kein freier Zeitraum hinterlegt.";
+}
+
 type OwnerOperationalWorkspaceProps = {
   items: OwnerOperationalWorkspaceItem[];
   pagePath: string;
@@ -40,7 +82,7 @@ export function OwnerOperationalWorkspace({
   items,
   pagePath,
   sectionId = "owner-alltag",
-  subtitle = "Heute, naechste freie Slots und direkte Umbuchungen bleiben hier in einer Arbeitsebene pro Pferd.",
+  subtitle = "Heutige Buchungen, naechste Termine und schnelle Tagesaktionen in einer Arbeitsebene pro Pferd.",
   title = "Tagesgeschaeft"
 }: OwnerOperationalWorkspaceProps) {
   const todayDateValue = getTodayDateInputValue();
@@ -49,7 +91,7 @@ export function OwnerOperationalWorkspace({
     <SectionCard id={sectionId} subtitle={subtitle} title={title}>
       {items.length === 0 ? (
         <EmptyState
-          description="Sobald freie Slots oder operative Buchungen existieren, erscheinen sie hier pro Pferd."
+          description="Sobald aktive Buchungen oder offene Zeitraeume existieren, erscheinen sie hier pro Pferd."
           title="Noch kein operatives Tagesgeschaeft"
         />
       ) : (
@@ -57,6 +99,7 @@ export function OwnerOperationalWorkspace({
           {items.map((item) => {
             const anchorId = `owner-alltag-${item.horseId}`;
             const clearRescheduleHref = `${pagePath}#${anchorId}`;
+            const isSlotMode = item.bookingMode === "slots";
 
             return (
               <Card className="p-5" id={anchorId} key={item.horseId}>
@@ -67,8 +110,12 @@ export function OwnerOperationalWorkspace({
                       <p className="text-lg font-semibold text-ink">{item.horseTitle}</p>
                       <p className="text-sm text-stone-600">
                         {item.selectedBooking
-                          ? "Du planst gerade eine bestehende Buchung auf einen anderen freien Slot um."
-                          : "Freie Slots, naechste Buchungen und schnelle Tagesaktionen fuer dieses Pferd."}
+                          ? isSlotMode
+                            ? "Du planst gerade eine bestehende Buchung auf einen anderen freien Slot um."
+                            : "Du planst gerade eine bestehende Buchung um."
+                          : isSlotMode
+                            ? "Freie Slots, naechste Buchungen und schnelle Tagesaktionen fuer dieses Pferd."
+                            : "Naechste Buchungen, offene Zeitraeume und schnelle Tagesaktionen fuer dieses Pferd."}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -110,7 +157,7 @@ export function OwnerOperationalWorkspace({
                       </div>
                       {item.upcomingBookings.length === 0 ? (
                         <EmptyState
-                          description="Sobald ein Rider einen Slot belegt, erscheint die Buchung hier."
+                          description="Sobald ein Reiter einen Termin belegt, erscheint die Buchung hier."
                           title="Noch keine operative Buchung"
                         />
                       ) : (
@@ -145,7 +192,7 @@ export function OwnerOperationalWorkspace({
                                           <input name="bookingId" type="hidden" value={booking.id} />
                                           <ConfirmSubmitButton
                                             className={buttonVariants("secondary", "w-full border-rose-300 text-rose-700 hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700 sm:w-auto")}
-                                            confirmMessage="Moechtest du diesen Termin wirklich stornieren? Der Slot wird danach wieder frei."
+                                            confirmMessage="Moechtest du diesen Termin wirklich stornieren?"
                                             idleLabel="Termin stornieren"
                                             pendingLabel="Wird storniert..."
                                           />
@@ -164,22 +211,16 @@ export function OwnerOperationalWorkspace({
                     <div className="space-y-4">
                       <div className="space-y-1">
                         <h3 className="text-base font-semibold text-stone-900">
-                          {item.selectedBooking ? "Freie Zielslots fuer die Umbuchung" : "Freie Slots in den naechsten Tagen"}
+                          {getOpenSlotsTitle(item.bookingMode, !!item.selectedBooking)}
                         </h3>
                         <p className="text-sm text-stone-600">
-                          {item.selectedBooking
-                            ? "Nur derzeit freie und fachlich gueltige Zielslots werden angeboten."
-                            : "So siehst du sofort, wo noch Platz ist, ohne erst in die Detailansicht zu gehen."}
+                          {getOpenSlotsSubtitle(item.bookingMode, !!item.selectedBooking)}
                         </p>
                       </div>
                       {item.openSlots.length === 0 ? (
                         <EmptyState
-                          description={
-                            item.selectedBooking
-                              ? "Aktuell gibt es keinen anderen freien Zielslot fuer diese Umbuchung."
-                              : "Im Moment ist fuer dieses Pferd kein freier operativer Slot hinterlegt."
-                          }
-                          title={item.selectedBooking ? "Kein Zielslot frei" : "Keine freien Slots"}
+                          description={getEmptySlotDescription(item.bookingMode, !!item.selectedBooking)}
+                          title={getEmptySlotTitle(item.bookingMode, !!item.selectedBooking)}
                         />
                       ) : (
                         <div className="space-y-3">
@@ -189,10 +230,18 @@ export function OwnerOperationalWorkspace({
                                 <div className="space-y-1">
                                   <p className="text-sm font-semibold text-stone-900">{formatDateRange(slot.startAt, slot.endAt)}</p>
                                   <p className="text-sm text-stone-600">
-                                    {item.selectedBooking ? "Freier Zielslot fuer die markierte Buchung." : "Freier operativer Slot."}
+                                    {item.selectedBooking
+                                      ? isSlotMode
+                                        ? "Freier Zielslot fuer die markierte Buchung."
+                                        : "Freies Zeitfenster fuer die markierte Buchung."
+                                      : isSlotMode
+                                        ? "Freier operativer Slot."
+                                        : item.bookingMode === "window"
+                                          ? "Offenes Zeitfenster."
+                                          : "Freier Zeitraum."}
                                   </p>
                                 </div>
-                                {item.selectedBooking ? (
+                                {item.selectedBooking && isSlotMode ? (
                                   <form action={rescheduleOperationalBookingForOwnerAction} className="w-full sm:w-auto">
                                     <input name="bookingId" type="hidden" value={item.selectedBooking.id} />
                                     <input name="ruleId" type="hidden" value={slot.availabilityRuleId} />
@@ -214,8 +263,8 @@ export function OwnerOperationalWorkspace({
                       <Card className="border-stone-200 bg-stone-50/80 p-4">
                         <div className="space-y-3">
                           <div className="space-y-1">
-                            <h3 className="text-sm font-semibold text-stone-900">Neuen Einzelslot anlegen</h3>
-                            <p className="text-sm text-stone-600">Fuer kurzfristige Tagesaenderungen kannst du hier direkt einen einzelnen operativen Slot anlegen.</p>
+                            <h3 className="text-sm font-semibold text-stone-900">Neuen Einzeltermin anlegen</h3>
+                            <p className="text-sm text-stone-600">Fuer kurzfristige Tagesaenderungen kannst du hier direkt einen einzelnen operativen Termin anlegen.</p>
                           </div>
                           <form action={createAvailabilityDayAction} className="grid gap-3 sm:grid-cols-3">
                             <input name="horseId" type="hidden" value={item.horseId} />
@@ -232,7 +281,7 @@ export function OwnerOperationalWorkspace({
                               <input id={`owner-slot-end-${item.horseId}`} name="endTime" required step={900} type="time" />
                             </div>
                             <div className="sm:col-span-3">
-                              <SubmitButton className="w-full sm:w-auto" idleLabel="Slot anlegen" pendingLabel="Wird gespeichert..." />
+                              <SubmitButton className="w-full sm:w-auto" idleLabel="Termin anlegen" pendingLabel="Wird gespeichert..." />
                             </div>
                           </form>
                         </div>

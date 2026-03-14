@@ -13,6 +13,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
+import type { HorseBookingMode } from "@/types/database";
 import type { RiderOperationalWorkspaceItem } from "@/lib/rider-workspace";
 
 function formatDateRange(startAt: string, endAt: string) {
@@ -22,6 +23,47 @@ function formatDateRange(startAt: string, endAt: string) {
   }).format(new Date(startAt))} bis ${new Intl.DateTimeFormat("de-DE", {
     timeStyle: "short"
   }).format(new Date(endAt))}`;
+}
+
+function getOpenSlotsTitle(mode: HorseBookingMode, hasSelectedBooking: boolean): string {
+  if (hasSelectedBooking) {
+    if (mode === "slots") return "Freie Zielslots fuer die Umbuchung";
+    if (mode === "window") return "Offene Zeitfenster fuer die Umbuchung";
+    return "Freie Zeiten fuer die Umbuchung";
+  }
+  if (mode === "slots") return "Freie Slots in den naechsten Tagen";
+  if (mode === "window") return "Offene Zeitfenster in den naechsten Tagen";
+  return "Freie Zeiten in den naechsten Tagen";
+}
+
+function getOpenSlotsSubtitle(mode: HorseBookingMode, hasSelectedBooking: boolean): string {
+  if (hasSelectedBooking) {
+    if (mode === "slots") return "Nur fachlich gueltige freie Zielslots werden angeboten.";
+    return "Gueltige freie Zeitfenster fuer diese Umbuchung – im Kalender kannst du Start und Ende anpassen.";
+  }
+  if (mode === "slots") return "Diese operativen Slots kannst du direkt ohne weiteren Seitensprung buchen.";
+  if (mode === "window") return "Offene Zeitfenster fuer dieses Pferd – oeffne den Kalender, um Beginn und Ende zu waehlen.";
+  return "Freie Zeitraeume fuer dieses Pferd – oeffne den Kalender, um deinen Termin zu buchen.";
+}
+
+function getEmptySlotTitle(mode: HorseBookingMode, hasSelectedBooking: boolean): string {
+  if (hasSelectedBooking) {
+    if (mode === "slots") return "Kein Zielslot frei";
+    return "Kein freies Zeitfenster";
+  }
+  if (mode === "slots") return "Keine freien Slots";
+  if (mode === "window") return "Keine offenen Zeitfenster";
+  return "Keine freien Zeiten";
+}
+
+function getEmptySlotDescription(mode: HorseBookingMode, hasSelectedBooking: boolean): string {
+  if (hasSelectedBooking) {
+    if (mode === "slots") return "Aktuell gibt es keinen anderen gueltigen freien Slot fuer diese Umbuchung.";
+    return "Aktuell gibt es kein anderes freies Zeitfenster fuer diese Umbuchung.";
+  }
+  if (mode === "slots") return "Aktuell gibt es fuer dieses Pferd keinen freien operativen Slot.";
+  if (mode === "window") return "Aktuell gibt es fuer dieses Pferd kein offenes Zeitfenster.";
+  return "Aktuell gibt es fuer dieses Pferd keine freien Zeitraeume.";
 }
 
 type RiderOperationalWorkspaceProps = {
@@ -43,7 +85,7 @@ export function RiderOperationalWorkspace({
     <SectionCard id={sectionId} subtitle={subtitle} title={title}>
       {items.length === 0 ? (
         <EmptyState
-          description="Sobald eine Reitbeteiligung aktiv ist, erscheinen hier deine naechsten Termine und freie Slots."
+          description="Sobald eine Reitbeteiligung aktiv ist, erscheinen hier deine naechsten Termine und offene Buchungszeitraeume."
           title="Noch kein operatives Tagesgeschaeft"
         />
       ) : (
@@ -51,6 +93,7 @@ export function RiderOperationalWorkspace({
           {items.map((item) => {
             const anchorId = `alltag-${item.horseId}`;
             const clearRescheduleHref = `${pagePath}#${anchorId}`;
+            const isSlotMode = item.bookingMode === "slots";
 
             return (
               <Card className="p-5" id={anchorId} key={item.horseId}>
@@ -61,8 +104,12 @@ export function RiderOperationalWorkspace({
                       <p className="text-lg font-semibold text-ink">{item.horseTitle}</p>
                       <p className="text-sm text-stone-600">
                         {item.selectedBooking
-                          ? "Du buchst gerade auf einen anderen freien Slot um."
-                          : "Freie Slots und deine naechsten Termine ohne Umweg ueber das Pferdeprofil."}
+                          ? isSlotMode
+                            ? "Du buchst gerade auf einen anderen freien Slot um."
+                            : "Du buchst gerade einen Termin um – waehle ein neues Zeitfenster im Kalender."
+                          : isSlotMode
+                            ? "Freie Slots und deine naechsten Termine ohne Umweg ueber das Pferdeprofil."
+                            : "Offene Zeitfenster und deine naechsten Termine auf einen Blick."}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -102,7 +149,7 @@ export function RiderOperationalWorkspace({
                       </div>
                       {item.upcomingBookings.length === 0 ? (
                         <EmptyState
-                          description="Sobald du einen Slot buchst, erscheint er hier mit Direktaktionen."
+                          description="Sobald du einen Termin buchst, erscheint er hier mit Direktaktionen."
                           title="Noch kein Termin geplant"
                         />
                       ) : (
@@ -135,7 +182,7 @@ export function RiderOperationalWorkspace({
                                           <input name="bookingId" type="hidden" value={booking.id} />
                                           <ConfirmSubmitButton
                                             className={buttonVariants("secondary", "w-full border-rose-300 text-rose-700 hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700 sm:w-auto")}
-                                            confirmMessage="Moechtest du diesen operativen Termin wirklich stornieren? Der Slot wird danach wieder freigegeben."
+                                            confirmMessage="Moechtest du diesen operativen Termin wirklich stornieren?"
                                             idleLabel="Termin stornieren"
                                             pendingLabel="Wird storniert..."
                                           />
@@ -154,24 +201,18 @@ export function RiderOperationalWorkspace({
                     <div className="space-y-3">
                       <div className="space-y-1">
                         <h3 className="text-base font-semibold text-stone-900">
-                          {item.selectedBooking ? "Freie Zielslots fuer die Umbuchung" : "Freie Slots in den naechsten Tagen"}
+                          {getOpenSlotsTitle(item.bookingMode, !!item.selectedBooking)}
                         </h3>
                         <p className="text-sm text-stone-600">
-                          {item.selectedBooking
-                            ? "Nur fachlich gueltige freie Zielslots werden angeboten."
-                            : "Diese operativen Slots kannst du direkt ohne weiteren Seitensprung buchen."}
+                          {getOpenSlotsSubtitle(item.bookingMode, !!item.selectedBooking)}
                         </p>
                       </div>
                       {item.openSlots.length === 0 ? (
                         <EmptyState
-                          description={
-                            item.selectedBooking
-                              ? "Aktuell gibt es keinen anderen gueltigen freien Slot fuer diese Umbuchung."
-                              : "Aktuell gibt es fuer dieses Pferd keinen freien operativen Slot."
-                          }
-                          title={item.selectedBooking ? "Kein Zielslot frei" : "Keine freien Slots"}
+                          description={getEmptySlotDescription(item.bookingMode, !!item.selectedBooking)}
+                          title={getEmptySlotTitle(item.bookingMode, !!item.selectedBooking)}
                         />
-                      ) : (
+                      ) : isSlotMode ? (
                         <div className="space-y-3">
                           {item.openSlots.map((slot) => (
                             <Card className="p-4" key={`${slot.availabilityRuleId}:${slot.startAt}`}>
@@ -195,6 +236,30 @@ export function RiderOperationalWorkspace({
                                     pendingLabel={item.selectedBooking ? "Wird umgebucht..." : "Wird gebucht..."}
                                   />
                                 </form>
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : (
+                        // window / free mode: show windows as info cards, direct to calendar for booking
+                        <div className="space-y-3">
+                          {item.openSlots.map((slot) => (
+                            <Card className="p-4" key={`${slot.availabilityRuleId}:${slot.startAt}`}>
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="space-y-1">
+                                  <p className="text-sm font-semibold text-stone-900">{formatDateRange(slot.startAt, slot.endAt)}</p>
+                                  <p className="text-sm text-stone-600">
+                                    {item.bookingMode === "window"
+                                      ? "Offenes Zeitfenster – waehle Start und Ende im Kalender."
+                                      : "Freier Zeitraum – buche deinen Wunschtermin im Kalender."}
+                                  </p>
+                                </div>
+                                <Link
+                                  className={buttonVariants("secondary", "w-full justify-center sm:w-auto")}
+                                  href={`/pferde/${item.horseId}/kalender` as Route}
+                                >
+                                  Im Kalender buchen
+                                </Link>
                               </div>
                             </Card>
                           ))}

@@ -359,15 +359,30 @@ export default async function OwnerManageHorsesPage({
                               <label className="flex min-h-[44px] cursor-pointer items-start gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-900 has-[:checked]:border-forest has-[:checked]:bg-sand">
                                 <input
                                   className="mt-0.5 h-4 w-4 shrink-0 border-stone-300"
-                                  defaultChecked={horse.booking_mode !== "free"}
+                                  defaultChecked={horse.booking_mode === "slots"}
                                   name="bookingMode"
                                   type="radio"
                                   value="slots"
                                 />
                                 <span>
-                                  <span className="font-semibold">Nur freigegebene Slots</span>
+                                  <span className="font-semibold">Feste Slots</span>
                                   <span className="mt-0.5 block text-xs text-stone-500">
-                                    Reiter können nur explizit freigegebene Zeitfenster buchen.
+                                    Reiter können nur vollständige, vordefinierte Slots buchen – keine Zeitanpassung möglich.
+                                  </span>
+                                </span>
+                              </label>
+                              <label className="flex min-h-[44px] cursor-pointer items-start gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-900 has-[:checked]:border-forest has-[:checked]:bg-sand">
+                                <input
+                                  className="mt-0.5 h-4 w-4 shrink-0 border-stone-300"
+                                  defaultChecked={horse.booking_mode === "window" || horse.booking_mode == null}
+                                  name="bookingMode"
+                                  type="radio"
+                                  value="window"
+                                />
+                                <span>
+                                  <span className="font-semibold">Zeitfenster</span>
+                                  <span className="mt-0.5 block text-xs text-stone-500">
+                                    Reiter wählen Start und Ende frei innerhalb der freigegebenen Zeitfenster.
                                   </span>
                                 </span>
                               </label>
@@ -382,7 +397,7 @@ export default async function OwnerManageHorsesPage({
                                 <span>
                                   <span className="font-semibold">Freies Buchen</span>
                                   <span className="mt-0.5 block text-xs text-stone-500">
-                                    Reiter können selbst Zeiten innerhalb der Verfügbarkeitsfenster wählen.
+                                    Reiter können jeden freien Zeitraum buchen – nur Konflikte und Sperrzeiten werden geprüft.
                                   </span>
                                 </span>
                               </label>

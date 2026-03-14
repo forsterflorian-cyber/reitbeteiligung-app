@@ -5,9 +5,10 @@ import { canCancelOperationalBooking, canRescheduleOperationalBooking } from "./
 import { loadConversationSummaryMaps, type ConversationContactInfo } from "./message-summaries.ts";
 import { getUpcomingOperationalSlots } from "./operational-slots.ts";
 import { buildApprovalStatusMap, getRelationshipKey, hasVisibleRelationshipConversation, isActiveRelationship } from "./relationship-state.ts";
-import type { Approval, AvailabilityRule, Booking, Conversation, Message, TrialRequest } from "../types/database.ts";
+import type { Approval, AvailabilityRule, Booking, Conversation, HorseBookingMode, Message, TrialRequest } from "../types/database.ts";
 
 type RiderWorkspaceHorse = {
+  booking_mode: HorseBookingMode;
   id: string;
   plz: string;
   title: string;
@@ -65,6 +66,7 @@ export type RiderOperationalSlotItem = {
 };
 
 export type RiderOperationalWorkspaceItem = {
+  bookingMode: HorseBookingMode;
   horseId: string;
   horseTitle: string;
   openSlots: RiderOperationalSlotItem[];
@@ -147,6 +149,7 @@ export function buildRiderOperationalWorkspaceItems(args: {
     }));
 
     return {
+      bookingMode: item.horse?.booking_mode ?? "slots",
       horseId,
       horseTitle: item.horse?.title ?? "Pferdeprofil nicht gefunden",
       openSlots,
@@ -256,7 +259,7 @@ export async function loadRiderWorkspaceData(supabase: SupabaseClient, riderId: 
   ];
 
   const { data: horseData } = horseIds.length > 0
-    ? await supabase.from("horses").select("id, title, plz").in("id", horseIds)
+    ? await supabase.from("horses").select("id, title, plz, booking_mode").in("id", horseIds)
     : { data: [] as RiderWorkspaceHorse[] };
 
   const horses = (horseData as RiderWorkspaceHorse[] | null) ?? [];

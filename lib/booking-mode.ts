@@ -12,6 +12,15 @@ type BookingModeArgs = {
   approval?: Pick<Approval, "horse_id" | "rider_id" | "status"> | null;
 };
 
+type BookingPolicyArgs = BookingModeArgs & {
+  /** The availability rule the booking is being made against. */
+  rule: { end_at: string; start_at: string };
+  /** Requested booking end time. */
+  endAt: Date;
+  /** Requested booking start time. */
+  startAt: Date;
+};
+
 /**
  * Returns the effective booking mode for a horse/rider combination.
  *
@@ -24,23 +33,35 @@ export function getEffectiveBookingMode(args: BookingModeArgs): HorseBookingMode
 }
 
 /**
- * Returns true when an approved rider may create a free booking (i.e. pick
- * arbitrary start/end times within an availability window) under the current
- * effective booking mode.
+ * Central policy gate: returns true when the requested time range is
+ * permitted under the horse's effective booking mode.
  *
- * Free booking is only permitted when the effective mode is "free".
+ *   slots  — start/end must exactly match the rule boundaries.
+ *   window — start/end must fall within the rule boundaries.
+ *   free   — always permitted (outer conflict/block checks still run).
+ *
+ * This is the single place where booking-mode enforcement lives. Do NOT add
+ * mode-specific checks anywhere else in the codebase.
  */
-export function canCreateFreeBooking(args: BookingModeArgs): boolean {
-  return getEffectiveBookingMode(args) === "free";
-}
+export function canCreateBooking(args: BookingPolicyArgs): boolean {
+  const mode = getEffectiveBookingMode(args);
+  const ruleStart = new Date(args.rule.start_at);
+  const ruleEnd = new Date(args.rule.end_at);
 
-/**
- * Returns true when an approved rider may book a pre-defined operational slot.
- *
- * Slot booking is always permitted regardless of the effective mode, so this
- * function exists primarily to make call-sites self-documenting and to keep
- * the door open for future restrictions.
- */
-export function canBookSlot(_args: BookingModeArgs): boolean {
+  if (mode === "slots") {
+    return (
+      args.startAt.getTime() === ruleStart.getTime() &&
+      args.endAt.getTime() === ruleEnd.getTime()
+    );
+  }
+
+  if (mode === "window") {
+    return (
+      args.startAt.getTime() >= ruleStart.getTime() &&
+      args.endAt.getTime() <= ruleEnd.getTime()
+    );
+  }
+
+  // "free": permitted anywhere — outer conflict + block rules still apply
   return true;
 }

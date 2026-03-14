@@ -11,10 +11,11 @@ import {
   isActiveRelationship,
   shouldShowTrialRequestInLifecycle
 } from "./relationship-state.ts";
-import type { Approval, AvailabilityRule, Booking, CalendarBlock, Conversation, Message, Profile, TrialRequest } from "../types/database.ts";
+import type { Approval, AvailabilityRule, Booking, CalendarBlock, Conversation, HorseBookingMode, Message, Profile, TrialRequest } from "../types/database.ts";
 
 type OwnerWorkspaceHorse = {
   active: boolean;
+  booking_mode: HorseBookingMode;
   created_at: string;
   description: string | null;
   id: string;
@@ -76,6 +77,7 @@ export type OwnerOperationalBookingItem = {
 
 export type OwnerOperationalWorkspaceItem = {
   activeRiderCount: number;
+  bookingMode: HorseBookingMode;
   horseId: string;
   horseTitle: string;
   openSlots: OwnerOperationalSlotItem[];
@@ -186,6 +188,7 @@ export function buildOwnerOperationalWorkspaceItems(args: {
 
       return {
         activeRiderCount,
+        bookingMode: horse.booking_mode,
         horseId: horse.id,
         horseTitle: horse.title,
         openSlots,
@@ -264,7 +267,7 @@ export async function loadOwnerOperationalWorkspaceData(
 export async function loadOwnerWorkspaceData(supabase: SupabaseClient, ownerId: string): Promise<OwnerWorkspaceData> {
   const { data: horsesData } = await supabase
     .from("horses")
-    .select("id, title, plz, description, active, created_at")
+    .select("id, title, plz, description, active, booking_mode, created_at")
     .eq("owner_id", ownerId)
     .order("created_at", { ascending: false });
 

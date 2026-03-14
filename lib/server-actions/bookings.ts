@@ -13,7 +13,7 @@ import {
   canRescheduleOperationalBooking,
   isFutureOperationalStartAt
 } from "../booking-guards.ts";
-import { canCreateFreeBooking } from "../booking-mode.ts";
+import { canCreateBooking } from "../booking-mode.ts";
 import { asOptionalString, asString } from "../forms.ts";
 import { filterActiveOperationalBookings, getAcceptedOperationalBookingRequestIdSet } from "../active-operational-bookings.ts";
 import { getApprovalStatus } from "../approvals.ts";
@@ -525,27 +525,31 @@ export async function requestBookingForRider(input: {
     return errorResult(redirectPath, "Der Termin muss komplett im Verfuegbarkeitsfenster liegen.");
   }
 
-  // Booking mode enforcement: in "slots" mode the rider must book an exact
-  // pre-defined slot (start and end match the availability rule boundaries).
-  // Custom time selections within the rule window require "free" mode.
-  const isExactSlotBooking =
-    startAt.getTime() === ruleStart.getTime() && endAt.getTime() === ruleEnd.getTime();
+  // Booking mode enforcement — all permission logic flows through canCreateBooking.
+  const { data: horseModeData } = await input.supabase
+    .from("horses")
+    .select("id, booking_mode")
+    .eq("id", horseId)
+    .maybeSingle();
 
-  if (!isExactSlotBooking) {
-    const { data: horseModeData } = await input.supabase
-      .from("horses")
-      .select("id, booking_mode")
-      .eq("id", horseId)
-      .maybeSingle();
+  const horseMode = horseModeData as { id: string; booking_mode: string } | null;
 
-    const horseMode = horseModeData as { id: string; booking_mode: string } | null;
+  if (
+    !horseMode ||
+    !canCreateBooking({
+      endAt,
+      horse: { booking_mode: (horseMode.booking_mode ?? "slots") as HorseBookingMode },
+      rule: { end_at: rule.end_at, start_at: rule.start_at },
+      startAt
+    })
+  ) {
+    const mode = horseMode?.booking_mode ?? "slots";
+    const modeMessage =
+      mode === "slots"
+        ? "Nur exakte Slots sind buchbar. Bitte waehle einen freigegebenen Slot ohne Zeitanpassung."
+        : "Diese Buchung entspricht nicht dem Buchungsmodus dieses Pferdes.";
 
-    if (!horseMode || !canCreateFreeBooking({ horse: { booking_mode: horseMode.booking_mode as HorseBookingMode } })) {
-      return errorResult(
-        redirectPath,
-        "Freies Buchen ist fuer dieses Pferd nicht aktiv. Bitte waehle einen freigegebenen Slot."
-      );
-    }
+    return errorResult(redirectPath, modeMessage);
   }
 
   let bookingWindows: BookingWindow[];

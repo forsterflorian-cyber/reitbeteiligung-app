@@ -624,7 +624,8 @@ export async function saveHorseAction(formData: FormData) {
   const birthYear = asInteger(formData.get("birthYear"));
   const active = formData.get("active") === "on";
   const bookingModeRaw = asString(formData.get("bookingMode"));
-  const bookingMode: HorseBookingMode = bookingModeRaw === "free" ? "free" : "slots";
+  const bookingMode: HorseBookingMode =
+    bookingModeRaw === "free" ? "free" : bookingModeRaw === "window" ? "window" : "slots";
   const currentYear = new Date().getFullYear();
 
   const horseValidationError = getHorseValidationError({
