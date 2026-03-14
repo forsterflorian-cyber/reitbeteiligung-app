@@ -9,7 +9,7 @@ export type UserRole = "owner" | "rider";
 export type HorseBookingMode = "free" | "slots" | "window";
 
 export type TrialRequestStatus = "requested" | "accepted" | "declined" | "completed" | "withdrawn";
-export type ApprovalStatus = "approved" | "rejected" | "revoked";
+export type ApprovalStatus = "approved" | "rejected" | "revoked" | "ended";
 export type BookingRequestStatus = "requested" | "accepted" | "declined" | "canceled" | "rescheduled";
 
 export type Profile = {
@@ -20,6 +20,7 @@ export type Profile = {
   phone?: string | null;
   created_at: string;
   trial_started_at?: string | null;
+  deleted_at?: string | null;
 };
 
 export type Horse = {
@@ -75,6 +76,8 @@ export type Approval = {
   rider_id: string;
   status: ApprovalStatus;
   created_at: string;
+  ended_at?: string | null;
+  ended_by?: "rider" | "owner" | null;
 };
 
 export type Conversation = {

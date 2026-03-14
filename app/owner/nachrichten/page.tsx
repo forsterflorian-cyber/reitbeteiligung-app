@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { requireProfile } from "@/lib/auth";
 import { loadLatestHorseGroupMessages } from "@/lib/message-summaries";
+import { isEndedRelationship } from "@/lib/relationship-state";
 import { hasUnreadOwnerMessage, loadOwnerWorkspaceData } from "@/lib/owner-workspace";
 
 function formatDateTime(value: string) {
@@ -21,7 +22,7 @@ function formatDateTime(value: string) {
 
 export default async function OwnerMessagesPage() {
   const { supabase, user } = await requireProfile("owner");
-  const { activeRelationships, conversationInfo, conversations, horseMap, latestMessages } = await loadOwnerWorkspaceData(supabase, user.id);
+  const { activeRelationships, approvalMap, conversationInfo, conversations, horseMap, latestMessages } = await loadOwnerWorkspaceData(supabase, user.id);
 
   const activeRelationshipKeys = new Set(activeRelationships.map((item) => `${item.approval.horse_id}:${item.approval.rider_id}`));
   const items = conversations
@@ -32,6 +33,8 @@ export default async function OwnerMessagesPage() {
       const horse = horseMap.get(conversation.horse_id) ?? null;
       const hasUnread = hasUnreadOwnerMessage(conversation, latestMessage, user.id);
       const isActiveRelationship = activeRelationshipKeys.has(`${conversation.horse_id}:${conversation.rider_id}`);
+      const approval = approvalMap.get(`${conversation.horse_id}:${conversation.rider_id}`) ?? null;
+      const isEnded = isEndedRelationship(approval?.status ?? null);
       const sortValue = latestMessage ? Date.parse(latestMessage.created_at) : Date.parse(conversation.created_at);
 
       return {
@@ -39,6 +42,7 @@ export default async function OwnerMessagesPage() {
         hasUnread,
         horse,
         isActiveRelationship,
+        isEnded,
         latestMessage,
         riderName,
         sortValue
@@ -137,13 +141,19 @@ export default async function OwnerMessagesPage() {
                 <div className="space-y-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="space-y-1">
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">{item.isActiveRelationship ? "Aktive Reitbeteiligung" : "Probetermin-Chat"}</p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">{item.isActiveRelationship ? "Aktive Reitbeteiligung" : item.isEnded ? "Reitbeteiligung beendet" : "Probetermin-Chat"}</p>
                       <p className="font-semibold text-ink">{item.horse?.title ?? "Pferdeprofil nicht gefunden"}</p>
                       <p className="text-sm text-stone-600">Reiter: {item.riderName}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {item.hasUnread ? <Badge tone="info">Ungelesen</Badge> : <Badge tone="neutral">Gelesen</Badge>}
-                      {item.isActiveRelationship ? <Badge tone="approved">Aktiv</Badge> : <Badge tone="pending">Probe</Badge>}
+                      {item.isActiveRelationship ? (
+                        <Badge tone="approved">Aktiv</Badge>
+                      ) : item.isEnded ? (
+                        <Badge tone="neutral">Beendet</Badge>
+                      ) : (
+                        <Badge tone="pending">Probe</Badge>
+                      )}
                     </div>
                   </div>
                   <div className="rounded-2xl border border-stone-200 bg-stone-50/80 p-4">

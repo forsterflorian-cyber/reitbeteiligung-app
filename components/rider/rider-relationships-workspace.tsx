@@ -1,7 +1,8 @@
 import type { Route } from "next";
 import Link from "next/link";
 
-import { cancelTrialRequestAction } from "@/app/actions";
+import { cancelTrialRequestAction, endRiderRelationshipAction } from "@/app/actions";
+import { EndRelationshipModal } from "@/components/end-relationship-modal";
 import { Notice } from "@/components/notice";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -128,6 +129,11 @@ function ActiveRelationshipCard({ item }: { item: RiderActiveRelationshipCard })
             </Link>
           ) : null}
         </div>
+        <EndRelationshipModal
+          action={endRiderRelationshipAction}
+          description={`Du beendest deine aktive Reitbeteiligung für "${item.horseTitle}" bei ${item.ownerName}.`}
+          hiddenFields={{ horseId: item.horseId, redirectTo: "/anfragen" }}
+        />
       </div>
     </Card>
   );

@@ -38,6 +38,10 @@ const statusDisplayMap: Record<DisplayableStatus, { label: string; tone: StatusT
     label: "Freischaltung entzogen",
     tone: "rejected"
   },
+  ended: {
+    label: "Beendet",
+    tone: "neutral"
+  },
   canceled: {
     label: "Storniert",
     tone: "neutral"

@@ -8,7 +8,7 @@ import type { Profile, UserRole } from "@/types/database";
 export async function getProfileByUserId(supabase: SupabaseClient, userId: string) {
   const { data } = await supabase
     .from("profiles")
-    .select("id, role, is_premium, display_name, phone, created_at, trial_started_at")
+    .select("id, role, is_premium, display_name, phone, created_at, trial_started_at, deleted_at")
     .eq("id", userId)
     .maybeSingle();
 
@@ -46,6 +46,11 @@ export async function requireProfile(requiredRole?: UserRole) {
 
   if (!profile) {
     redirect("/onboarding");
+  }
+
+  if (profile.deleted_at) {
+    await supabase.auth.signOut();
+    redirect("/login");
   }
 
   if (requiredRole && profile.role !== requiredRole) {

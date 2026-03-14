@@ -1,8 +1,9 @@
 import type { Route } from "next";
 import Link from "next/link";
 
-import { deleteRiderRelationshipAction } from "@/app/actions";
+import { deleteRiderRelationshipAction, endOwnerRelationshipAction } from "@/app/actions";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
+import { EndRelationshipModal } from "@/components/end-relationship-modal";
 import { Notice } from "@/components/notice";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -146,14 +147,19 @@ export function OwnerRelationshipsWorkspace({
                       Kalender oeffnen
                     </Link>
                   </div>
+                  <EndRelationshipModal
+                    action={endOwnerRelationshipAction}
+                    description={`Du beendest die aktive Reitbeteiligung von ${item.riderName} für "${item.horseTitle}".`}
+                    hiddenFields={{ horseId: item.horseId, riderId: item.riderId, redirectTo: "/owner/reitbeteiligungen" }}
+                  />
                   <form action={deleteRiderRelationshipAction}>
                     <input name="horseId" type="hidden" value={item.horseId} />
                     <input name="riderId" type="hidden" value={item.riderId} />
                     <input name="redirectTo" type="hidden" value="/owner/reitbeteiligungen" />
                     <ConfirmSubmitButton
-                      confirmMessage="Moechtest du diese Reitbeteiligung wirklich entfernen? Operative Rechte und Termine werden bereinigt."
-                      idleLabel="Reitbeteiligung entfernen"
-                      pendingLabel="Wird entfernt..."
+                      confirmMessage="Möchtest du die Freischaltung wirklich entziehen? Operative Rechte und zukünftige Buchungen werden sofort bereinigt."
+                      idleLabel="Freischaltung entziehen"
+                      pendingLabel="Wird entzogen..."
                     />
                   </form>
                   <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">

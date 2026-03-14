@@ -1,0 +1,25 @@
+-- Fix: allow multiple non-overlapping bookings within the same availability window
+-- by the same rider.
+--
+-- Problem:
+--   booking_requests_active_slot_rider_idx enforced uniqueness on (slot_id, rider_id)
+--   for active booking_requests. In window mode all bookings within the same window
+--   share the same slot_id (inherited from the parent availability_rule). This caused
+--   a unique_violation when a rider tried to create a second non-overlapping booking
+--   inside the same window, even though no time overlap existed.
+--
+-- Why safe to drop:
+--   Overlap protection is fully covered by the explicit tstzrange overlap check in
+--   direct_book_operational_slot, reschedule_operational_booking, and
+--   accept_booking_request — all of which check the bookings table for time conflicts
+--   using tstzrange(start_at, end_at, '[)') && tstzrange(p_start_at, p_end_at, '[)')
+--   before inserting. The exclusion_violation backstop remains in the exception
+--   handlers for any race-condition edge cases.
+--
+--   For slot mode: two identical time ranges will be caught by the overlap check
+--   (the time ranges are the same → overlap → TIME_UNAVAILABLE). No regression.
+--
+--   For window mode: non-overlapping time ranges within the same window now correctly
+--   pass all checks. Overlapping ranges are still blocked by the tstzrange check.
+
+drop index if exists public.booking_requests_active_slot_rider_idx;

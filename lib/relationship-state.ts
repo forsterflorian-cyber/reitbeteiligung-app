@@ -2,7 +2,7 @@ import type { Approval, TrialRequest, UserRole } from "@/types/database";
 import { isTrialRequestLifecycleStatus } from "./statuses.ts";
 
 export type RelationshipApprovalStatus = Approval["status"] | null | undefined;
-export type RelationshipConversationStage = "active" | "inactive" | "trial";
+export type RelationshipConversationStage = "active" | "ended" | "inactive" | "trial";
 export type RiderRelationshipSection = "active" | "archive" | "in_clarification";
 
 export function getRelationshipKey(horseId: string, riderId: string) {
@@ -29,12 +29,21 @@ export function isRevokedRelationship(approvalStatus: RelationshipApprovalStatus
   return approvalStatus === "revoked";
 }
 
+export function isEndedRelationship(approvalStatus: RelationshipApprovalStatus) {
+  return approvalStatus === "ended";
+}
+
 export function isRejectedRelationship(approvalStatus: RelationshipApprovalStatus) {
   return approvalStatus === "rejected";
 }
 
 export function hasRelationshipDecision(approvalStatus: RelationshipApprovalStatus) {
-  return isActiveRelationship(approvalStatus) || isRejectedRelationship(approvalStatus) || isRevokedRelationship(approvalStatus);
+  return (
+    isActiveRelationship(approvalStatus) ||
+    isRejectedRelationship(approvalStatus) ||
+    isRevokedRelationship(approvalStatus) ||
+    isEndedRelationship(approvalStatus)
+  );
 }
 
 export function shouldShowTrialRequestInLifecycle(
@@ -90,6 +99,10 @@ export function getRelationshipConversationStage(
     return "active";
   }
 
+  if (isEndedRelationship(approvalStatus)) {
+    return "ended";
+  }
+
   if (trialRequestStatus && shouldShowTrialRequestInLifecycle(trialRequestStatus, approvalStatus)) {
     return "trial";
   }
@@ -101,7 +114,9 @@ export function hasVisibleRelationshipConversation(
   trialRequestStatus: TrialRequest["status"] | null | undefined,
   approvalStatus: RelationshipApprovalStatus
 ) {
-  return getRelationshipConversationStage(trialRequestStatus, approvalStatus) !== "inactive";
+  const stage = getRelationshipConversationStage(trialRequestStatus, approvalStatus);
+
+  return stage !== "inactive";
 }
 
 export function isRejectedTrialAfterCompletion(

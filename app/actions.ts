@@ -35,6 +35,8 @@ import {
   updateTrialRequestStatusForOwner
 } from "@/lib/server-actions/trial-actions";
 import {
+  endRelationshipForOwner,
+  endRelationshipForRider,
   removeRelationshipForOwner,
   updateRelationshipApprovalForOwner
 } from "@/lib/server-actions/relationships";
@@ -100,7 +102,7 @@ import {
   rescheduleOperationalBookingForRider,
   requestBookingForRider
 } from "@/lib/server-actions/bookings";
-import { deleteOwnerAccount, deleteRiderAccount, getAccountDeleteErrorMessage } from "@/lib/server-actions/account";
+import { deactivateOwnerAccount, deactivateRiderAccount, getAccountDeactivateErrorMessage } from "@/lib/server-actions/account";
 import { saveRiderBookingLimitForOwner } from "@/lib/server-actions/booking-limits";
 import { markNotificationRead } from "@/lib/server-actions/notifications";
 import type { Approval, AvailabilityRule, CalendarBlock, Horse, HorseBookingMode, HorseImage, TrialRequest } from "@/types/database";
@@ -505,6 +507,64 @@ export async function deleteRiderRelationshipAction(formData: FormData) {
 
   redirectWithMessage(result.redirectPath, "message", result.message);
 }
+export async function endRiderRelationshipAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("rider");
+  const horseId = asString(formData.get("horseId"));
+  const redirectPath = asString(formData.get("redirectTo")) || "/anfragen";
+
+  if (!horseId) {
+    redirectWithMessage(redirectPath, "error", "Die Reitbeteiligung konnte nicht zugeordnet werden.");
+  }
+
+  const result = await endRelationshipForRider({
+    horseId,
+    logSupabaseError,
+    riderId: user.id,
+    redirectPath,
+    supabase
+  });
+
+  if (!result.ok) {
+    redirectWithMessage(result.redirectPath, "error", result.message);
+  }
+
+  for (const path of result.paths) {
+    revalidatePath(path);
+  }
+
+  redirectWithMessage(result.redirectPath, "message", result.message);
+}
+
+export async function endOwnerRelationshipAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const horseId = asString(formData.get("horseId"));
+  const riderId = asString(formData.get("riderId"));
+  const redirectPath = getOwnerRedirectPath(formData, "/owner/reitbeteiligungen");
+
+  if (!horseId || !riderId) {
+    redirectWithMessage(redirectPath, "error", "Die Reitbeteiligung konnte nicht zugeordnet werden.");
+  }
+
+  const result = await endRelationshipForOwner({
+    horseId,
+    logSupabaseError,
+    ownerId: user.id,
+    redirectPath,
+    riderId,
+    supabase
+  });
+
+  if (!result.ok) {
+    redirectWithMessage(result.redirectPath, "error", result.message);
+  }
+
+  for (const path of result.paths) {
+    revalidatePath(path);
+  }
+
+  redirectWithMessage(result.redirectPath, "message", result.message);
+}
+
 export async function startOwnerTrialAction(formData: FormData) {
   const { profile, supabase } = await requireProfile("owner");
   const redirectTo = asString(formData.get("redirectTo"));
@@ -1441,24 +1501,24 @@ export async function correctHorseActivityAction(formData: FormData) {
 
 export async function deleteRiderAccountAction() {
   const { supabase } = await requireProfile("rider");
-  const result = await deleteRiderAccount(supabase);
+  const result = await deactivateRiderAccount(supabase);
 
   if (!result.ok) {
-    redirectWithMessage("/profil", "error", getAccountDeleteErrorMessage(result.errorCode, "rider"));
+    redirectWithMessage("/profil", "error", getAccountDeactivateErrorMessage(result.errorCode, "rider"));
   }
 
   await supabase.auth.signOut();
-  redirectWithFlash("/login", "success", "Dein Konto wurde geloescht.");
+  redirectWithFlash("/login", "success", "Dein Konto wurde deaktiviert. Auf Wiedersehen!");
 }
 
 export async function deleteOwnerAccountAction() {
   const { supabase } = await requireProfile("owner");
-  const result = await deleteOwnerAccount(supabase);
+  const result = await deactivateOwnerAccount(supabase);
 
   if (!result.ok) {
-    redirectWithMessage("/profil", "error", getAccountDeleteErrorMessage(result.errorCode, "owner"));
+    redirectWithMessage("/profil", "error", getAccountDeactivateErrorMessage(result.errorCode, "owner"));
   }
 
   await supabase.auth.signOut();
-  redirectWithFlash("/login", "success", "Dein Konto wurde geloescht.");
+  redirectWithFlash("/login", "success", "Dein Konto wurde deaktiviert. Auf Wiedersehen!");
 }

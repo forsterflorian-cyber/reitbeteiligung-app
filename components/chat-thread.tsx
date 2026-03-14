@@ -18,6 +18,7 @@ type ChatThreadProps = {
   conversationId: string;
   currentUserId: string;
   initialMessages: Message[];
+  isClosed?: boolean;
   partnerLabel: string;
 };
 
@@ -42,7 +43,7 @@ async function markConversationRead(supabase: SupabaseClient, conversationId: st
   return error;
 }
 
-export function ChatThread({ conversationId, currentUserId, initialMessages, partnerLabel }: ChatThreadProps) {
+export function ChatThread({ conversationId, currentUserId, initialMessages, isClosed = false, partnerLabel }: ChatThreadProps) {
   const supabase = createClient();
   const [messages, setMessages] = useState(initialMessages);
   const [draft, setDraft] = useState("");
@@ -153,30 +154,36 @@ export function ChatThread({ conversationId, currentUserId, initialMessages, par
         <div ref={endRef} />
       </div>
       {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
-      <form className="space-y-3" onSubmit={handleSubmit}>
-        <div>
-          <label className="sr-only" htmlFor="chat-message">
-            Nachricht
-          </label>
-          <input
-            autoComplete="off"
-            id="chat-message"
-            maxLength={1000}
-            name="message"
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="Schreibe eine Nachricht zum Probetermin"
-            type="text"
-            value={draft}
-          />
+      {isClosed ? (
+        <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-600">
+          Diese Reitbeteiligung wurde beendet. Der Chatverlauf ist weiterhin lesbar, neue Nachrichten sind nicht mehr möglich.
         </div>
-        <button
-          className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-forest px-5 py-3 text-base font-semibold text-white hover:bg-forest/90 disabled:cursor-not-allowed disabled:opacity-70"
-          disabled={isSending}
-          type="submit"
-        >
-          {isSending ? "Wird gesendet..." : "Nachricht senden"}
-        </button>
-      </form>
+      ) : (
+        <form className="space-y-3" onSubmit={handleSubmit}>
+          <div>
+            <label className="sr-only" htmlFor="chat-message">
+              Nachricht
+            </label>
+            <input
+              autoComplete="off"
+              id="chat-message"
+              maxLength={1000}
+              name="message"
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder="Schreibe eine Nachricht zum Probetermin"
+              type="text"
+              value={draft}
+            />
+          </div>
+          <button
+            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-forest px-5 py-3 text-base font-semibold text-white hover:bg-forest/90 disabled:cursor-not-allowed disabled:opacity-70"
+            disabled={isSending}
+            type="submit"
+          >
+            {isSending ? "Wird gesendet..." : "Nachricht senden"}
+          </button>
+        </form>
+      )}
     </div>
   );
 }

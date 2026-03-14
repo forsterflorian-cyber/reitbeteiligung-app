@@ -11,7 +11,8 @@ export const TRIAL_REQUEST_STATUS = {
 export const APPROVAL_STATUS = {
   approved: "approved",
   rejected: "rejected",
-  revoked: "revoked"
+  revoked: "revoked",
+  ended: "ended"
 } as const satisfies Record<ApprovalStatus, ApprovalStatus>;
 
 export const BOOKING_REQUEST_STATUS = {
@@ -49,7 +50,8 @@ export type OwnerTrialDecisionStatus = typeof APPROVAL_STATUS.approved | typeof 
 const approvalStatuses = [
   APPROVAL_STATUS.approved,
   APPROVAL_STATUS.rejected,
-  APPROVAL_STATUS.revoked
+  APPROVAL_STATUS.revoked,
+  APPROVAL_STATUS.ended
 ] as const satisfies readonly ApprovalStatus[];
 const ownerTrialDecisionStatuses = [
   APPROVAL_STATUS.approved,

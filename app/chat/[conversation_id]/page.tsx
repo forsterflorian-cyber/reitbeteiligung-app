@@ -64,6 +64,7 @@ export default async function ChatPage({
   const trialRequest = (trialRequestData as TrialRequest | null) ?? null;
   const conversationStage = getRelationshipConversationStage(trialRequest?.status ?? null, approval?.status ?? null);
   const contactUnlocked = conversationStage === "active";
+  const chatClosed = conversationStage === "ended";
 
   if (!hasVisibleRelationshipConversation(trialRequest?.status ?? null, approval?.status ?? null)) {
     redirectWithFlash(backHref, "error", "Dieser Chat ist fuer euch aktuell nicht mehr sichtbar.");
@@ -118,7 +119,9 @@ export default async function ChatPage({
             text={
               contactUnlocked
                 ? "Der Probetermin ist abgeschlossen und die Reitbeteiligung wurde freigeschaltet."
-                : "Bis zur Freischaltung bleibt die Kommunikation direkt hier in der Plattform. Neue Nachrichten werden unter Nachrichten markiert."
+                : chatClosed
+                  ? "Die Reitbeteiligung wurde beendet. Der Chatverlauf bleibt lesbar, neue Nachrichten sind nicht mehr möglich."
+                  : "Bis zur Freischaltung bleibt die Kommunikation direkt hier in der Plattform. Neue Nachrichten werden unter Nachrichten markiert."
             }
           />
         </div>
@@ -135,7 +138,7 @@ export default async function ChatPage({
           </div>
         </SectionCard>
       ) : null}
-      <ChatThread conversationId={conversation.id} currentUserId={user.id} initialMessages={messages} partnerLabel={partnerLabel} />
+      <ChatThread conversationId={conversation.id} currentUserId={user.id} initialMessages={messages} isClosed={chatClosed} partnerLabel={partnerLabel} />
     </div>
   );
 }

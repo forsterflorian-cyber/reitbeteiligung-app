@@ -16,6 +16,7 @@ export type RiderDirectMessageCard = {
   hasUnread: boolean;
   isActiveRelationship: boolean;
   isDecisionPendingAfterCompletion: boolean;
+  isEndedRelationship: boolean;
   latestMessageAt: string;
   latestMessageText: string;
 };
@@ -91,7 +92,7 @@ export function RiderMessagesWorkspace({ directMessages, groupChats, unreadCount
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="space-y-1">
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-clay">
-                        {item.isActiveRelationship ? "Aktive Reitbeteiligung" : item.isDecisionPendingAfterCompletion ? "Entscheidung offen" : "In Klaerung"}
+                        {item.isActiveRelationship ? "Aktive Reitbeteiligung" : item.isEndedRelationship ? "Reitbeteiligung beendet" : item.isDecisionPendingAfterCompletion ? "Entscheidung offen" : "In Klaerung"}
                       </p>
                       <p className="font-semibold text-ink">{item.horseTitle}</p>
                       <p className="text-sm text-stone-600">Pferdehalter: {item.ownerName}</p>
@@ -100,6 +101,8 @@ export function RiderMessagesWorkspace({ directMessages, groupChats, unreadCount
                       {item.hasUnread ? <Badge tone="info">Ungelesen</Badge> : <Badge tone="neutral">Gelesen</Badge>}
                       {item.isActiveRelationship ? (
                         <Badge tone="approved">Aktiv</Badge>
+                      ) : item.isEndedRelationship ? (
+                        <Badge tone="neutral">Beendet</Badge>
                       ) : item.isDecisionPendingAfterCompletion ? (
                         <Badge tone="info">Durchgefuehrt, Entscheidung offen</Badge>
                       ) : (

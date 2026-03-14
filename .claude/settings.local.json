@@ -45,7 +45,19 @@
       "Bash(grep -r \"delete.*account\\\\|account.*delete\\\\|loeschen\" \"/e/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app\" --include=*.ts --include=*.tsx)",
       "Bash(ls -la \"/e/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app/owner/reiter\")",
       "Bash(find \"/e/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app\" -path */components/* -name *profile* -o -path */components/* -name *settings*)",
-      "Bash(tail -20 \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app/actions.ts\")"
+      "Bash(tail -20 \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app/actions.ts\")",
+      "Bash(find \"/e/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app\" -type d -name components)",
+      "Bash(ls -la \"/e/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/supabase/migrations/\")",
+      "Bash(find \"/e/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app\" -type d -name \"app\")",
+      "Bash(ls -la \"/e/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/supabase/preflight/\")",
+      "Bash(grep -l \"CREATE TABLE.*approvals\" \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\\\\supabase\\\\migrations\"/*.sql)",
+      "Bash(ls -la \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\\\\supabase\\\\migrations\")",
+      "Bash(grep -l \"CREATE TABLE\" \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\\\\supabase\\\\migrations\"/*.sql)",
+      "Bash(find \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\" -path \"*migrations*\" -name \"*.sql\" -exec grep -l \"approvals\" {})",
+      "Bash(grep -r 'create table.*approvals' \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\\\\supabase\" --include=*.sql)",
+      "Bash(ls \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\\\\supabase\\\\migrations\")",
+      "Bash(grep -n \"create table\\\\|CREATE TABLE\" \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\\\\supabase\\\\migrations\"/*.sql)",
+      "Bash(find \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\" -name \"*.sql\" -type f)"
     ]
   }
 }

@@ -328,3 +328,125 @@ export async function removeRelationshipForOwner(input: {
 
   return successResult(input.redirectPath, "Die Reitbeteiligung wurde entfernt.", getRelationshipRevalidationPaths(input.horseId, input.riderId));
 }
+
+// ─── End relationship (consensual, by rider or owner) ────────────────────────
+//
+// Semantics differ from removeRelationshipForOwner (revoked):
+//   - No auto-cleanup of future bookings — user must cancel them first (hard blocker).
+//   - Both rider and owner can initiate.
+//   - Sets status='ended', ended_at=now(), ended_by='rider'|'owner'.
+
+async function hasFutureBookings(supabase: SupabaseClient, horseId: string, riderId: string) {
+  const { data } = await supabase
+    .from("bookings")
+    .select("id")
+    .eq("horse_id", horseId)
+    .eq("rider_id", riderId)
+    .gt("start_at", new Date().toISOString())
+    .limit(1);
+
+  return (data?.length ?? 0) > 0;
+}
+
+async function applyEndedStatus(
+  supabase: SupabaseClient,
+  horseId: string,
+  riderId: string,
+  endedBy: "rider" | "owner"
+) {
+  return supabase
+    .from("approvals")
+    .update({
+      status: APPROVAL_STATUS.ended,
+      ended_at: new Date().toISOString(),
+      ended_by: endedBy
+    })
+    .eq("horse_id", horseId)
+    .eq("rider_id", riderId)
+    .eq("status", APPROVAL_STATUS.approved);
+}
+
+export async function endRelationshipForRider(input: {
+  horseId: string;
+  logSupabaseError: LogSupabaseError;
+  riderId: string;
+  redirectPath: string;
+  supabase: SupabaseClient;
+}): Promise<RelationshipMutationResult> {
+  const { data: approvalData } = await input.supabase
+    .from("approvals")
+    .select("status")
+    .eq("horse_id", input.horseId)
+    .eq("rider_id", input.riderId)
+    .maybeSingle();
+
+  if (!isActiveRelationship((approvalData as Pick<Approval, "status"> | null)?.status)) {
+    return errorResult(input.redirectPath, "Diese Reitbeteiligung ist nicht aktiv und kann nicht beendet werden.");
+  }
+
+  if (await hasFutureBookings(input.supabase, input.horseId, input.riderId)) {
+    return errorResult(
+      input.redirectPath,
+      "Bitte storniere zuerst alle bevorstehenden Buchungen, bevor du die Reitbeteiligung beendest."
+    );
+  }
+
+  const { error } = await applyEndedStatus(input.supabase, input.horseId, input.riderId, "rider");
+
+  if (error) {
+    input.logSupabaseError("Relationship end by rider failed", error);
+    return errorResult(input.redirectPath, "Die Reitbeteiligung konnte nicht beendet werden.");
+  }
+
+  return successResult(
+    input.redirectPath,
+    "Du hast die Reitbeteiligung beendet.",
+    getRelationshipRevalidationPaths(input.horseId, input.riderId)
+  );
+}
+
+export async function endRelationshipForOwner(input: {
+  horseId: string;
+  logSupabaseError: LogSupabaseError;
+  ownerId: string;
+  redirectPath: string;
+  riderId: string;
+  supabase: SupabaseClient;
+}): Promise<RelationshipMutationResult> {
+  const horse = await getOwnedHorse(input.supabase, input.horseId, input.ownerId);
+
+  if (!horse) {
+    return errorResult(input.redirectPath, "Du kannst nur eigene Reitbeteiligungen beenden.");
+  }
+
+  const { data: approvalData } = await input.supabase
+    .from("approvals")
+    .select("status")
+    .eq("horse_id", input.horseId)
+    .eq("rider_id", input.riderId)
+    .maybeSingle();
+
+  if (!isActiveRelationship((approvalData as Pick<Approval, "status"> | null)?.status)) {
+    return errorResult(input.redirectPath, "Diese Reitbeteiligung ist nicht aktiv und kann nicht beendet werden.");
+  }
+
+  if (await hasFutureBookings(input.supabase, input.horseId, input.riderId)) {
+    return errorResult(
+      input.redirectPath,
+      "Bitte storniere zuerst alle bevorstehenden Buchungen, bevor du die Reitbeteiligung beendest."
+    );
+  }
+
+  const { error } = await applyEndedStatus(input.supabase, input.horseId, input.riderId, "owner");
+
+  if (error) {
+    input.logSupabaseError("Relationship end by owner failed", error);
+    return errorResult(input.redirectPath, "Die Reitbeteiligung konnte nicht beendet werden.");
+  }
+
+  return successResult(
+    input.redirectPath,
+    "Die Reitbeteiligung wurde beendet.",
+    getRelationshipRevalidationPaths(input.horseId, input.riderId)
+  );
+}

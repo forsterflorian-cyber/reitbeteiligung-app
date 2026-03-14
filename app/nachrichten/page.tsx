@@ -2,7 +2,7 @@ import { RiderMessagesWorkspace, type RiderDirectMessageCard, type RiderGroupCha
 import { AppPageShell } from "@/components/ui/app-page-shell";
 import { requireProfile } from "@/lib/auth";
 import { loadLatestHorseGroupMessages } from "@/lib/message-summaries";
-import { getRelationshipKey, isActiveRelationship, isCompletedTrialAwaitingDecision } from "@/lib/relationship-state";
+import { getRelationshipKey, isActiveRelationship, isCompletedTrialAwaitingDecision, isEndedRelationship } from "@/lib/relationship-state";
 import { hasUnreadRiderMessage, loadRiderWorkspaceData } from "@/lib/rider-workspace";
 
 export default async function RiderMessagesPage() {
@@ -37,6 +37,7 @@ export default async function RiderMessagesPage() {
         hasUnread: hasUnreadRiderMessage(conversation, latestMessage, user.id),
         isActiveRelationship: isActiveRelationship(approvalStatus),
         isDecisionPendingAfterCompletion: isCompletedTrialAwaitingDecision(latestRequest?.status ?? null, approvalStatus),
+        isEndedRelationship: isEndedRelationship(approvalStatus),
         latestMessageAt: latestMessage?.created_at ?? conversation.created_at,
         latestMessageText: latestMessage?.content?.trim() || "Noch keine Nachricht hinterlegt.",
         sortValue

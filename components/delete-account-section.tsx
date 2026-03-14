@@ -28,7 +28,7 @@ export function DeleteAccountSection({ action, blockerHint }: DeleteAccountSecti
         onClick={() => setIsOpen(true)}
         type="button"
       >
-        Konto loeschen
+        Konto löschen
       </button>
 
       {isOpen ? (
@@ -44,10 +44,11 @@ export function DeleteAccountSection({ action, blockerHint }: DeleteAccountSecti
           <div className="relative z-10 w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl">
             <div className="space-y-4">
               <div className="space-y-1">
-                <h2 className="text-base font-semibold text-rose-700">Konto unwiderruflich loeschen</h2>
+                <h2 className="text-base font-semibold text-rose-700">Konto unwiderruflich löschen</h2>
                 <p className="text-sm text-stone-600">
-                  Dein Konto, dein Profil und alle dazugehoerigen Daten werden dauerhaft geloescht.
-                  Diese Aktion kann nicht rueckgaengig gemacht werden.
+                  Dein Konto wird deaktiviert und deine persönlichen Daten anonymisiert.
+                  Geteilte Gesprächsverläufe und vergangene Buchungen bleiben für andere Nutzer erhalten.
+                  Diese Aktion kann nicht rückgängig gemacht werden.
                 </p>
               </div>
 
@@ -60,7 +61,7 @@ export function DeleteAccountSection({ action, blockerHint }: DeleteAccountSecti
               <form action={action} className="space-y-4" onSubmit={close}>
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-500">
-                    Tippe <span className="font-bold text-rose-700">{CONFIRM_WORD}</span> zur Bestaetigung
+                    Tippe <span className="font-bold text-rose-700">{CONFIRM_WORD}</span> zur Bestätigung
                   </label>
                   <input
                     autoComplete="off"
@@ -85,7 +86,7 @@ export function DeleteAccountSection({ action, blockerHint }: DeleteAccountSecti
                     disabled={!canSubmit}
                     type="submit"
                   >
-                    Konto loeschen
+                    Konto löschen
                   </button>
                 </div>
               </form>
