@@ -27,6 +27,8 @@ type RiderBookingWindowFormProps = {
   rules: RuleOption[];
   showRecurrence?: boolean;
   startName?: string;
+  windowEndName?: string;
+  windowStartName?: string;
 };
 
 const QUARTER_MINUTES = 15;
@@ -70,7 +72,9 @@ export function RiderBookingWindowForm({
   ruleName = "ruleId",
   rules,
   showRecurrence = false,
-  startName = "startAt"
+  startName = "startAt",
+  windowEndName = "windowEnd",
+  windowStartName = "windowStart"
 }: RiderBookingWindowFormProps) {
   const initialRuleId = defaultRuleId && rules.some((r) => r.ruleId === defaultRuleId)
     ? rules.find((r) => r.ruleId === defaultRuleId)!.id
@@ -123,6 +127,8 @@ export function RiderBookingWindowForm({
     <div className="space-y-4">
       <input name={startName} type="hidden" value={selectedStartAt} />
       <input name={endName} type="hidden" value={selectedEndAt} />
+      <input name={windowStartName} type="hidden" value={selectedRule?.startAt ?? ""} />
+      <input name={windowEndName} type="hidden" value={selectedRule?.endAt ?? ""} />
 
       <div>
         <label htmlFor="riderRuleId">Offenes Zeitfenster</label>

@@ -1215,9 +1215,28 @@ export async function rescheduleOperationalBookingForRiderAction(formData: FormD
   const ruleId = asString(formData.get("ruleId"));
   const startAt = asString(formData.get("startAt"));
   const endAt = asString(formData.get("endAt"));
+  const windowStart = asOptionalString(formData.get("windowStart"));
+  const windowEnd = asOptionalString(formData.get("windowEnd"));
 
   if (!bookingId || !ruleId || !startAt || !endAt) {
     redirectWithMessage("/anfragen", "error", "Die Umbuchung konnte nicht zugeordnet werden.");
+  }
+
+  if (windowStart && windowEnd) {
+    const wStart = new Date(windowStart);
+    const wEnd = new Date(windowEnd);
+    const bStart = new Date(startAt);
+    const bEnd = new Date(endAt);
+
+    if (
+      !Number.isNaN(wStart.getTime()) &&
+      !Number.isNaN(wEnd.getTime()) &&
+      !Number.isNaN(bStart.getTime()) &&
+      !Number.isNaN(bEnd.getTime()) &&
+      (bStart.getTime() < wStart.getTime() || bEnd.getTime() > wEnd.getTime())
+    ) {
+      redirectWithMessage("/anfragen", "error", "Der Termin muss komplett im gewaehlten freien Segment liegen.");
+    }
   }
 
   const result = await rescheduleOperationalBookingForRider({

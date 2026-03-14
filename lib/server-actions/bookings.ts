@@ -471,6 +471,8 @@ export async function requestBookingForRider(input: {
   const redirectPath = `/pferde/${horseId}/kalender`;
   const startAtValue = asString(input.formData.get("startAt"));
   const endAtValue = asString(input.formData.get("endAt"));
+  const windowStartValue = asOptionalString(input.formData.get("windowStart"));
+  const windowEndValue = asOptionalString(input.formData.get("windowEnd"));
   const startAt = new Date(startAtValue);
   const endAt = new Date(endAtValue);
 
@@ -484,6 +486,19 @@ export async function requestBookingForRider(input: {
 
   if (endAt <= startAt) {
     return errorResult(redirectPath, "Das Ende muss nach dem Beginn liegen.");
+  }
+
+  if (windowStartValue && windowEndValue) {
+    const windowStart = new Date(windowStartValue);
+    const windowEnd = new Date(windowEndValue);
+
+    if (
+      !Number.isNaN(windowStart.getTime()) &&
+      !Number.isNaN(windowEnd.getTime()) &&
+      (startAt.getTime() < windowStart.getTime() || endAt.getTime() > windowEnd.getTime())
+    ) {
+      return errorResult(redirectPath, "Der Termin muss komplett im gewaehlten freien Segment liegen.");
+    }
   }
 
   if (recurrenceRrule) {
