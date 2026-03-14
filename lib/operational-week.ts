@@ -117,7 +117,7 @@ export function buildOperationalWeekDays({
       (slot) =>
         ({
           endAt: slot.endAt,
-          key: `available:${slot.availabilityRuleId}`,
+          key: `available:${slot.availabilityRuleId}:${slot.startAt}`,
           kind: "available",
           startAt: slot.startAt
         }) satisfies OperationalWeekEntry

@@ -5,8 +5,10 @@ import {
   excludeOperationalRange,
   getUpcomingOperationalSlots,
   isOperationalRuleBlocked,
+  mergeOccupiedRanges,
   operationalRangesOverlap,
-  splitAvailabilityRulesByPhase
+  splitAvailabilityRulesByPhase,
+  subtractOccupiedFromSlot
 } from "../lib/operational-slots.ts";
 
 test("Operative Slots blocken Doppelbelegung und Konflikte sauber", () => {
@@ -182,4 +184,149 @@ test("Umbuchung blendet die eigene Altbelegung aus der freien Slot-Pruefung aus"
     }).map((slot) => slot.availabilityRuleId),
     ["overlap"]
   );
+});
+
+// ─── Slot-Segmentierung: subtractOccupiedFromSlot ───────────────────────────
+
+const SLOT = {
+  active: true,
+  end_at: "2026-03-17T18:00:00.000Z",
+  id: "slot-1",
+  is_trial_slot: false,
+  start_at: "2026-03-17T08:00:00.000Z"
+};
+
+test("Slot-Segmentierung: keine Buchung → gesamter Slot wird zurückgegeben", () => {
+  const result = subtractOccupiedFromSlot(SLOT, []);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].startAt, "2026-03-17T08:00:00.000Z");
+  assert.equal(result[0].endAt, "2026-03-17T18:00:00.000Z");
+  assert.equal(result[0].availabilityRuleId, "slot-1");
+});
+
+test("Slot-Segmentierung: Buchung am Anfang → nur Ende-Segment zurückgegeben", () => {
+  const result = subtractOccupiedFromSlot(SLOT, [
+    { start_at: "2026-03-17T08:00:00.000Z", end_at: "2026-03-17T09:00:00.000Z" }
+  ]);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].startAt, "2026-03-17T09:00:00.000Z");
+  assert.equal(result[0].endAt, "2026-03-17T18:00:00.000Z");
+});
+
+test("Slot-Segmentierung: Buchung in der Mitte → zwei freie Segmente", () => {
+  const result = subtractOccupiedFromSlot(SLOT, [
+    { start_at: "2026-03-17T11:00:00.000Z", end_at: "2026-03-17T13:00:00.000Z" }
+  ]);
+  assert.equal(result.length, 2);
+  assert.equal(result[0].startAt, "2026-03-17T08:00:00.000Z");
+  assert.equal(result[0].endAt, "2026-03-17T11:00:00.000Z");
+  assert.equal(result[1].startAt, "2026-03-17T13:00:00.000Z");
+  assert.equal(result[1].endAt, "2026-03-17T18:00:00.000Z");
+});
+
+test("Slot-Segmentierung: Buchung am Ende → nur Anfangs-Segment zurückgegeben", () => {
+  const result = subtractOccupiedFromSlot(SLOT, [
+    { start_at: "2026-03-17T17:00:00.000Z", end_at: "2026-03-17T18:00:00.000Z" }
+  ]);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].startAt, "2026-03-17T08:00:00.000Z");
+  assert.equal(result[0].endAt, "2026-03-17T17:00:00.000Z");
+});
+
+test("Slot-Segmentierung: mehrere Buchungen → mehrere freie Segmente", () => {
+  const result = subtractOccupiedFromSlot(SLOT, [
+    { start_at: "2026-03-17T08:00:00.000Z", end_at: "2026-03-17T09:00:00.000Z" },
+    { start_at: "2026-03-17T11:00:00.000Z", end_at: "2026-03-17T12:00:00.000Z" },
+    { start_at: "2026-03-17T15:00:00.000Z", end_at: "2026-03-17T16:00:00.000Z" }
+  ]);
+  assert.equal(result.length, 3);
+  assert.equal(result[0].startAt, "2026-03-17T09:00:00.000Z");
+  assert.equal(result[0].endAt, "2026-03-17T11:00:00.000Z");
+  assert.equal(result[1].startAt, "2026-03-17T12:00:00.000Z");
+  assert.equal(result[1].endAt, "2026-03-17T15:00:00.000Z");
+  assert.equal(result[2].startAt, "2026-03-17T16:00:00.000Z");
+  assert.equal(result[2].endAt, "2026-03-17T18:00:00.000Z");
+});
+
+test("Slot-Segmentierung: überlappende Buchungen werden normalisiert", () => {
+  // Two bookings that overlap each other should be treated as one contiguous block
+  const result = subtractOccupiedFromSlot(SLOT, mergeOccupiedRanges([
+    { start_at: "2026-03-17T10:00:00.000Z", end_at: "2026-03-17T12:00:00.000Z" },
+    { start_at: "2026-03-17T11:00:00.000Z", end_at: "2026-03-17T13:00:00.000Z" }
+  ]));
+  assert.equal(result.length, 2);
+  assert.equal(result[0].startAt, "2026-03-17T08:00:00.000Z");
+  assert.equal(result[0].endAt, "2026-03-17T10:00:00.000Z");
+  assert.equal(result[1].startAt, "2026-03-17T13:00:00.000Z");
+  assert.equal(result[1].endAt, "2026-03-17T18:00:00.000Z");
+});
+
+test("Slot-Segmentierung: vollständig belegte Buchung → kein Segment", () => {
+  const result = subtractOccupiedFromSlot(SLOT, [
+    { start_at: "2026-03-17T08:00:00.000Z", end_at: "2026-03-17T18:00:00.000Z" }
+  ]);
+  assert.equal(result.length, 0);
+});
+
+test("Slot-Segmentierung: stornierte Buchung belegt keinen Slot (leere Occupancy)", () => {
+  // Cancelled bookings must not appear in occupiedRanges at all (filtered upstream).
+  // This test confirms that with empty occupancy the full slot is returned.
+  const result = subtractOccupiedFromSlot(SLOT, []);
+  assert.equal(result.length, 1, "Nach Stornierung muss der gesamte Slot wieder verfügbar sein");
+  assert.equal(result[0].startAt, "2026-03-17T08:00:00.000Z");
+  assert.equal(result[0].endAt, "2026-03-17T18:00:00.000Z");
+});
+
+test("Slot-Segmentierung: verschobene Altbuchung blockiert nicht (via getUpcomingOperationalSlots excludedRange)", () => {
+  const rules = [{ active: true, end_at: "2026-03-17T18:00:00.000Z", id: "rule-17", is_trial_slot: false, start_at: "2026-03-17T08:00:00.000Z" }];
+  const occupiedRanges = [{ start_at: "2026-03-17T08:00:00.000Z", end_at: "2026-03-17T09:00:00.000Z" }];
+
+  // Without exclusion: only tail segment visible
+  const withOccupancy = getUpcomingOperationalSlots({
+    now: new Date("2026-03-16T00:00:00.000Z"),
+    occupiedRanges,
+    rules
+  });
+  assert.equal(withOccupancy.length, 1);
+  assert.equal(withOccupancy[0].startAt, "2026-03-17T09:00:00.000Z");
+
+  // Excluding the old booking range (rescheduling): full slot appears
+  const withExclusion = getUpcomingOperationalSlots({
+    excludedRange: occupiedRanges[0],
+    now: new Date("2026-03-16T00:00:00.000Z"),
+    occupiedRanges,
+    rules
+  });
+  assert.equal(withExclusion.length, 1);
+  assert.equal(withExclusion[0].startAt, "2026-03-17T08:00:00.000Z");
+  assert.equal(withExclusion[0].endAt, "2026-03-17T18:00:00.000Z");
+});
+
+test("Slot-Segmentierung: Restfenster < 15 Minuten wird nicht zurückgegeben", () => {
+  // Booking ends at 08:50 → remaining 08:50–09:00 = 10 min → snaps to 09:00–09:00 → filtered
+  const result = subtractOccupiedFromSlot(SLOT, [
+    { start_at: "2026-03-17T08:00:00.000Z", end_at: "2026-03-17T08:50:00.000Z" }
+  ]);
+  // The remaining tail 08:50–18:00 snaps to 09:00–18:00 (>= 15 min, returned)
+  // The prefix 08:00–08:00 = 0 min → not returned
+  assert.equal(result.length, 1);
+  assert.equal(result[0].startAt, "2026-03-17T09:00:00.000Z");
+  assert.equal(result[0].endAt, "2026-03-17T18:00:00.000Z");
+});
+
+test("Slot-Segmentierung: Restfenster genau 15 Minuten wird zurückgegeben", () => {
+  // Booking 08:00–08:45 → remaining 08:45–09:00 = exactly 15 min on-grid → returned
+  const shortSlot = {
+    active: true,
+    end_at: "2026-03-17T09:00:00.000Z",
+    id: "short",
+    is_trial_slot: false,
+    start_at: "2026-03-17T08:00:00.000Z"
+  };
+  const result = subtractOccupiedFromSlot(shortSlot, [
+    { start_at: "2026-03-17T08:00:00.000Z", end_at: "2026-03-17T08:45:00.000Z" }
+  ]);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].startAt, "2026-03-17T08:45:00.000Z");
+  assert.equal(result[0].endAt, "2026-03-17T09:00:00.000Z");
 });
