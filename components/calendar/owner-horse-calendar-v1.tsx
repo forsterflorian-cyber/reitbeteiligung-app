@@ -7,9 +7,11 @@ import {
   createAvailabilityRuleAction,
   createCalendarBlockV1Action,
   deleteAvailabilityRuleAction,
-  deleteCalendarBlockAction
+  deleteCalendarBlockAction,
+  rescheduleFreeBookingForOwnerAction,
+  rescheduleOperationalBookingForOwnerAction
 } from "@/app/actions";
-import { rescheduleOperationalBookingForOwnerAction } from "@/app/actions";
+import { RiderBookingFreeForm } from "@/components/calendar/rider-booking-free-form";
 import { OperationalWeekOverview } from "@/components/calendar/operational-week-overview";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
@@ -136,7 +138,9 @@ export function OwnerHorseCalendarV1({
             <div className="ui-kpi-row">
               <Badge tone={horse.active ? "approved" : "neutral"}>{horse.active ? "Aktiv" : "Inaktiv"}</Badge>
               <Badge tone="pending">{trialRules.length} Probetermine</Badge>
-              <Badge tone="info">{operationalRules.length} operative Slots</Badge>
+              {horse.booking_mode !== "free" ? (
+                <Badge tone="info">{operationalRules.length} operative Slots</Badge>
+              ) : null}
             </div>
             {nextTrialRequest ? (
               <Card className="w-full max-w-sm border-stone-200 bg-white/90 p-4">
@@ -241,7 +245,11 @@ export function OwnerHorseCalendarV1({
         <div className="border-t-2 border-stone-200 pt-6 sm:pt-8">
           <p className="ui-eyebrow">Aktive Reitbeteiligung</p>
           <h2 className="mt-1 font-serif text-2xl text-stone-900 sm:text-3xl">Laufender Betrieb</h2>
-          <p className="mt-2 text-sm leading-6 text-stone-600">Operative Slots, Wochenplanung und Buchungen – sichtbar nur fuer aktiv freigeschaltete Reitbeteiligungen.</p>
+          <p className="mt-2 text-sm leading-6 text-stone-600">
+            {horse.booking_mode === "free"
+              ? "Buchungen und Sperren – sichtbar nur fuer aktiv freigeschaltete Reitbeteiligungen."
+              : "Operative Slots, Wochenplanung und Buchungen – sichtbar nur fuer aktiv freigeschaltete Reitbeteiligungen."}
+          </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -260,59 +268,70 @@ export function OwnerHorseCalendarV1({
         <OperationalWeekOverview
           dailyActivities={dailyActivities}
           days={weekDays}
+          hideAvailableEntries={horse.booking_mode === "free"}
           nextWeekHref={nextWeekHref}
           previousWeekHref={previousWeekHref}
-          subtitle="Die Wochenansicht zeigt nur freie operative Slots, aktuell wirksame Buchungen und Blocks."
+          subtitle={
+            horse.booking_mode === "free"
+              ? "Die Wochenansicht zeigt aktuell wirksame Buchungen und Blocks."
+              : "Die Wochenansicht zeigt nur freie operative Slots, aktuell wirksame Buchungen und Blocks."
+          }
           title="Wochenansicht"
           todayHref={todayWeekHref}
         />
 
         <SectionCard
           id="operativer-kalender"
-          subtitle="Diese offenen Slots gelten fuer den laufenden Alltag nach der Aufnahme."
+          subtitle={
+            horse.booking_mode === "free"
+              ? "Buchungen und Sperren fuer den laufenden Alltag."
+              : "Diese offenen Slots gelten fuer den laufenden Alltag nach der Aufnahme."
+          }
           title="Operativer Kalender"
         >
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
           <div className="space-y-5">
-            <Card className="p-5 sm:p-6">
-              <div className="space-y-5">
-                <div className="space-y-1">
-                  <p className="ui-eyebrow">Offene operative Slots</p>
-                  <p className="text-sm text-stone-600">Bestehende Slots bleiben stehen, Konflikte und Doppelbelegungen verhindert das System beim Buchen.</p>
-                </div>
-                {operationalRules.length === 0 ? (
-                  <EmptyState description="Lege zuerst das erste operative Zeitfenster an." title="Noch keine operativen Slots" />
-                ) : (
-                  <div className="space-y-2">
-                    {operationalRules.slice(0, 10).map((rule) => (
-                      <div className="rounded-2xl border border-stone-200 bg-white px-3 py-3" key={rule.id}>
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="space-y-1">
-                            <p className="text-sm font-semibold text-stone-900">{formatDateRange(rule.start_at, rule.end_at)}</p>
-                            <p className="text-xs text-stone-500">Nur fuer aktive Reitbeteiligungen sichtbar</p>
-                          </div>
-                          <form action={deleteAvailabilityRuleAction} className="w-full sm:w-auto">
-                            <input name="ruleId" type="hidden" value={rule.id} />
-                            <ConfirmSubmitButton
-                              className={buttonVariants("secondary", "w-full text-sm sm:w-auto")}
-                              confirmMessage="Moechtest du dieses operative Zeitfenster wirklich entfernen?"
-                              idleLabel="Entfernen"
-                              pendingLabel="Wird entfernt..."
-                            />
-                          </form>
-                        </div>
-                      </div>
-                    ))}
+            {horse.booking_mode !== "free" ? (
+              <Card className="p-5 sm:p-6">
+                <div className="space-y-5">
+                  <div className="space-y-1">
+                    <p className="ui-eyebrow">Offene operative Slots</p>
+                    <p className="text-sm text-stone-600">Bestehende Slots bleiben stehen, Konflikte und Doppelbelegungen verhindert das System beim Buchen.</p>
                   </div>
-                )}
-              </div>
-            </Card>
+                  {operationalRules.length === 0 ? (
+                    <EmptyState description="Lege zuerst das erste operative Zeitfenster an." title="Noch keine operativen Slots" />
+                  ) : (
+                    <div className="space-y-2">
+                      {operationalRules.slice(0, 10).map((rule) => (
+                        <div className="rounded-2xl border border-stone-200 bg-white px-3 py-3" key={rule.id}>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-stone-900">{formatDateRange(rule.start_at, rule.end_at)}</p>
+                              <p className="text-xs text-stone-500">Nur fuer aktive Reitbeteiligungen sichtbar</p>
+                            </div>
+                            <form action={deleteAvailabilityRuleAction} className="w-full sm:w-auto">
+                              <input name="ruleId" type="hidden" value={rule.id} />
+                              <ConfirmSubmitButton
+                                className={buttonVariants("secondary", "w-full text-sm sm:w-auto")}
+                                confirmMessage="Moechtest du dieses operative Zeitfenster wirklich entfernen?"
+                                idleLabel="Entfernen"
+                                pendingLabel="Wird entfernt..."
+                              />
+                            </form>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Card>
+            ) : null}
 
             <Card className="p-5 sm:p-6">
               <div className="space-y-4">
                 <div className="space-y-1">
                   <p className="ui-eyebrow">Naechste Direktbuchungen</p>
-                  <p className="text-sm text-stone-600">So siehst du sofort, welche Slots bereits belegt wurden.</p>
+                  <p className="text-sm text-stone-600">So siehst du sofort, welche Termine bereits belegt wurden.</p>
                 </div>
                 {rescheduleBooking ? (
                   <div className="space-y-3 rounded-2xl border border-sand bg-sand/30 p-4">
@@ -328,7 +347,13 @@ export function OwnerHorseCalendarV1({
                         Umbuchung abbrechen
                       </Link>
                     </div>
-                    {openSlots.length === 0 ? (
+                    {horse.booking_mode === "free" ? (
+                      <form action={rescheduleFreeBookingForOwnerAction} className="space-y-4" id="umbuchen">
+                        <input name="bookingId" type="hidden" value={rescheduleBooking.id} />
+                        <RiderBookingFreeForm />
+                        <SubmitButton className="w-full sm:w-auto" idleLabel="Termin umbuchen" pendingLabel="Wird umgebucht..." />
+                      </form>
+                    ) : openSlots.length === 0 ? (
                       <EmptyState description="Aktuell gibt es keinen alternativen freien Slot fuer diese Umbuchung." title="Kein alternativer Slot frei" />
                     ) : (
                       <div className="space-y-2" id="umbuchen">
@@ -383,7 +408,7 @@ export function OwnerHorseCalendarV1({
                                 <input name="bookingId" type="hidden" value={booking.id} />
                                 <ConfirmSubmitButton
                                   className={buttonVariants("secondary", "w-full border-rose-300 text-rose-700 hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700 sm:w-auto")}
-                                  confirmMessage="Moechtest du diesen operativen Termin wirklich stornieren? Der Slot wird danach wieder freigegeben."
+                                  confirmMessage="Moechtest du diesen operativen Termin wirklich stornieren?"
                                   idleLabel="Termin stornieren"
                                   pendingLabel="Wird storniert..."
                                 />
@@ -399,7 +424,7 @@ export function OwnerHorseCalendarV1({
                   <div className="space-y-3 border-t border-stone-200 pt-4">
                     <div className="space-y-1">
                       <p className="ui-eyebrow">Umgebucht</p>
-                      <p className="text-sm text-stone-600">Diese operativen Termine wurden auf einen neuen freien Slot verschoben.</p>
+                      <p className="text-sm text-stone-600">Diese operativen Termine wurden auf einen neuen Termin verschoben.</p>
                     </div>
                     <div className="space-y-2">
                       {rescheduledBookings.slice(0, 6).map((booking) => (
@@ -426,7 +451,7 @@ export function OwnerHorseCalendarV1({
                   <div className="space-y-3 border-t border-stone-200 pt-4">
                     <div className="space-y-1">
                       <p className="ui-eyebrow">Storniert</p>
-                      <p className="text-sm text-stone-600">Diese operativen Termine bleiben als Historie sichtbar und blockieren keinen aktiven Slot mehr.</p>
+                      <p className="text-sm text-stone-600">Diese operativen Termine bleiben als Historie sichtbar.</p>
                     </div>
                     <div className="space-y-2">
                       {canceledBookings.slice(0, 6).map((booking) => (
@@ -486,31 +511,33 @@ export function OwnerHorseCalendarV1({
           </div>
 
           <div className="space-y-5">
-            <Card className="p-5 sm:p-6">
-              <form action={createAvailabilityDayAction} className="space-y-4">
-                <input name="horseId" type="hidden" value={horse.id} />
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-stone-900">Neuen operativen Slot anlegen</p>
-                  <p className="text-sm text-stone-600">Minimal-V1: konkrete Einzeltermine statt komplexer Regeln.</p>
-                </div>
-                <div>
-                  <label htmlFor="operationalDate">Datum</label>
-                  <input defaultValue={defaultOperationalDate} id="operationalDate" name="selectedDate" required type="date" />
-                </div>
-                <div className="ui-field-grid sm:grid-cols-2">
-                  <div>
-                    <label htmlFor="operationalStartTime">Von</label>
-                    <input defaultValue="17:00" id="operationalStartTime" name="startTime" required step={900} type="time" />
+            {horse.booking_mode !== "free" ? (
+              <Card className="p-5 sm:p-6">
+                <form action={createAvailabilityDayAction} className="space-y-4">
+                  <input name="horseId" type="hidden" value={horse.id} />
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-stone-900">Neuen operativen Slot anlegen</p>
+                    <p className="text-sm text-stone-600">Minimal-V1: konkrete Einzeltermine statt komplexer Regeln.</p>
                   </div>
                   <div>
-                    <label htmlFor="operationalEndTime">Bis</label>
-                    <input defaultValue="18:00" id="operationalEndTime" name="endTime" required step={900} type="time" />
+                    <label htmlFor="operationalDate">Datum</label>
+                    <input defaultValue={defaultOperationalDate} id="operationalDate" name="selectedDate" required type="date" />
                   </div>
-                </div>
-                <p className="text-sm leading-6 text-stone-600">Dieses Fenster wird bewusst nicht als Probetermin markiert und steht nur aktiven Reitbeteiligungen offen.</p>
-                <SubmitButton idleLabel="Operativen Slot speichern" pendingLabel="Wird gespeichert..." />
-              </form>
-            </Card>
+                  <div className="ui-field-grid sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="operationalStartTime">Von</label>
+                      <input defaultValue="17:00" id="operationalStartTime" name="startTime" required step={900} type="time" />
+                    </div>
+                    <div>
+                      <label htmlFor="operationalEndTime">Bis</label>
+                      <input defaultValue="18:00" id="operationalEndTime" name="endTime" required step={900} type="time" />
+                    </div>
+                  </div>
+                  <p className="text-sm leading-6 text-stone-600">Dieses Fenster wird bewusst nicht als Probetermin markiert und steht nur aktiven Reitbeteiligungen offen.</p>
+                  <SubmitButton idleLabel="Operativen Slot speichern" pendingLabel="Wird gespeichert..." />
+                </form>
+              </Card>
+            ) : null}
 
             <Card className="p-5 sm:p-6">
               <form action={createCalendarBlockV1Action} className="space-y-4">

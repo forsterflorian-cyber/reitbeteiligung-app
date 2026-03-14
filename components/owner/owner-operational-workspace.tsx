@@ -115,7 +115,9 @@ export function OwnerOperationalWorkspace({
                             : "Du planst gerade eine bestehende Buchung um."
                           : isSlotMode
                             ? "Freie Slots, naechste Buchungen und schnelle Tagesaktionen fuer dieses Pferd."
-                            : "Naechste Buchungen, offene Zeitraeume und schnelle Tagesaktionen fuer dieses Pferd."}
+                            : item.bookingMode === "free"
+                              ? "Naechste Buchungen und schnelle Tagesaktionen fuer dieses Pferd."
+                              : "Naechste Buchungen, offene Zeitfenster und schnelle Tagesaktionen fuer dieses Pferd."}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -149,7 +151,7 @@ export function OwnerOperationalWorkspace({
                     </Card>
                   ) : null}
 
-                  <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+                  <div className={`grid gap-5 ${item.bookingMode === "free" ? "" : "xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]"}`}>
                     <div className="space-y-3">
                       <div className="space-y-1">
                         <h3 className="text-base font-semibold text-stone-900">Heutige und naechste Buchungen</h3>
@@ -208,85 +210,85 @@ export function OwnerOperationalWorkspace({
                       )}
                     </div>
 
-                    <div className="space-y-4">
-                      <div className="space-y-1">
-                        <h3 className="text-base font-semibold text-stone-900">
-                          {getOpenSlotsTitle(item.bookingMode, !!item.selectedBooking)}
-                        </h3>
-                        <p className="text-sm text-stone-600">
-                          {getOpenSlotsSubtitle(item.bookingMode, !!item.selectedBooking)}
-                        </p>
-                      </div>
-                      {item.openSlots.length === 0 ? (
-                        <EmptyState
-                          description={getEmptySlotDescription(item.bookingMode, !!item.selectedBooking)}
-                          title={getEmptySlotTitle(item.bookingMode, !!item.selectedBooking)}
-                        />
-                      ) : (
-                        <div className="space-y-3">
-                          {item.openSlots.map((slot) => (
-                            <Card className="p-4" key={`${slot.availabilityRuleId}:${slot.startAt}`}>
-                              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="space-y-1">
-                                  <p className="text-sm font-semibold text-stone-900">{formatDateRange(slot.startAt, slot.endAt)}</p>
-                                  <p className="text-sm text-stone-600">
-                                    {item.selectedBooking
-                                      ? isSlotMode
-                                        ? "Freier Zielslot fuer die markierte Buchung."
-                                        : "Freies Zeitfenster fuer die markierte Buchung."
-                                      : isSlotMode
-                                        ? "Freier operativer Slot."
-                                        : item.bookingMode === "window"
-                                          ? "Offenes Zeitfenster."
-                                          : "Freier Zeitraum."}
-                                  </p>
+                    {item.bookingMode !== "free" ? (
+                      <div className="space-y-4">
+                        <div className="space-y-1">
+                          <h3 className="text-base font-semibold text-stone-900">
+                            {getOpenSlotsTitle(item.bookingMode, !!item.selectedBooking)}
+                          </h3>
+                          <p className="text-sm text-stone-600">
+                            {getOpenSlotsSubtitle(item.bookingMode, !!item.selectedBooking)}
+                          </p>
+                        </div>
+                        {item.openSlots.length === 0 ? (
+                          <EmptyState
+                            description={getEmptySlotDescription(item.bookingMode, !!item.selectedBooking)}
+                            title={getEmptySlotTitle(item.bookingMode, !!item.selectedBooking)}
+                          />
+                        ) : (
+                          <div className="space-y-3">
+                            {item.openSlots.map((slot) => (
+                              <Card className="p-4" key={`${slot.availabilityRuleId}:${slot.startAt}`}>
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                  <div className="space-y-1">
+                                    <p className="text-sm font-semibold text-stone-900">{formatDateRange(slot.startAt, slot.endAt)}</p>
+                                    <p className="text-sm text-stone-600">
+                                      {item.selectedBooking
+                                        ? isSlotMode
+                                          ? "Freier Zielslot fuer die markierte Buchung."
+                                          : "Freies Zeitfenster fuer die markierte Buchung."
+                                        : isSlotMode
+                                          ? "Freier operativer Slot."
+                                          : "Offenes Zeitfenster."}
+                                    </p>
+                                  </div>
+                                  {item.selectedBooking && isSlotMode ? (
+                                    <form action={rescheduleOperationalBookingForOwnerAction} className="w-full sm:w-auto">
+                                      <input name="bookingId" type="hidden" value={item.selectedBooking.id} />
+                                      <input name="ruleId" type="hidden" value={slot.availabilityRuleId} />
+                                      <input name="startAt" type="hidden" value={slot.startAt} />
+                                      <input name="endAt" type="hidden" value={slot.endAt} />
+                                      <SubmitButton
+                                        className="w-full sm:w-auto"
+                                        idleLabel="Auf diesen Slot umbuchen"
+                                        pendingLabel="Wird umgebucht..."
+                                      />
+                                    </form>
+                                  ) : null}
                                 </div>
-                                {item.selectedBooking && isSlotMode ? (
-                                  <form action={rescheduleOperationalBookingForOwnerAction} className="w-full sm:w-auto">
-                                    <input name="bookingId" type="hidden" value={item.selectedBooking.id} />
-                                    <input name="ruleId" type="hidden" value={slot.availabilityRuleId} />
-                                    <input name="startAt" type="hidden" value={slot.startAt} />
-                                    <input name="endAt" type="hidden" value={slot.endAt} />
-                                    <SubmitButton
-                                      className="w-full sm:w-auto"
-                                      idleLabel="Auf diesen Slot umbuchen"
-                                      pendingLabel="Wird umgebucht..."
-                                    />
-                                  </form>
-                                ) : null}
-                              </div>
-                            </Card>
-                          ))}
-                        </div>
-                      )}
-
-                      <Card className="border-stone-200 bg-stone-50/80 p-4">
-                        <div className="space-y-3">
-                          <div className="space-y-1">
-                            <h3 className="text-sm font-semibold text-stone-900">Neuen Einzeltermin anlegen</h3>
-                            <p className="text-sm text-stone-600">Fuer kurzfristige Tagesaenderungen kannst du hier direkt einen einzelnen operativen Termin anlegen.</p>
+                              </Card>
+                            ))}
                           </div>
-                          <form action={createAvailabilityDayAction} className="grid gap-3 sm:grid-cols-3">
-                            <input name="horseId" type="hidden" value={item.horseId} />
-                            <div>
-                              <label className="text-xs font-semibold uppercase tracking-[0.12em] text-stone-500" htmlFor={`owner-slot-date-${item.horseId}`}>Datum</label>
-                              <input defaultValue={todayDateValue} id={`owner-slot-date-${item.horseId}`} name="selectedDate" required step={1} type="date" />
+                        )}
+
+                        <Card className="border-stone-200 bg-stone-50/80 p-4">
+                          <div className="space-y-3">
+                            <div className="space-y-1">
+                              <h3 className="text-sm font-semibold text-stone-900">Neuen Einzeltermin anlegen</h3>
+                              <p className="text-sm text-stone-600">Fuer kurzfristige Tagesaenderungen kannst du hier direkt einen einzelnen operativen Termin anlegen.</p>
                             </div>
-                            <div>
-                              <label className="text-xs font-semibold uppercase tracking-[0.12em] text-stone-500" htmlFor={`owner-slot-start-${item.horseId}`}>Beginn</label>
-                              <input id={`owner-slot-start-${item.horseId}`} name="startTime" required step={900} type="time" />
-                            </div>
-                            <div>
-                              <label className="text-xs font-semibold uppercase tracking-[0.12em] text-stone-500" htmlFor={`owner-slot-end-${item.horseId}`}>Ende</label>
-                              <input id={`owner-slot-end-${item.horseId}`} name="endTime" required step={900} type="time" />
-                            </div>
-                            <div className="sm:col-span-3">
-                              <SubmitButton className="w-full sm:w-auto" idleLabel="Termin anlegen" pendingLabel="Wird gespeichert..." />
-                            </div>
-                          </form>
-                        </div>
-                      </Card>
-                    </div>
+                            <form action={createAvailabilityDayAction} className="grid gap-3 sm:grid-cols-3">
+                              <input name="horseId" type="hidden" value={item.horseId} />
+                              <div>
+                                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-stone-500" htmlFor={`owner-slot-date-${item.horseId}`}>Datum</label>
+                                <input defaultValue={todayDateValue} id={`owner-slot-date-${item.horseId}`} name="selectedDate" required step={1} type="date" />
+                              </div>
+                              <div>
+                                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-stone-500" htmlFor={`owner-slot-start-${item.horseId}`}>Beginn</label>
+                                <input id={`owner-slot-start-${item.horseId}`} name="startTime" required step={900} type="time" />
+                              </div>
+                              <div>
+                                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-stone-500" htmlFor={`owner-slot-end-${item.horseId}`}>Ende</label>
+                                <input id={`owner-slot-end-${item.horseId}`} name="endTime" required step={900} type="time" />
+                              </div>
+                              <div className="sm:col-span-3">
+                                <SubmitButton className="w-full sm:w-auto" idleLabel="Termin anlegen" pendingLabel="Wird gespeichert..." />
+                              </div>
+                            </form>
+                          </div>
+                        </Card>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </Card>

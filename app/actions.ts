@@ -93,6 +93,9 @@ import {
   cancelOperationalBookingForOwner,
   cancelOperationalBookingForRider,
   declineBookingRequestForOwner,
+  requestFreeBookingForRider,
+  rescheduleFreeBookingForOwner,
+  rescheduleFreeBookingForRider,
   rescheduleOperationalBookingForOwner,
   rescheduleOperationalBookingForRider,
   requestBookingForRider
@@ -1194,6 +1197,86 @@ export async function rescheduleOperationalBookingForOwnerAction(formData: FormD
     logSupabaseError,
     ownerId: user.id,
     ruleId,
+    startAtInput: startAt,
+    supabase
+  });
+
+  if (!result.ok) {
+    redirectWithMessage(result.redirectPath, "error", result.message);
+  }
+
+  for (const path of result.paths) {
+    revalidatePath(path);
+  }
+
+  redirectWithMessage(result.redirectPath, "message", result.message);
+}
+
+export async function requestFreeBookingAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("rider");
+  const result = await requestFreeBookingForRider({
+    formData,
+    logSupabaseError,
+    supabase,
+    userId: user.id
+  });
+
+  if (!result.ok) {
+    redirectWithMessage(result.redirectPath, "error", result.message);
+  }
+
+  for (const path of result.paths) {
+    revalidatePath(path);
+  }
+
+  redirectWithMessage(result.redirectPath, "message", result.message);
+}
+
+export async function rescheduleFreeBookingForRiderAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("rider");
+  const bookingId = asString(formData.get("bookingId"));
+  const startAt = asString(formData.get("startAt"));
+  const endAt = asString(formData.get("endAt"));
+
+  if (!bookingId || !startAt || !endAt) {
+    redirectWithMessage("/anfragen", "error", "Die Umbuchung konnte nicht zugeordnet werden.");
+  }
+
+  const result = await rescheduleFreeBookingForRider({
+    bookingId,
+    endAtInput: endAt,
+    logSupabaseError,
+    riderId: user.id,
+    startAtInput: startAt,
+    supabase
+  });
+
+  if (!result.ok) {
+    redirectWithMessage(result.redirectPath, "error", result.message);
+  }
+
+  for (const path of result.paths) {
+    revalidatePath(path);
+  }
+
+  redirectWithMessage(result.redirectPath, "message", result.message);
+}
+
+export async function rescheduleFreeBookingForOwnerAction(formData: FormData) {
+  const { supabase, user } = await requireProfile("owner");
+  const bookingId = asString(formData.get("bookingId"));
+  const startAt = asString(formData.get("startAt"));
+  const endAt = asString(formData.get("endAt"));
+
+  if (!bookingId || !startAt || !endAt) {
+    redirectWithMessage("/owner/reitbeteiligungen", "error", "Die Umbuchung konnte nicht zugeordnet werden.");
+  }
+
+  const result = await rescheduleFreeBookingForOwner({
+    bookingId,
+    endAtInput: endAt,
+    logSupabaseError,
+    ownerId: user.id,
     startAtInput: startAt,
     supabase
   });

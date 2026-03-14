@@ -4,9 +4,12 @@ import Link from "next/link";
 import {
   cancelOperationalBookingForRiderAction,
   requestBookingAction,
+  requestFreeBookingAction,
+  rescheduleFreeBookingForRiderAction,
   rescheduleOperationalBookingForRiderAction
 } from "@/app/actions";
 import { OperationalWeekOverview } from "@/components/calendar/operational-week-overview";
+import { RiderBookingFreeForm } from "@/components/calendar/rider-booking-free-form";
 import { RiderBookingWindowForm } from "@/components/calendar/rider-booking-window-form";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Notice } from "@/components/notice";
@@ -313,24 +316,81 @@ export function RiderOperationalCalendar({
             )}
           </div>
         </SectionCard>
-      ) : (
-        // Window / free mode: rider picks start/end within an open availability window
+      ) : bookingMode === "free" ? (
+        // Free mode: rider picks any date/time — no slot or window required
         <SectionCard
           id="umbuchen"
           subtitle={
             rescheduleBooking
               ? "Waehle einen neuen Termin. Der bisherige Termin wird dabei ersetzt und bleibt nur in der Historie sichtbar."
-              : bookingMode === "window"
-                ? "Waehle ein offenes Zeitfenster und passe Beginn und Ende nach Bedarf an."
-                : "Waehle ein offenes Fenster und deinen Wunschtermin innerhalb davon."
+              : "Waehle Datum, Beginn und Ende fuer deinen Termin."
           }
-          title={
+          title={rescheduleBooking ? "Termin umbuchen" : "Termin buchen"}
+        >
+          <div className="space-y-4">
+            {weeklyQuota && typeof weeklyQuota.weekly_hours_limit === "number" ? (
+              <Card className="border-stone-200 bg-stone-50/80 p-4">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-stone-900">Wochenkontingent</p>
+                    <p className="text-sm text-stone-600">Gezaehlt werden nur aktuell wirksame Termine dieser Kalenderwoche.</p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[360px]">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Limit</p>
+                      <p className="mt-1 text-sm font-semibold text-stone-900">{formatWeeklyHoursLimit(weeklyQuota.weekly_hours_limit)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Belegt</p>
+                      <p className="mt-1 text-sm font-semibold text-stone-900">{formatBookingQuotaMinutes(weeklyQuota.booked_minutes)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Verbleibend</p>
+                      <p className="mt-1 text-sm font-semibold text-stone-900">
+                        {formatBookingQuotaMinutes(weeklyQuota.remaining_minutes ?? 0)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ) : null}
+
+            {rescheduleBooking ? (
+              <Card className="border-sand bg-sand/30 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-stone-900">Du buchst gerade diesen Termin um</p>
+                    <p className="text-sm text-stone-700">{formatDateRange(rescheduleBooking.start_at, rescheduleBooking.end_at)}</p>
+                  </div>
+                  <Link className={buttonVariants("ghost", "min-h-0 justify-start px-0 py-0 text-sm font-semibold text-forest hover:bg-transparent hover:text-clay")} href={clearRescheduleHref}>
+                    Umbuchung abbrechen
+                  </Link>
+                </div>
+              </Card>
+            ) : null}
+
+            <form action={rescheduleBooking ? rescheduleFreeBookingForRiderAction : requestFreeBookingAction} className="space-y-4">
+              {rescheduleBooking ? <input name="bookingId" type="hidden" value={rescheduleBooking.id} /> : null}
+              <input name="horseId" type="hidden" value={horse.id} />
+              <RiderBookingFreeForm />
+              <SubmitButton
+                className={buttonVariants("primary", "w-full")}
+                idleLabel={rescheduleBooking ? "Termin umbuchen" : "Termin buchen"}
+                pendingLabel={rescheduleBooking ? "Wird umgebucht..." : "Wird gebucht..."}
+              />
+            </form>
+          </div>
+        </SectionCard>
+      ) : (
+        // Window mode: rider picks start/end within an open availability window
+        <SectionCard
+          id="umbuchen"
+          subtitle={
             rescheduleBooking
-              ? "Termin umbuchen"
-              : bookingMode === "window"
-                ? "Offene Zeitfenster"
-                : "Termin buchen"
+              ? "Waehle einen neuen Termin. Der bisherige Termin wird dabei ersetzt und bleibt nur in der Historie sichtbar."
+              : "Waehle ein offenes Zeitfenster und passe Beginn und Ende nach Bedarf an."
           }
+          title={rescheduleBooking ? "Termin umbuchen" : "Offene Zeitfenster"}
         >
           <div className="space-y-4">
             {weeklyQuota && typeof weeklyQuota.weekly_hours_limit === "number" ? (
@@ -379,17 +439,9 @@ export function RiderOperationalCalendar({
                 description={
                   rescheduleBooking
                     ? "Aktuell gibt es kein anderes offenes Zeitfenster fuer diese Umbuchung."
-                    : bookingMode === "window"
-                      ? "Aktuell gibt es fuer dieses Pferd keine offenen Zeitfenster."
-                      : "Aktuell gibt es fuer dieses Pferd keine freien Zeiten."
+                    : "Aktuell gibt es fuer dieses Pferd keine offenen Zeitfenster."
                 }
-                title={
-                  rescheduleBooking
-                    ? "Kein anderes Zeitfenster verfuegbar"
-                    : bookingMode === "window"
-                      ? "Keine offenen Zeitfenster"
-                      : "Keine freien Zeiten"
-                }
+                title={rescheduleBooking ? "Kein anderes Zeitfenster verfuegbar" : "Keine offenen Zeitfenster"}
               />
             ) : (
               <form action={rescheduleBooking ? rescheduleOperationalBookingForRiderAction : requestBookingAction} className="space-y-4">

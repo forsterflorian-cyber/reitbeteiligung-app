@@ -32,7 +32,11 @@
       "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")",
       "Bash(find \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app\" -type f -name \"*settings*\")",
       "Bash(ls -lhrt \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/supabase/migrations\")",
-      "Bash(find \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app\" -type f -name \"*.tsx\")"
+      "Bash(find \"e:/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/app\" -type f -name \"*.tsx\")",
+      "Bash(find \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\" -type f -name \"*.tsx\" -o -name \"*.ts\")",
+      "Bash(find \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\" -name rider-operational-calendar* -o -name owner-operational-workspace* -o -name owner-horse-calendar*)",
+      "Bash(find \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\" -path \"*node_modules\" -prune -o -path \"*\\\\.next\" -prune -o -name \"*action*\" -type f -print)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")"
     ]
   }
 }

@@ -1073,3 +1073,235 @@ export async function rescheduleOperationalBookingForOwner(input: {
     supabase: input.supabase
   });
 }
+
+// ── Free-mode booking (no slot/rule required) ──────────────────────────────
+
+export async function requestFreeBookingForRider(input: {
+  formData: FormData;
+  logSupabaseError: LogSupabaseError;
+  supabase: SupabaseClient;
+  userId: string;
+}): Promise<BookingMutationResult> {
+  const horseId = asString(input.formData.get("horseId"));
+
+  if (!horseId) {
+    return errorResult("/suchen", "Das Pferd konnte nicht gefunden werden.");
+  }
+
+  const redirectPath = `/pferde/${horseId}/kalender`;
+  const startAtValue = asString(input.formData.get("startAt"));
+  const endAtValue = asString(input.formData.get("endAt"));
+  const startAt = new Date(startAtValue);
+  const endAt = new Date(endAtValue);
+
+  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
+    return errorResult(redirectPath, "Bitte gib einen gueltigen Termin an.");
+  }
+
+  if (!isQuarterHourAligned(startAt) || !isQuarterHourAligned(endAt)) {
+    return errorResult(redirectPath, "Bitte waehle Beginn und Ende im 15-Minuten-Raster.");
+  }
+
+  if (endAt <= startAt) {
+    return errorResult(redirectPath, "Das Ende muss nach dem Beginn liegen.");
+  }
+
+  if (!isFutureOperationalStartAt({ startAt: startAtValue })) {
+    return errorResult(redirectPath, "Nur zukuenftige Termine koennen direkt gebucht werden.");
+  }
+
+  const approvalStatus = await getApprovalStatus(horseId, input.userId, input.supabase);
+
+  if (!isActiveRelationship(approvalStatus)) {
+    return errorResult(redirectPath, "Nur freigeschaltete Reiter koennen einen Termin anfragen.");
+  }
+
+  const { data: horseModeData } = await input.supabase
+    .from("horses")
+    .select("id, booking_mode")
+    .eq("id", horseId)
+    .maybeSingle();
+
+  const horseMode = horseModeData as { id: string; booking_mode: string } | null;
+
+  if (!horseMode || horseMode.booking_mode !== "free") {
+    return errorResult(redirectPath, "Dieses Pferd ist nicht im Freimodus.");
+  }
+
+  const requestedStartIso = startAt.toISOString();
+  const requestedEndIso = endAt.toISOString();
+
+  const { existingBlocks, existingBookings } = await loadBookingPlanningData(input.supabase, horseId);
+  const bookingWindow = [{ endAt: requestedEndIso, startAt: requestedStartIso }];
+
+  if (hasWindowConflict(bookingWindow, existingBookings) || hasWindowConflict(bookingWindow, existingBlocks)) {
+    return errorResult(redirectPath, "Dieser Zeitraum ist bereits belegt oder blockiert.");
+  }
+
+  const { data: bookingRequestId, error } = await input.supabase.rpc("direct_book_free", {
+    p_end_at: requestedEndIso,
+    p_horse_id: horseId,
+    p_start_at: requestedStartIso
+  });
+
+  if (error) {
+    input.logSupabaseError("Free mode booking failed", error);
+    return errorResult(redirectPath, getDirectBookingErrorMessage(error));
+  }
+
+  await emitDomainEvent(input.supabase, {
+    event_type: "booking_created",
+    horse_id: horseId,
+    payload: { booking_request_id: (bookingRequestId as string | null) ?? null, end_at: requestedEndIso, start_at: requestedStartIso },
+    rider_id: input.userId
+  });
+
+  const { data: horseOwner } = await input.supabase
+    .from("horses")
+    .select("owner_id")
+    .eq("id", horseId)
+    .maybeSingle();
+  const ownerId = (horseOwner as { owner_id: string } | null)?.owner_id ?? null;
+
+  if (ownerId) {
+    await createNotification(input.supabase, {
+      eventType: "booking_created",
+      horseId,
+      payload: {
+        booking_request_id: (bookingRequestId as string | null) ?? null,
+        end_at: requestedEndIso,
+        rider_id: input.userId,
+        start_at: requestedStartIso
+      },
+      userId: ownerId
+    });
+  }
+
+  return successResult(redirectPath, "Der Termin wurde direkt gebucht.", getDirectBookingPaths(horseId));
+}
+
+async function rescheduleFreeBooking(input: {
+  actorId: string;
+  bookingId: string;
+  endAtInput: string;
+  logSupabaseError: LogSupabaseError;
+  role: "owner" | "rider";
+  startAtInput: string;
+  supabase: SupabaseClient;
+}): Promise<BookingMutationResult> {
+  const fallbackRedirectPath = input.role === "owner" ? "/owner/reitbeteiligungen" : "/anfragen";
+  const booking = await getOperationalBooking(input.supabase, input.bookingId);
+
+  if (!booking) {
+    return errorResult(fallbackRedirectPath, "Der Termin konnte nicht gefunden werden.");
+  }
+
+  const redirectPath = `/pferde/${booking.horse_id}/kalender`;
+  const rescheduleRedirectPath = `${redirectPath}?rescheduleBooking=${booking.id}#umbuchen`;
+  const startAt = new Date(input.startAtInput);
+  const endAt = new Date(input.endAtInput);
+
+  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || endAt <= startAt) {
+    return errorResult(rescheduleRedirectPath, getRescheduleBookingErrorMessageForReason("invalid_target_slot"), "invalid_target_slot");
+  }
+
+  if (!isFutureOperationalStartAt({ startAt: input.startAtInput })) {
+    return errorResult(rescheduleRedirectPath, getRescheduleBookingErrorMessageForReason("booking_past"), "booking_past");
+  }
+
+  if (input.role === "rider") {
+    if (booking.rider_id !== input.actorId) {
+      return errorResult(rescheduleRedirectPath, getRescheduleBookingErrorMessageForReason("unauthorized"), "unauthorized");
+    }
+  } else {
+    const horse = await getOwnedHorse(input.supabase, booking.horse_id, input.actorId);
+
+    if (!horse) {
+      return errorResult(rescheduleRedirectPath, getRescheduleBookingErrorMessageForReason("unauthorized"), "unauthorized");
+    }
+  }
+
+  if (!canRescheduleOperationalBooking({ startAt: booking.start_at, status: booking.request_status })) {
+    return errorResult(rescheduleRedirectPath, getRescheduleBookingErrorMessageForReason("booking_started"), "booking_started");
+  }
+
+  if (isSameBookingWindow(booking.start_at, booking.end_at, startAt.toISOString(), endAt.toISOString())) {
+    return errorResult(rescheduleRedirectPath, getRescheduleBookingErrorMessageForReason("invalid_target_slot"), "invalid_target_slot");
+  }
+
+  const { error } = await input.supabase.rpc("reschedule_free_booking", {
+    p_booking_id: booking.id,
+    p_end_at: endAt.toISOString(),
+    p_start_at: startAt.toISOString()
+  });
+
+  if (error) {
+    input.logSupabaseError("Free mode reschedule failed", error);
+    const reason = getRescheduleBookingErrorReason(error);
+    return errorResult(rescheduleRedirectPath, getRescheduleBookingErrorMessage(error), reason);
+  }
+
+  await emitDomainEvent(input.supabase, {
+    event_type: "booking_rescheduled",
+    horse_id: booking.horse_id,
+    payload: {
+      new_end_at: endAt.toISOString(),
+      new_start_at: startAt.toISOString(),
+      old_end_at: booking.end_at,
+      old_start_at: booking.start_at
+    },
+    rider_id: booking.rider_id
+  });
+
+  await createNotification(input.supabase, {
+    eventType: "booking_rescheduled",
+    horseId: booking.horse_id,
+    payload: {
+      new_end_at: endAt.toISOString(),
+      new_start_at: startAt.toISOString(),
+      old_end_at: booking.end_at,
+      old_start_at: booking.start_at
+    },
+    userId: booking.rider_id
+  });
+
+  return successResult(redirectPath, "Der Termin wurde umgebucht.", getDirectBookingPaths(booking.horse_id));
+}
+
+export async function rescheduleFreeBookingForRider(input: {
+  bookingId: string;
+  endAtInput: string;
+  logSupabaseError: LogSupabaseError;
+  riderId: string;
+  startAtInput: string;
+  supabase: SupabaseClient;
+}): Promise<BookingMutationResult> {
+  return rescheduleFreeBooking({
+    actorId: input.riderId,
+    bookingId: input.bookingId,
+    endAtInput: input.endAtInput,
+    logSupabaseError: input.logSupabaseError,
+    role: "rider",
+    startAtInput: input.startAtInput,
+    supabase: input.supabase
+  });
+}
+
+export async function rescheduleFreeBookingForOwner(input: {
+  bookingId: string;
+  endAtInput: string;
+  logSupabaseError: LogSupabaseError;
+  ownerId: string;
+  startAtInput: string;
+  supabase: SupabaseClient;
+}): Promise<BookingMutationResult> {
+  return rescheduleFreeBooking({
+    actorId: input.ownerId,
+    bookingId: input.bookingId,
+    endAtInput: input.endAtInput,
+    logSupabaseError: input.logSupabaseError,
+    role: "owner",
+    startAtInput: input.startAtInput,
+    supabase: input.supabase
+  });
+}
