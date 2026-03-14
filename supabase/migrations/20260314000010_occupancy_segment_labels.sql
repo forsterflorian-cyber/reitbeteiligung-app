@@ -1,4 +1,6 @@
-create or replace function public.get_horse_calendar_occupancy(p_horse_id uuid)
+drop function if exists public.get_horse_calendar_occupancy(uuid);
+
+create function public.get_horse_calendar_occupancy(p_horse_id uuid)
 returns table (
   source text,
   start_at timestamptz,
@@ -8,7 +10,7 @@ returns table (
 language plpgsql
 security definer
 set search_path = public, auth
-as $$
+as $function$
 begin
   return query
   select
@@ -34,7 +36,4 @@ begin
   from public.calendar_blocks as blocks
   where blocks.horse_id = p_horse_id;
 end;
-$$;
-
-revoke all on function public.get_horse_calendar_occupancy(uuid) from public;
-grant execute on function public.get_horse_calendar_occupancy(uuid) to anon, authenticated;
+$function$;
