@@ -55,7 +55,8 @@ type RiderOperationalCalendarProps = {
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("de-DE", {
     dateStyle: "medium",
-    timeStyle: "short"
+    timeStyle: "short",
+    timeZone: "UTC"
   }).format(new Date(value));
 }
 
@@ -67,9 +68,9 @@ function isSameCalendarDay(startAt: string, endAt: string) {
   const start = new Date(startAt);
   const end = new Date(endAt);
   return (
-    start.getFullYear() === end.getFullYear() &&
-    start.getMonth() === end.getMonth() &&
-    start.getDate() === end.getDate()
+    start.getUTCFullYear() === end.getUTCFullYear() &&
+    start.getUTCMonth() === end.getUTCMonth() &&
+    start.getUTCDate() === end.getUTCDate()
   );
 }
 
@@ -77,6 +78,7 @@ function formatDayLabel(value: string) {
   return new Intl.DateTimeFormat("de-DE", {
     day: "2-digit",
     month: "short",
+    timeZone: "UTC",
     weekday: "short"
   }).format(new Date(value));
 }
@@ -84,7 +86,8 @@ function formatDayLabel(value: string) {
 function formatTimeLabel(value: string) {
   return new Intl.DateTimeFormat("de-DE", {
     hour: "2-digit",
-    minute: "2-digit"
+    minute: "2-digit",
+    timeZone: "UTC"
   }).format(new Date(value));
 }
 

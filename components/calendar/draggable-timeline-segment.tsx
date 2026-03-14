@@ -46,7 +46,7 @@ function clamp(value: number, min: number, max: number) {
 
 function toLocalMinutes(isoValue: string) {
   const value = new Date(isoValue);
-  return value.getHours() * 60 + value.getMinutes();
+  return value.getUTCHours() * 60 + value.getUTCMinutes();
 }
 
 function formatClockTime(totalMinutes: number) {

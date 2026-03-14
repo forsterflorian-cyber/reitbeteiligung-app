@@ -9,7 +9,9 @@
       "Bash(node --experimental-strip-types --test tests/server-actions-calendar-blocks.test.mjs)",
       "Bash(node --experimental-strip-types --test tests/notifications.test.mjs)",
       "Bash(find \"e:\\\\Verwaltung\\\\07_IT & Identität\\\\IT Projekte\\\\reitbeteiligung.app\" -name \"*.sql\" -type f)",
-      "Bash(ls -la \"/e/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/\")"
+      "Bash(ls -la \"/e/Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app/\")",
+      "Bash(cd /e/\"Verwaltung/07_IT & Identität/IT Projekte/reitbeteiligung.app\")",
+      "Bash(grep -r \"timestamptz\\\\|timestamp\\\\|start_at\\\\|end_at\" supabase/migrations/*.sql)"
     ]
   }
 }
