@@ -1213,15 +1213,32 @@ export async function rescheduleOperationalBookingForOwnerAction(formData: FormD
 }
 
 export async function requestFreeBookingAction(formData: FormData) {
-  const { supabase, user } = await requireProfile("rider");
-  const result = await requestFreeBookingForRider({
-    formData,
-    logSupabaseError,
-    supabase,
-    userId: user.id
+  console.log("[FREE_BOOKING_ACTION] start", {
+    horseId: formData.get("horseId"),
+    startAt: formData.get("startAt"),
+    endAt: formData.get("endAt")
   });
+  const { supabase, user } = await requireProfile("rider");
+  console.log("[FREE_BOOKING_ACTION] profile resolved", { userId: user.id });
+
+  let result: Awaited<ReturnType<typeof requestFreeBookingForRider>>;
+
+  try {
+    result = await requestFreeBookingForRider({
+      formData,
+      logSupabaseError,
+      supabase,
+      userId: user.id
+    });
+  } catch (thrown) {
+    console.error("[FREE_BOOKING_ACTION] unexpected throw from requestFreeBookingForRider", thrown);
+    throw thrown;
+  }
+
+  console.log("[FREE_BOOKING_ACTION] result", { ok: result.ok, message: result.message, redirectPath: result.redirectPath });
 
   if (!result.ok) {
+    console.log("[FREE_BOOKING_ACTION] redirecting with error flash");
     redirectWithMessage(result.redirectPath, "error", result.message);
   }
 
@@ -1229,6 +1246,7 @@ export async function requestFreeBookingAction(formData: FormData) {
     revalidatePath(path);
   }
 
+  console.log("[FREE_BOOKING_ACTION] redirecting with success flash");
   redirectWithMessage(result.redirectPath, "message", result.message);
 }
 

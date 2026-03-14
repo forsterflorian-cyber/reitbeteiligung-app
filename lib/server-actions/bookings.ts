@@ -1135,8 +1135,11 @@ export async function requestFreeBookingForRider(input: {
   const bookingWindow = [{ endAt: requestedEndIso, startAt: requestedStartIso }];
 
   if (hasWindowConflict(bookingWindow, existingBookings) || hasWindowConflict(bookingWindow, existingBlocks)) {
+    console.log("[FREE_BOOKING] conflict detected by app-layer check", { existingBookings: existingBookings.length, existingBlocks: existingBlocks.length });
     return errorResult(redirectPath, "Dieser Zeitraum ist bereits belegt oder blockiert.");
   }
+
+  console.log("[FREE_BOOKING] pre-rpc", { horseId, userId: input.userId, startAt: requestedStartIso, endAt: requestedEndIso });
 
   const { data: bookingRequestId, error } = await input.supabase.rpc("direct_book_free", {
     p_end_at: requestedEndIso,
@@ -1145,16 +1148,26 @@ export async function requestFreeBookingForRider(input: {
   });
 
   if (error) {
+    console.error("[FREE_BOOKING] rpc error", {
+      code: error.code ?? null,
+      message: error.message ?? null,
+      details: (error as { details?: string }).details ?? null,
+      hint: (error as { hint?: string }).hint ?? null
+    });
     input.logSupabaseError("Free mode booking failed", error);
     return errorResult(redirectPath, getDirectBookingErrorMessage(error));
   }
 
+  console.log("[FREE_BOOKING] rpc success", { bookingRequestId });
+
+  console.log("[FREE_BOOKING] pre-domain-event");
   await emitDomainEvent(input.supabase, {
     event_type: "booking_created",
     horse_id: horseId,
     payload: { booking_request_id: (bookingRequestId as string | null) ?? null, end_at: requestedEndIso, start_at: requestedStartIso },
     rider_id: input.userId
   });
+  console.log("[FREE_BOOKING] post-domain-event");
 
   const { data: horseOwner } = await input.supabase
     .from("horses")
@@ -1164,6 +1177,7 @@ export async function requestFreeBookingForRider(input: {
   const ownerId = (horseOwner as { owner_id: string } | null)?.owner_id ?? null;
 
   if (ownerId) {
+    console.log("[FREE_BOOKING] pre-notification", { ownerId });
     await createNotification(input.supabase, {
       eventType: "booking_created",
       horseId,
@@ -1175,8 +1189,10 @@ export async function requestFreeBookingForRider(input: {
       },
       userId: ownerId
     });
+    console.log("[FREE_BOOKING] post-notification");
   }
 
+  console.log("[FREE_BOOKING] success, returning result");
   return successResult(redirectPath, "Der Termin wurde direkt gebucht.", getDirectBookingPaths(horseId));
 }
 
