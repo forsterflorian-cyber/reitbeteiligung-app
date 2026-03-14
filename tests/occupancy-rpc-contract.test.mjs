@@ -36,7 +36,7 @@ test("Occupancy-RPC bleibt ein read-only Snapshot fuer aktive operative Belegung
   assert.ok(occupancy, "Die aktuelle Definition von get_horse_calendar_occupancy fehlt.");
   assert.equal(
     occupancy.filename,
-    "20260312191500_read_only_horse_calendar_occupancy.sql"
+    "20260314000010_occupancy_segment_labels.sql"
   );
   assert.ok(
     !occupancy.sql.includes("cleanup_inactive_operational_bookings"),

@@ -57,6 +57,7 @@ type CalendarOccupancyRow = {
   source: "booking" | "block" | string;
   start_at: string;
   end_at: string;
+  label: string | null;
 };
 
 type TimelineTone = "available" | "occupied" | "pending";
@@ -372,7 +373,7 @@ function buildTimelineRows({
 
     const occupiedSegments = occupancy
       .filter((entry) => overlapsDay(entry.start_at, entry.end_at, dayDate))
-      .map((entry, index) => buildTimelineSegment(dayDate, entry.start_at, entry.end_at, `Belegt ${formatTime(entry.start_at)}-${formatTime(entry.end_at)}`, "occupied", entry.source === "block" ? `block:${entry.start_at}|${entry.end_at}` : `${entry.source}-${entry.start_at}-${entry.end_at}-${index}`))
+      .map((entry, index) => buildTimelineSegment(dayDate, entry.start_at, entry.end_at, entry.label ?? (entry.source === "booking" ? "Gebucht" : "Blockiert"), "occupied", entry.source === "block" ? `block:${entry.start_at}|${entry.end_at}` : `${entry.source}-${entry.start_at}-${entry.end_at}-${index}`))
       .filter((segment): segment is TimelineSegment => Boolean(segment));
 
     const pendingSegments = pendingRequests

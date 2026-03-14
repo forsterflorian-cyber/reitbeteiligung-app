@@ -102,6 +102,16 @@ function successResult(redirectPath: string, message: string, paths: readonly st
   };
 }
 
+async function fetchHorseName(supabase: SupabaseClient, horseId: string): Promise<string | null> {
+  const { data } = await supabase.from("horses").select("title").eq("id", horseId).maybeSingle();
+  return (data as { title: string } | null)?.title ?? null;
+}
+
+async function fetchRiderName(supabase: SupabaseClient, userId: string): Promise<string | null> {
+  const { data } = await supabase.from("profiles").select("display_name").eq("id", userId).maybeSingle();
+  return (data as { display_name: string | null } | null)?.display_name ?? null;
+}
+
 function addDaysUtc(date: Date, days: number) {
   const next = new Date(date.getTime());
   next.setUTCDate(next.getUTCDate() + days);
@@ -618,18 +628,22 @@ export async function requestBookingForRider(input: {
 
     const { data: horseOwner } = await input.supabase
       .from("horses")
-      .select("owner_id")
+      .select("owner_id, title")
       .eq("id", horseId)
       .maybeSingle();
-    const ownerId = (horseOwner as { owner_id: string } | null)?.owner_id ?? null;
+    const ownerId = (horseOwner as { owner_id: string; title: string } | null)?.owner_id ?? null;
+    const horseName = (horseOwner as { owner_id: string; title: string } | null)?.title ?? null;
     if (ownerId) {
+      const riderName = await fetchRiderName(input.supabase, input.userId);
       await createNotification(input.supabase, {
         eventType: "booking_created",
         horseId,
         payload: {
           booking_request_id: (bookingRequestId as string | null) ?? null,
           end_at: requestedEndIso,
+          horse_name: horseName,
           rider_id: input.userId,
+          rider_name: riderName,
           start_at: requestedStartIso
         },
         userId: ownerId
@@ -789,10 +803,11 @@ export async function cancelOperationalBookingForRider(input: {
     rider_id: booking.rider_id
   });
 
+  const horseName = await fetchHorseName(input.supabase, booking.horse_id);
   await createNotification(input.supabase, {
     eventType: "booking_cancelled",
     horseId: booking.horse_id,
-    payload: { end_at: booking.end_at, reason: "manual", start_at: booking.start_at },
+    payload: { cancelled_by: "rider", end_at: booking.end_at, horse_name: horseName, reason: "manual", start_at: booking.start_at },
     userId: booking.rider_id
   });
 
@@ -847,10 +862,11 @@ export async function cancelOperationalBookingForOwner(input: {
     rider_id: booking.rider_id
   });
 
+  const horseName = await fetchHorseName(input.supabase, booking.horse_id);
   await createNotification(input.supabase, {
     eventType: "booking_cancelled",
     horseId: booking.horse_id,
-    payload: { end_at: booking.end_at, reason: "manual", start_at: booking.start_at },
+    payload: { cancelled_by: "owner", end_at: booking.end_at, horse_name: horseName, reason: "manual", start_at: booking.start_at },
     userId: booking.rider_id
   });
 
@@ -1032,10 +1048,12 @@ async function rescheduleOperationalBooking(input: {
     rider_id: booking.rider_id
   });
 
+  const horseName = await fetchHorseName(input.supabase, booking.horse_id);
   await createNotification(input.supabase, {
     eventType: "booking_rescheduled",
     horseId: booking.horse_id,
     payload: {
+      horse_name: horseName,
       new_end_at: endAt.toISOString(),
       new_start_at: startAt.toISOString(),
       old_end_at: booking.end_at,
@@ -1186,20 +1204,24 @@ export async function requestFreeBookingForRider(input: {
 
   const { data: horseOwner } = await input.supabase
     .from("horses")
-    .select("owner_id")
+    .select("owner_id, title")
     .eq("id", horseId)
     .maybeSingle();
-  const ownerId = (horseOwner as { owner_id: string } | null)?.owner_id ?? null;
+  const ownerId = (horseOwner as { owner_id: string; title: string } | null)?.owner_id ?? null;
+  const horseName = (horseOwner as { owner_id: string; title: string } | null)?.title ?? null;
 
   if (ownerId) {
     console.log("[FREE_BOOKING] pre-notification", { ownerId });
+    const riderName = await fetchRiderName(input.supabase, input.userId);
     await createNotification(input.supabase, {
       eventType: "booking_created",
       horseId,
       payload: {
         booking_request_id: (bookingRequestId as string | null) ?? null,
         end_at: requestedEndIso,
+        horse_name: horseName,
         rider_id: input.userId,
+        rider_name: riderName,
         start_at: requestedStartIso
       },
       userId: ownerId
@@ -1284,10 +1306,12 @@ async function rescheduleFreeBooking(input: {
     rider_id: booking.rider_id
   });
 
+  const horseName = await fetchHorseName(input.supabase, booking.horse_id);
   await createNotification(input.supabase, {
     eventType: "booking_rescheduled",
     horseId: booking.horse_id,
     payload: {
+      horse_name: horseName,
       new_end_at: endAt.toISOString(),
       new_start_at: startAt.toISOString(),
       old_end_at: booking.end_at,
