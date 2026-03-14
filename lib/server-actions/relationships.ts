@@ -61,8 +61,10 @@ export function getApprovalSavedMessage(nextStatus: OwnerTrialDecisionStatus): s
       return "Die Reitbeteiligung wurde freigeschaltet.";
     case "rejected":
       return "Die Reitbeteiligung wurde nicht aufgenommen.";
-    case "revoked":
-      return "Die Freischaltung wurde entzogen.";
+    default: {
+      const _exhaustive: never = nextStatus;
+      return _exhaustive;
+    }
   }
 }
 
