@@ -124,8 +124,9 @@ export function buildRiderOperationalWorkspaceItems(args: {
         id: booking.id,
         startAt: booking.start_at
       }));
+    const bookingMode = item.horse?.booking_mode ?? "slots";
     const selectedBooking = upcomingBookings.find((booking) => booking.id === args.selectedBookingId && booking.canReschedule) ?? null;
-    const openSlots = getUpcomingOperationalSlots({
+    const openSlots = bookingMode === "free" ? [] : getUpcomingOperationalSlots({
       disallowedRange: selectedBooking
         ? {
             end_at: selectedBooking.endAt,
@@ -149,7 +150,7 @@ export function buildRiderOperationalWorkspaceItems(args: {
     }));
 
     return {
-      bookingMode: item.horse?.booking_mode ?? "slots",
+      bookingMode,
       horseId,
       horseTitle: item.horse?.title ?? "Pferdeprofil nicht gefunden",
       openSlots,

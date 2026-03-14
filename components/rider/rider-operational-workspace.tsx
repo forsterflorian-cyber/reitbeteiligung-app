@@ -109,7 +109,9 @@ export function RiderOperationalWorkspace({
                             : "Du buchst gerade einen Termin um – waehle ein neues Zeitfenster im Kalender."
                           : isSlotMode
                             ? "Freie Slots und deine naechsten Termine ohne Umweg ueber das Pferdeprofil."
-                            : "Offene Zeitfenster und deine naechsten Termine auf einen Blick."}
+                            : item.bookingMode === "free"
+                              ? "Deine naechsten Termine – neuen Termin direkt im Kalender buchen."
+                              : "Offene Zeitfenster und deine naechsten Termine auf einen Blick."}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -141,7 +143,7 @@ export function RiderOperationalWorkspace({
                     </Card>
                   ) : null}
 
-                  <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+                  <div className={`grid gap-5 ${item.bookingMode === "free" ? "" : "xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]"}`}>
                     <div className="space-y-3">
                       <div className="space-y-1">
                         <h3 className="text-base font-semibold text-stone-900">Naechste eigene Termine</h3>
@@ -198,74 +200,86 @@ export function RiderOperationalWorkspace({
                       )}
                     </div>
 
-                    <div className="space-y-3">
-                      <div className="space-y-1">
-                        <h3 className="text-base font-semibold text-stone-900">
-                          {getOpenSlotsTitle(item.bookingMode, !!item.selectedBooking)}
-                        </h3>
-                        <p className="text-sm text-stone-600">
-                          {getOpenSlotsSubtitle(item.bookingMode, !!item.selectedBooking)}
-                        </p>
+                    {item.bookingMode === "free" ? (
+                      <Card className="border-stone-200 bg-stone-50/80 p-4">
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <h3 className="text-sm font-semibold text-stone-900">Neuen Termin buchen</h3>
+                            <p className="text-sm text-stone-600">Datum und Uhrzeit frei waehlen – direkt im Kalender.</p>
+                          </div>
+                          <Link
+                            className={buttonVariants("primary", "w-full justify-center sm:w-auto")}
+                            href={`/pferde/${item.horseId}/kalender` as Route}
+                          >
+                            Termin buchen
+                          </Link>
+                        </div>
+                      </Card>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <h3 className="text-base font-semibold text-stone-900">
+                            {getOpenSlotsTitle(item.bookingMode, !!item.selectedBooking)}
+                          </h3>
+                          <p className="text-sm text-stone-600">
+                            {getOpenSlotsSubtitle(item.bookingMode, !!item.selectedBooking)}
+                          </p>
+                        </div>
+                        {item.openSlots.length === 0 ? (
+                          <EmptyState
+                            description={getEmptySlotDescription(item.bookingMode, !!item.selectedBooking)}
+                            title={getEmptySlotTitle(item.bookingMode, !!item.selectedBooking)}
+                          />
+                        ) : isSlotMode ? (
+                          <div className="space-y-3">
+                            {item.openSlots.map((slot) => (
+                              <Card className="p-4" key={`${slot.availabilityRuleId}:${slot.startAt}`}>
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                  <div className="space-y-1">
+                                    <p className="text-sm font-semibold text-stone-900">{formatDateRange(slot.startAt, slot.endAt)}</p>
+                                    <p className="text-sm text-stone-600">
+                                      {item.selectedBooking ? "Freier Zielslot fuer die aktuelle Umbuchung." : "Freier operativer Slot fuer deine naechste Buchung."}
+                                    </p>
+                                  </div>
+                                  <form action={item.selectedBooking ? rescheduleOperationalBookingForRiderAction : requestBookingAction} className="w-full sm:w-auto">
+                                    {item.selectedBooking ? <input name="bookingId" type="hidden" value={item.selectedBooking.id} /> : null}
+                                    <input name="horseId" type="hidden" value={item.horseId} />
+                                    <input name="ruleId" type="hidden" value={slot.availabilityRuleId} />
+                                    <input name="startAt" type="hidden" value={slot.startAt} />
+                                    <input name="endAt" type="hidden" value={slot.endAt} />
+                                    <input name="recurrenceRrule" type="hidden" value="" />
+                                    <SubmitButton
+                                      className="w-full sm:w-auto"
+                                      idleLabel={item.selectedBooking ? "Auf diesen Slot umbuchen" : "Direkt buchen"}
+                                      pendingLabel={item.selectedBooking ? "Wird umgebucht..." : "Wird gebucht..."}
+                                    />
+                                  </form>
+                                </div>
+                              </Card>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {item.openSlots.map((slot) => (
+                              <Card className="p-4" key={`${slot.availabilityRuleId}:${slot.startAt}`}>
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                  <div className="space-y-1">
+                                    <p className="text-sm font-semibold text-stone-900">{formatDateRange(slot.startAt, slot.endAt)}</p>
+                                    <p className="text-sm text-stone-600">Offenes Zeitfenster – waehle Start und Ende im Kalender.</p>
+                                  </div>
+                                  <Link
+                                    className={buttonVariants("secondary", "w-full justify-center sm:w-auto")}
+                                    href={`/pferde/${item.horseId}/kalender` as Route}
+                                  >
+                                    Im Kalender buchen
+                                  </Link>
+                                </div>
+                              </Card>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      {item.openSlots.length === 0 ? (
-                        <EmptyState
-                          description={getEmptySlotDescription(item.bookingMode, !!item.selectedBooking)}
-                          title={getEmptySlotTitle(item.bookingMode, !!item.selectedBooking)}
-                        />
-                      ) : isSlotMode ? (
-                        <div className="space-y-3">
-                          {item.openSlots.map((slot) => (
-                            <Card className="p-4" key={`${slot.availabilityRuleId}:${slot.startAt}`}>
-                              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="space-y-1">
-                                  <p className="text-sm font-semibold text-stone-900">{formatDateRange(slot.startAt, slot.endAt)}</p>
-                                  <p className="text-sm text-stone-600">
-                                    {item.selectedBooking ? "Freier Zielslot fuer die aktuelle Umbuchung." : "Freier operativer Slot fuer deine naechste Buchung."}
-                                  </p>
-                                </div>
-                                <form action={item.selectedBooking ? rescheduleOperationalBookingForRiderAction : requestBookingAction} className="w-full sm:w-auto">
-                                  {item.selectedBooking ? <input name="bookingId" type="hidden" value={item.selectedBooking.id} /> : null}
-                                  <input name="horseId" type="hidden" value={item.horseId} />
-                                  <input name="ruleId" type="hidden" value={slot.availabilityRuleId} />
-                                  <input name="startAt" type="hidden" value={slot.startAt} />
-                                  <input name="endAt" type="hidden" value={slot.endAt} />
-                                  <input name="recurrenceRrule" type="hidden" value="" />
-                                  <SubmitButton
-                                    className="w-full sm:w-auto"
-                                    idleLabel={item.selectedBooking ? "Auf diesen Slot umbuchen" : "Direkt buchen"}
-                                    pendingLabel={item.selectedBooking ? "Wird umgebucht..." : "Wird gebucht..."}
-                                  />
-                                </form>
-                              </div>
-                            </Card>
-                          ))}
-                        </div>
-                      ) : (
-                        // window / free mode: show windows as info cards, direct to calendar for booking
-                        <div className="space-y-3">
-                          {item.openSlots.map((slot) => (
-                            <Card className="p-4" key={`${slot.availabilityRuleId}:${slot.startAt}`}>
-                              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="space-y-1">
-                                  <p className="text-sm font-semibold text-stone-900">{formatDateRange(slot.startAt, slot.endAt)}</p>
-                                  <p className="text-sm text-stone-600">
-                                    {item.bookingMode === "window"
-                                      ? "Offenes Zeitfenster – waehle Start und Ende im Kalender."
-                                      : "Freier Zeitraum – buche deinen Wunschtermin im Kalender."}
-                                  </p>
-                                </div>
-                                <Link
-                                  className={buttonVariants("secondary", "w-full justify-center sm:w-auto")}
-                                  href={`/pferde/${item.horseId}/kalender` as Route}
-                                >
-                                  Im Kalender buchen
-                                </Link>
-                              </div>
-                            </Card>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
               </Card>

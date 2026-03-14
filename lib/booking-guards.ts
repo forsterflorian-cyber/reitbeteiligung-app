@@ -58,6 +58,8 @@ export function getDirectBookingErrorMessage(error: SupabaseErrorLike) {
   switch (error.message) {
     case "INVALID_RANGE":
       return "Die Terminanfrage enthaelt einen ungueltigen Zeitraum.";
+    case "NOT_ALLOWED":
+      return "Dieser Buchungstyp ist fuer dieses Pferd nicht zugelassen.";
     case "NOT_APPROVED":
       return "Nur freigeschaltete Reiter koennen einen Termin anfragen.";
     case "OUTSIDE_RULE":
