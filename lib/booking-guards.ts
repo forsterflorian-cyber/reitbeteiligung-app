@@ -55,6 +55,11 @@ export function getBookingConflictMessage(recurrenceRrule: string | null) {
 }
 
 export function getDirectBookingErrorMessage(error: SupabaseErrorLike) {
+  // PostgreSQL not-null violation (23502): schema mismatch, migration not yet applied
+  if (error.code === "23502") {
+    return "Der Termin konnte nicht gespeichert werden. Bitte wende dich an den Support (Schema-Fehler 23502).";
+  }
+
   switch (error.message) {
     case "INVALID_RANGE":
       return "Die Terminanfrage enthaelt einen ungueltigen Zeitraum.";
